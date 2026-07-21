@@ -1,0 +1,25 @@
+! Prueba de la Etapa 3: errores SEMÁNTICOS a propósito
+! (léxica y sintácticamente este programa es PERFECTO)
+PROGRAM
+
+    var:double:: bueno <- 10 end;
+
+    ! 1. variable no declarada
+    console::print = "el valor es:", fantasma end;
+
+    ! 2. tipos incompatibles: aritmética con cadena
+    var:double:: malo <- SUM("hola", 5) end;
+
+    ! 3. división entre cero
+    var:double:: peor <- DIV(bueno, 0) end;
+
+    ! 4. asignar cadena a variable double
+    var:double:: cruzado <- "texto" end;
+
+    ! 5. redeclaración
+    var:double:: bueno <- 99 end;
+
+    ! esta sí funciona: la ejecución CONTINUÓ pese a los errores
+    console::print = "sobreviví, bueno vale:", bueno end;
+
+END PROGRAM

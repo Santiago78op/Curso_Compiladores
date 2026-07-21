@@ -1,0 +1,70 @@
+================================================================
+ GRAMATICA LIBRE DE CONTEXTO — LENGUAJE DATAFORGE (formato BNF)
+ OLC1 - Proyecto 1                       (entregable, seccion 8)
+================================================================
+
+Convenciones:
+  <no-terminal>      entre angulos
+  "terminal"         entre comillas (palabras reservadas y simbolos,
+                     todas case-insensitive)
+  ID, ID_ARREGLO, NUMERO, CADENA   terminales con patron lexico
+  |                  alternativa
+
+----------------------------------------------------------------
+
+<inicio>        ::= "PROGRAM" <instrucciones> "END" "PROGRAM"
+
+<instrucciones> ::= <instrucciones> <instruccion>
+                  | <instruccion>
+
+<instruccion>   ::= <declaracion-var>
+                  | <declaracion-arr>
+                  | <imprimir>
+                  | <imprimir-columna>
+                  | <grafica>
+
+<tipo>          ::= "double"
+                  | "char" "[" "]"
+
+<declaracion-var> ::= "var" ":" <tipo> "::" ID "<-" <expresion> "end" ";"
+
+<declaracion-arr> ::= "arr" ":" <tipo> "::" ID_ARREGLO "<-" <lista-valores> "end" ";"
+
+<lista-valores> ::= "[" <lista-expresiones> "]"
+
+<lista-expresiones> ::= <lista-expresiones> "," <expresion>
+                      | <expresion>
+
+<imprimir>      ::= "console" "::" "print" "=" <lista-expresiones> "end" ";"
+
+<imprimir-columna> ::= "console" "::" "column" "=" <expresion> "->" <arreglo> "end" ";"
+
+<arreglo>       ::= ID_ARREGLO
+                  | <lista-valores>
+
+<expresion>     ::= NUMERO
+                  | CADENA
+                  | ID
+                  | <aritmetica>
+                  | <estadistica>
+
+<aritmetica>    ::= <operacion> "(" <expresion> "," <expresion> ")"
+
+<operacion>     ::= "SUM" | "RES" | "MUL" | "DIV" | "MOD"
+
+<estadistica>   ::= <funcion-est> "(" <arreglo> ")"
+
+<funcion-est>   ::= "Media" | "Mediana" | "Moda" | "Varianza" | "Max" | "Min"
+
+<grafica>       ::= <tipo-grafica> "(" <atributos> ")" "end" ";"
+
+<tipo-grafica>  ::= "graphBar" | "graphPie" | "graphLine" | "Histogram"
+
+<atributos>     ::= <atributos> <atributo>
+                  | <atributo>
+
+<atributo>      ::= ID "::" <tipo> "=" <valor-atributo> "end" ";"
+                  | "EXEC" <tipo-grafica> "end" ";"
+
+<valor-atributo> ::= <expresion>
+                   | <arreglo>

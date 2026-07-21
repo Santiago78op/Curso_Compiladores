@@ -1,0 +1,105 @@
+/* ============================================================
+ * parser.cup — Analizador sintactico + EJECUCION de ConjAnalyzer
+ *
+ * Las producciones no solo validan la forma: sus acciones {: ... :}
+ * construyen conjuntos, arman el arbol de cada operacion y evaluan la
+ * pertenencia (traduccion dirigida por la sintaxis, Cap. 5 del Dragon).
+ * El estado de la ejecucion vive en parser.entorno.
+ * ============================================================ */
+package conjanalyzer.analisis;
+
+import java_cup.runtime.*;
+import java.util.ArrayList;
+import conjanalyzer.interprete.Entorno;
+import conjanalyzer.interprete.NodoOperacion;
+
+parser code {:
+    /* el estado de la ejecucion: conjuntos, operaciones, consola, errores */
+    public Entorno entorno = new Entorno();
+
+    public void syntax_error(Symbol s) {
+        entorno.error("Sintactico",
+            "no se esperaba '" + s.value + "'", s.left, s.right);
+        System.err.printf(
+            "Error sintactico: no se esperaba '%s' (linea %d, columna %d)%n",
+            s.value, s.left + 1, s.right + 1);
+    }
+:};
+
+/* ============================================================
+ * TERMINALES (los tokens del lexer)
+ * ============================================================ */
+terminal CONJ, OPERA, EVALUAR;
+terminal UNION, INTERSECCION, COMPLEMENTO, DIFERENCIA;
+terminal FLECHA, VIRGULILLA;
+terminal LLAVE_IZQ, LLAVE_DER, PAR_IZQ, PAR_DER;
+terminal DOS_PUNTOS, PUNTO_COMA, COMA;
+
+terminal String ID, NUMERO, SIMBOLO;
+
+/* ============================================================
+ * NO TERMINALES — con su TIPO (atributo sintetizado que "sube")
+ * ============================================================ */
+non terminal inicio, lista_sent, sentencia;
+non terminal def_conj, def_opera, evaluar_stmt;
+non terminal NodoOperacion operacion;
+non terminal String elemento;
+non terminal ArrayList lista_elem;
+
+start with inicio;
+
+/* ============================================================
+ * PRODUCCIONES + ACCIONES
+ * ============================================================ */
+
+/* 4.2: todo el codigo va encapsulado entre llaves */
+inicio      ::= LLAVE_IZQ lista_sent LLAVE_DER ;
+
+lista_sent  ::= lista_sent sentencia
+              | sentencia ;
+
+/* La alternativa con "error" es la RECUPERACION EN MODO PANICO
+   (Dragon 4.8.3): ante un error sintactico CUP descarta simbolos hasta
+   poder desplazar `error`, luego descarta tokens hasta el proximo ';' —
+   y el analisis CONTINUA, asi el reporte acumula TODOS los errores. */
+sentencia   ::= def_conj | def_opera | evaluar_stmt
+              | error PUNTO_COMA ;
+
+/* ---- 4.5: definicion de conjuntos ---- */
+/* rango a~z  →  todos los caracteres ASCII entre ambos, inclusive */
+def_conj    ::= CONJ DOS_PUNTOS ID:id FLECHA elemento:a VIRGULILLA elemento:b PUNTO_COMA
+                {: parser.entorno.definirConjuntoRango(id, a, b, idleft, idright); :}
+/* lista de elementos separados por coma */
+              | CONJ DOS_PUNTOS ID:id FLECHA lista_elem:l PUNTO_COMA
+                {: parser.entorno.definirConjuntoLista(id, l, idleft, idright); :} ;
+
+lista_elem  ::= lista_elem:l COMA elemento:e   {: l.add(e); RESULT = l; :}
+              | elemento:e                     {: ArrayList lst = new ArrayList();
+                                                  lst.add(e); RESULT = lst; :} ;
+
+/* un elemento es un unico caracter del universo: letra, digito o simbolo */
+elemento    ::= ID:v      {: RESULT = v; :}
+              | NUMERO:v  {: RESULT = v; :}
+              | SIMBOLO:v {: RESULT = v; :} ;
+
+/* ---- 4.6: definicion de operaciones (notacion prefija/polaca) ---- */
+def_opera   ::= OPERA DOS_PUNTOS ID:id FLECHA operacion:op PUNTO_COMA
+                {: parser.entorno.definirOperacion(id, op, idleft, idright); :} ;
+
+/* el operador va ANTES de sus operandos: el parser arma el arbol
+   naturalmente. Arboles anidados sin limite. Un operando hoja es un
+   nombre de conjunto entre llaves {conjA}. */
+operacion   ::= UNION operacion:a operacion:b
+                {: RESULT = NodoOperacion.binario('U', a, b); :}
+              | INTERSECCION operacion:a operacion:b
+                {: RESULT = NodoOperacion.binario('&', a, b); :}
+              | DIFERENCIA operacion:a operacion:b
+                {: RESULT = NodoOperacion.binario('-', a, b); :}
+              | COMPLEMENTO operacion:a
+                {: RESULT = NodoOperacion.unario('^', a); :}
+              | LLAVE_IZQ ID:id LLAVE_DER
+                {: RESULT = NodoOperacion.hoja(id); :} ;
+
+/* ---- 4.7: evaluar pertenencia de un conjunto de datos a una operacion ---- */
+evaluar_stmt ::= EVALUAR PAR_IZQ LLAVE_IZQ lista_elem:datos LLAVE_DER COMA ID:op PAR_DER PUNTO_COMA
+                {: parser.entorno.evaluar(datos, op, opleft, opright); :} ;

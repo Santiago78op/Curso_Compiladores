@@ -1,0 +1,29 @@
+// Tipos primitivos, operadores aritmeticos/relacionales/logicos (4.3-4.5)
+mut version := "1.0"
+
+func main() {
+    mut a int = 10
+    mut b float64 = 3.5
+    mut activo bool = true
+    mut letra rune = 'Z'
+
+    print("suma:", a + b)
+    print("resta:", a - 3)
+    print("multiplicacion:", a * 2)
+    print("division:", 10 / 3)
+    print("division float:", 10 / 3.0)
+    print("modulo:", 10 % 3)
+    print("negacion:", -a)
+
+    print("igualdad:", a == 10)
+    print("desigualdad:", a != 10)
+    print("mayor:", b > a)
+    print("menor o igual:", a <= 10)
+
+    print("and:", activo && (a > 5))
+    print("or:", activo || false)
+    print("not:", !activo)
+
+    print("letra:", letra)
+    print("version:", version)
+}

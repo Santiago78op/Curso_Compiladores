@@ -1,0 +1,43 @@
+// Switch con fall-through confirmado (5.16.2): un case sin break sigue
+// evaluando los siguientes. Tambien do-until, loop y sentencias cicladas.
+let dia: int = 2;
+
+function void main() {
+    // case 2 no tiene break: cae en 3 y 4 hasta el break del 4
+    switch (dia) {
+        case 1:
+            echo "uno";
+            break;
+        case 2:
+            echo "dos (sin break, cae)";
+        case 3:
+            echo "tres (fall-through)";
+        case 4:
+            echo "cuatro (aqui si hay break)";
+            break;
+        case 5:
+            echo "cinco (no se alcanza)";
+            break;
+        default:
+            echo "default";
+    }
+
+    // do-until: ejecuta al menos una vez, termina CUANDO la condicion es verdadera
+    let n: int = 0;
+    do {
+        echo "do-until n = " + n;
+        n++;
+    } until (n >= 3);
+
+    // loop infinito con break
+    let contador: int = 0;
+    loop {
+        if (contador == 2) {
+            break;
+        }
+        echo "loop contador = " + contador;
+        contador++;
+    }
+}
+
+ejecutar main();

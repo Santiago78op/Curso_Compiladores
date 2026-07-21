@@ -1,0 +1,265 @@
+================================================================
+ GRAMATICA LIBRE DE CONTEXTO — LENGUAJE VLANGCHERRY (formato BNF)
+ OLC2 - Proyecto 1                        (entregable, seccion 9.2)
+================================================================
+
+Convenciones:
+  <no-terminal>      entre angulos
+  "terminal"         entre comillas (palabras reservadas y simbolos)
+  ID, ENTERO, DECIMAL, CADENA, RUNE   terminales con patron lexico
+  |                  alternativa
+  ?                  opcional (0 o 1)
+  *                  cero o mas repeticiones
+  +                  una o mas repeticiones
+
+Gramatica real, escrita para ANTLR4: grammar/VLangCherry.g4
+(este archivo es una transcripcion BNF limpia para el entregable,
+NO una copia mecanica del .g4 — el enunciado permite diseñar la
+gramatica libremente, seccion 11.9). El lexer y el parser que usa
+el interprete se GENERAN a partir del .g4 (paquete Go generado en
+server/internal/parser/: vlangcherry_lexer.go, vlangcherry_parser.go,
+vlangcherry_base_visitor.go, vlangcherry_visitor.go). Esos archivos
+son 100% generados — jamas se editan a mano, cualquier cambio en el
+lexico o la sintaxis se hace en el .g4 y se regenera con ANTLR
+(ver docs/ManualTecnico.md, seccion de compilacion).
+
+----------------------------------------------------------------
+ 1. Programa y declaraciones globales
+----------------------------------------------------------------
+
+<programa>             ::= <declaracion-global>* EOF
+
+<declaracion-global>    ::= <declaracion-struct>
+                          | <declaracion-funcion>
+                          | <declaracion-variable>
+
+----------------------------------------------------------------
+ 2. Structs (enunciado, seccion 6)
+----------------------------------------------------------------
+
+<declaracion-struct>    ::= "struct" ID "{" <campo-struct>+ "}"
+
+<campo-struct>          ::= <tipo> ID
+
+----------------------------------------------------------------
+ 3. Funciones y metodos (enunciado, secciones 6.3 y 7)
+----------------------------------------------------------------
+
+<declaracion-funcion>   ::= "func" <receptor>? ID "(" <lista-parametros>? ")"
+                            <tipo>? <bloque>
+
+<receptor>              ::= "(" ID "*"? ID ")"
+
+<lista-parametros>      ::= <parametro> ("," <parametro>)*
+
+<parametro>             ::= ID <tipo>
+
+----------------------------------------------------------------
+ 4. Tipos
+----------------------------------------------------------------
+
+<tipo>                  ::= <tipo-slice>
+                          | <tipo-primitivo>
+                          | ID                    -- nombre de struct
+
+<tipo-primitivo>        ::= "int" | "float64" | "string" | "bool" | "rune"
+
+<tipo-slice>            ::= "[" "]" <tipo>
+
+----------------------------------------------------------------
+ 5. Sentencias (enunciado, seccion 4)
+----------------------------------------------------------------
+
+<bloque>                ::= "{" <sentencia>* "}"
+
+<sentencia>             ::= <declaracion-variable>
+                          | <asignacion>
+                          | <incremento-decremento>
+                          | <expr> ";"?
+                          | <sentencia-if>
+                          | <sentencia-switch>
+                          | <sentencia-for>
+                          | "break" ";"?
+                          | "continue" ";"?
+                          | "return" <expr>? ";"?
+                          | <bloque>
+
+<declaracion-variable>  ::= "mut"? ID <tipo> ("=" <expr>)? ";"?     -- declaracion tipada
+                          | "mut"? ID ":=" <expr> ";"?              -- declaracion inferida
+
+<asignacion>            ::= <lugar> ("=" | "+=" | "-=") <expr> ";"?
+
+<lugar>                 ::= ID
+                          | <lugar> "[" <expr> "]"
+                          | <lugar> "." ID
+
+<incremento-decremento> ::= <lugar> ("++" | "--") ";"?
+
+<sentencia-if>          ::= "if" <expr> <bloque>
+                            ("else" "if" <expr> <bloque>)*
+                            ("else" <bloque>)?
+
+<sentencia-switch>      ::= "switch" <expr> "{" <caso-switch>* <default-switch>? "}"
+
+<caso-switch>           ::= "case" <expr> ":" <sentencia>*
+
+<default-switch>        ::= "default" ":" <sentencia>*
+
+<sentencia-for>         ::= "for" <expr> <bloque>                                   -- forma condicion
+                          | "for" <for-init>? ";" <expr>? ";" <for-actualizacion>? <bloque>  -- forma clasica
+                          | "for" ID "," ID "in" <expr> <bloque>                    -- forma rango
+
+<for-init>              ::= <declaracion-variable> | <asignacion>
+
+<for-actualizacion>     ::= <asignacion> | <incremento-decremento>
+
+----------------------------------------------------------------
+ 6. Expresiones (enunciado, tabla de precedencia 4.6)
+    Orden de las alternativas = precedencia, de MAYOR a MENOR:
+      ( ) [ ] . llamada  >  ! - (unario)  >  * / %  >  + -  >
+      < <= >= >  >  == !=  >  &&  >  ||
+----------------------------------------------------------------
+
+<expr>  ::= <expr> "(" <lista-argumentos>? ")"              -- llamada a funcion/metodo
+         |  <expr> "[" <expr> "]"                           -- indexacion de slice
+         |  <expr> "." ID                                   -- acceso a campo de struct
+         |  "(" <expr> ")"                                  -- agrupacion
+         |  ("!" | "-") <expr>                               -- negacion / negacion unaria
+         |  <expr> ("*" | "/" | "%") <expr>                  -- multiplicativa
+         |  <expr> ("+" | "-") <expr>                        -- aditiva
+         |  <expr> ("<" | "<=" | ">=" | ">") <expr>          -- relacional
+         |  <expr> ("==" | "!=") <expr>                      -- igualdad/desigualdad
+         |  <expr> "&&" <expr>                                -- and logico
+         |  <expr> "||" <expr>                                -- or logico
+         |  <literal-slice>
+         |  <literal-struct>
+         |  <literal>
+         |  ID
+
+<lista-argumentos>      ::= <expr> ("," <expr>)*
+
+<literal-slice>         ::= "[" "]" <tipo> "{" <lista-argumentos>? "}"
+                          | "[" "]" <tipo> "{" <fila-slice> ("," <fila-slice>)* ","? "}"
+
+<fila-slice>            ::= "{" <lista-argumentos>? "}"
+
+<literal-struct>        ::= ID "{" <campo-valor> ("," <campo-valor>)* ","? "}"
+
+<campo-valor>           ::= ID ":" <expr>
+
+<literal>               ::= ENTERO | DECIMAL | CADENA | RUNE | "true" | "false" | "nil"
+
+----------------------------------------------------------------
+ 7. Terminales lexicos (resumen; detalle completo en el .g4)
+----------------------------------------------------------------
+
+Palabras reservadas: mut struct func if else switch case default for in
+                      break continue return nil true false
+                      int float64 string bool rune
+
+Operadores/simbolos: += -= ++ -- := == != <= >= && || < > + - * / % !
+                      = ( ) [ ] { } , . : ;
+
+Con patron:
+  ID       = [a-zA-Z_][a-zA-Z0-9_]*
+  ENTERO   = [0-9]+
+  DECIMAL  = [0-9]+ "." [0-9]+
+  CADENA   = '"' (escape | cualquier caracter excepto " \ salto-de-linea)* '"'
+  RUNE     = "'" (escape | un caracter excepto ' \ salto-de-linea) "'"
+  escape   = "\" ("\"" | "\\" | "n" | "t" | "r")     -- seccion 3.10 del enunciado
+
+Se descartan: comentarios de linea "//"..fin-de-linea, comentarios de
+bloque "/* ... */" (seccion 3.5), y los espacios en blanco.
+
+================================================================
+ DECISIONES DE DISEÑO FRENTE A INCONSISTENCIAS DEL ENUNCIADO
+================================================================
+
+El enunciado (OLC2_P1_EV2025) es, en varios puntos, inconsistente
+consigo mismo o incompleto. La seccion 11.9 autoriza explícitamente
+a diseñar la gramatica con libertad ("la sintaxis descrita en este
+documento son con fines descriptivos"), por lo que cada caso se
+resolvió documentando la decision aquí y en el propio .g4:
+
+1. "fn main()" vs "func nombre(...)": el unico ejemplo de bloques de
+   sentencias (seccion 4.1) usa la palabra reservada "fn", pero TODA
+   la seccion 7 (Funciones) — declaracion, ejemplos, sintaxis — y el
+   resto del documento usan consistentemente "func". Se adopto "func"
+   como la unica palabra reservada para declarar funciones; "fn" no
+   se reconoce.
+
+2. Comillas de string y de interpolacion: el mismo ejemplo de la
+   seccion 4.1 muestra strings con comilla simple e interpolacion
+   ('...$i...'), que es sintaxis real de V-lang (el lenguaje que
+   inspira a VLangCherry) pero NO la que describe el propio enunciado:
+   las secciones 3.7 y 3.10 definen explícitamente comillas dobles
+   para string ("Cuando se haga referencia a tipos... las literales
+   de tipo rune deben ser definidas con comilla simple... mientras
+   que las literales de tipo string deben ser definidas con comilla
+   doble") y comillas simples solo para rune (un unico caracter, sin
+   interpolacion). Se adopto la regla de 3.7/3.10 — consistente con
+   el resto del documento — y NO se implementa interpolacion de
+   cadenas.
+
+3. La sentencia "for ... in" (seccion 4.7.3) usa literalmente la
+   palabra "in" tal como la muestra el enunciado ("for indice, valor
+   in numeros"), no "range" como el Go real; se mantuvo "in" como
+   palabra reservada de la tercera forma del for.
+
+4. Funciones nativas con o sin prefijo de paquete (seccion 7.2): los
+   TITULOS de las subsecciones usan nombres con prefijo de paquete al
+   estilo Go ("strconv.Atoi", "strconv.ParseFloat",
+   "reflect.TypeOf().string"), pero absolutamente TODOS los ejemplos
+   de codigo ejecutable de esas mismas subsecciones llaman a la
+   funcion sin prefijo: "Atoi("123")", "parseFloat("123.45")",
+   "typeOf(numero)". Se implementaron sin prefijo (identificadores
+   simples reconocidos por el interprete en tiempo de llamada, ver
+   internal/runtime/nativas.go: EsNombreNativa), tal como los
+   ejemplos reales, ya que un identificador con punto (paquete.Funcion)
+   no se declara en ninguna otra parte del lenguaje.
+
+5. Conversion de tipos (casteo): el enunciado no dedica ninguna
+   seccion a "conversion de tipos" o "casteos" (a diferencia de otros
+   lenguajes del curso), pero sí muestra un ejemplo real de conversion
+   explicita en la seccion 4.2.1: "valor2_1 f64 = f64(10 + 1) //
+   Correcto, pero requiere conversion explicita en V". Se implemento
+   conversion de tipo al estilo Go, como llamadas a funcion:
+   int(x), float64(x), string(x), bool(x), rune(x) — reconocidas
+   igual que las funciones nativas (internal/runtime/nativas.go:
+   convertirTipo).
+
+6. Tipo exacto vs. promocion automatica en asignaciones: la seccion
+   3.6 exige que "una vez que una variable haya sido declarada con
+   un tipo especifico, solo sera posible asignarle valores compatibles
+   con ese tipo" (tipo EXACTO), y la seccion 4.2.1 reitera "no se
+   permite asignar valores de tipo diferente a la declaracion inicial".
+   Sin embargo, las tablas aritmeticas de la seccion 4.3 (suma, resta,
+   multiplicacion, division) muestran de forma sistematica la
+   promocion automatica int+float64 -> float64 en el resultado de una
+   operacion, y el propio 3.7 ya admite una excepcion para el literal
+   0 ("El literal 0 se considera tanto de tipo int como float"). Se
+   opto por relajar la regla de tipo exacto para permitir la mezcla
+   int<->float64 en cualquier asignacion (no solo para el literal 0),
+   priorizando la usabilidad real del lenguaje sobre una lectura
+   literal de 3.6 (ver internal/runtime/interprete.go: funciones
+   tipoCompatible/coercionar).
+
+7. Switch sin fall-through: la seccion 4.7.2 indica explicitamente
+   que "en VLangCherry, el break implicito esta incluido al final de
+   cada case". Esto es una diferencia real de diseño frente al switch
+   de CompInterpreter (otro proyecto del curso OLC1, con Jison), que sí
+   implementa fall-through real entre casos — no es un error de
+   implementacion, son dos lenguajes distintos con semantica de switch
+   distinta a proposito.
+
+8. Comparacion relacional (<, <=, >, >=) entre strings: la seccion 4.4
+   dice en general que "los operandos pueden ser numericos, Strings o
+   logicos" para las operaciones de comparacion, y la seccion 4.4.1
+   agrega que "las comparaciones entre cadenas se hacen lexicograficamente
+   (caracter por caracter)" — nota que, pese a estar bajo el titulo de
+   igualdad/desigualdad, describe un criterio de ORDEN (lexicografico),
+   no de igualdad. Se implemento por lo tanto tambien para los
+   relacionales (ademas de numericos y rune por valor ASCII), usando
+   comparacion lexicografica estandar (internal/runtime/operaciones.go:
+   Relacional). La tabla 4.4.2 del enunciado solo detalla combinaciones
+   numericas, pero no dice que las demas esten prohibidas.

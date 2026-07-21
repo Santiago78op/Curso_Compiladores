@@ -1,0 +1,41 @@
+// Funciones con parametro por defecto, llamadas con parametros nombrados,
+// forward-reference (se llama antes de declarar), recursion, casteos y nativas.
+const PI: double = 3.14159;
+
+function void main() {
+    // el parametro aceleracion tiene valor por defecto: se puede omitir
+    echo "Fuerza (masa=10, acel default 9.8): " + calculaFuerza(masa = 10.0);
+    echo "Fuerza (masa=10, acel=2.5): " + calculaFuerza(masa = 10.0, aceleracion = 2.5);
+
+    // forward-reference: factorial esta declarado mas abajo
+    echo "5! = " + factorial(n = 5);
+
+    // casteos (5.13)
+    let e: int = cast(18.6 as int);      // 18
+    let letra: char = cast(70 as char);  // 'F'
+    let d: double = cast(16 as double);  // 16.0
+    echo "cast(18.6 as int) = " + e;
+    echo "cast(70 as char) = " + letra;
+    echo "cast(16 as double) = " + d;
+
+    // nativas de cadena / numero y la funcion is
+    echo "upper: " + upper("hola");
+    echo "lower: " + lower("MUNDO");
+    echo "round(15.51) = " + round(15.51);
+    echo "truncate(9.99) = " + truncate(9.99);
+    echo "10 is int -> " + (10 is int);
+    echo "PI is double -> " + (PI is double);
+}
+
+function double calculaFuerza(masa: double, aceleracion: double = 9.8) {
+    return masa * aceleracion;
+}
+
+function int factorial(n: int) {
+    if (n <= 1) {
+        return 1;
+    }
+    return n * factorial(n = n - 1);
+}
+
+ejecutar main();

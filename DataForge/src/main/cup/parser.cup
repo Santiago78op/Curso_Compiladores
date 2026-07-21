@@ -1,0 +1,148 @@
+/* ============================================================
+ * parser.cup — Analizador sintáctico + EJECUCIÓN de DataForge
+ *
+ * Etapa 3: las producciones ya no solo validan — sus acciones
+ * {: ... :} EJECUTAN (traducción dirigida por la sintaxis, Cap. 5).
+ * El estado del programa vive en parser.entorno.
+ * ============================================================ */
+package dataforge.analisis;
+
+import java_cup.runtime.*;
+import java.util.ArrayList;
+import dataforge.interprete.Entorno;
+import dataforge.interprete.Operaciones;
+
+parser code {:
+    /* el estado de la ejecución: tabla de símbolos, consola, errores, gráficas */
+    public Entorno entorno = new Entorno();
+
+    public void syntax_error(Symbol s) {
+        entorno.error("Sintáctico",
+            "no se esperaba '" + s.value + "'", s.left, s.right);
+        System.err.printf(
+            "Error sintáctico: no se esperaba '%s' (línea %d, columna %d)%n",
+            s.value, s.left + 1, s.right + 1);
+    }
+:};
+
+/* ============================================================
+ * TERMINALES (los tokens del lexer)
+ * ============================================================ */
+terminal PROGRAM, END, VAR, ARR, DOUBLE, CHAR;
+terminal SUM, RES, MUL, DIV, MOD;
+terminal MEDIA, MEDIANA, MODA, VARIANZA, MAX, MIN;
+terminal CONSOLE, PRINT, COLUMN;
+terminal GRAPH_BAR, GRAPH_PIE, GRAPH_LINE, HISTOGRAM, EXEC;
+terminal DOS_PUNTOS, DOBLE_DOS_PUNTOS, ASIGNACION, IGUAL, FLECHA;
+terminal PUNTO_COMA, COMA, PAR_IZQ, PAR_DER, COR_IZQ, COR_DER;
+
+terminal Double NUMERO;
+terminal String CADENA, ID, ID_ARREGLO;
+
+/* ============================================================
+ * NO TERMINALES — ahora con TIPO: el valor que "sube" por el
+ * árbol (atributo sintetizado). RESULT = ese valor.
+ * ============================================================ */
+non terminal inicio, lista_instr, instruccion;
+non terminal decl_var, decl_arr, imprimir, columna, grafica;
+non terminal String tipo, op_arit, op_est, tipo_graf;
+non terminal Object expr, valor_attr, aritmetica, estadistica, attr;
+non terminal ArrayList lista_expr, lista_corchetes, arreglo, lista_attr;
+
+start with inicio;
+
+/* ============================================================
+ * PRODUCCIONES + ACCIONES
+ * ============================================================ */
+
+inicio      ::= PROGRAM lista_instr END PROGRAM ;
+
+lista_instr ::= lista_instr instruccion
+              | instruccion ;
+
+/* La alternativa con "error" es la RECUPERACIÓN EN MODO PÁNICO
+   (Dragón §4.8.3): ante un error sintáctico, CUP descarta símbolos
+   de la pila hasta poder desplazar `error`, luego descarta tokens de
+   la entrada hasta el próximo ';' — y el análisis CONTINÚA, así el
+   reporte acumula TODOS los errores en vez de morir en el primero. */
+instruccion ::= decl_var | decl_arr | imprimir | columna | grafica
+              | error PUNTO_COMA ;
+
+tipo        ::= DOUBLE                    {: RESULT = "double"; :}
+              | CHAR COR_IZQ COR_DER      {: RESULT = "char[]"; :} ;
+
+/* 5.5: declarar variable = meterla en la tabla de símbolos */
+decl_var    ::= VAR DOS_PUNTOS tipo:t DOBLE_DOS_PUNTOS ID:id
+                ASIGNACION expr:e END PUNTO_COMA
+                {: parser.entorno.declararVariable(id, t, e, idleft, idright); :} ;
+
+/* 5.6.2: declarar arreglo */
+decl_arr    ::= ARR DOS_PUNTOS tipo:t DOBLE_DOS_PUNTOS ID_ARREGLO:id
+                ASIGNACION lista_corchetes:l END PUNTO_COMA
+                {: parser.entorno.declararArreglo(id, t, l, idleft, idright); :} ;
+
+lista_corchetes ::= COR_IZQ lista_expr:l COR_DER   {: RESULT = l; :} ;
+
+lista_expr  ::= lista_expr:l COMA expr:e   {: l.add(e); RESULT = l; :}
+              | expr:e                     {: ArrayList lst = new ArrayList();
+                                              lst.add(e); RESULT = lst; :} ;
+
+/* 5.9.1: imprimir expresiones separadas por coma */
+imprimir    ::= CONSOLE DOBLE_DOS_PUNTOS PRINT IGUAL
+                lista_expr:l END PUNTO_COMA
+                {: parser.entorno.imprimir(l); :} ;
+
+/* 5.9.2: imprimir arreglo como tabla de una columna */
+columna     ::= CONSOLE DOBLE_DOS_PUNTOS COLUMN IGUAL
+                expr:t FLECHA arreglo:a END PUNTO_COMA
+                {: parser.entorno.imprimirColumna(t, a); :} ;
+
+/* un arreglo llega por nombre (@datos → se busca en la tabla)
+   o declarado en el lugar ([1,2,3]) */
+arreglo     ::= ID_ARREGLO:id      {: RESULT = parser.entorno.valorArreglo(id, idleft, idright); :}
+              | lista_corchetes:l  {: RESULT = l; :} ;
+
+/* ---- expresiones: cada alternativa SINTETIZA su valor ---- */
+expr        ::= NUMERO:n        {: RESULT = n; :}
+              | CADENA:c        {: RESULT = c; :}
+              | ID:id           {: RESULT = parser.entorno.valorDe(id, idleft, idright); :}
+              | aritmetica:a    {: RESULT = a; :}
+              | estadistica:e   {: RESULT = e; :} ;
+
+aritmetica  ::= op_arit:op PAR_IZQ expr:a COMA expr:b PAR_DER
+                {: RESULT = Operaciones.aritmetica(op, a, b,
+                                parser.entorno, opleft, opright); :} ;
+
+op_arit     ::= SUM {: RESULT = "SUM"; :} | RES {: RESULT = "RES"; :}
+              | MUL {: RESULT = "MUL"; :} | DIV {: RESULT = "DIV"; :}
+              | MOD {: RESULT = "MOD"; :} ;
+
+estadistica ::= op_est:f PAR_IZQ arreglo:a PAR_DER
+                {: RESULT = Operaciones.estadistica(f, a,
+                                parser.entorno, fleft, fright); :} ;
+
+op_est      ::= MEDIA {: RESULT = "Media"; :}       | MEDIANA {: RESULT = "Mediana"; :}
+              | MODA  {: RESULT = "Moda"; :}        | VARIANZA {: RESULT = "Varianza"; :}
+              | MAX   {: RESULT = "Max"; :}         | MIN {: RESULT = "Min"; :} ;
+
+/* ---- 5.10: gráficas — se acumulan los atributos y al cerrar el
+        bloque el entorno aplica "la última gana" + exige EXEC ---- */
+grafica     ::= tipo_graf:g PAR_IZQ lista_attr:l PAR_DER END PUNTO_COMA
+                {: parser.entorno.registrarGrafica(g, l, gleft, gright); :} ;
+
+tipo_graf   ::= GRAPH_BAR {: RESULT = "graphBar"; :}
+              | GRAPH_PIE {: RESULT = "graphPie"; :}
+              | GRAPH_LINE {: RESULT = "graphLine"; :}
+              | HISTOGRAM {: RESULT = "Histogram"; :} ;
+
+lista_attr  ::= lista_attr:l attr:a   {: l.add(a); RESULT = l; :}
+              | attr:a                {: ArrayList lst = new ArrayList();
+                                         lst.add(a); RESULT = lst; :} ;
+
+attr        ::= ID:n DOBLE_DOS_PUNTOS tipo IGUAL valor_attr:v END PUNTO_COMA
+                {: RESULT = new Object[]{ n, v }; :}
+              | EXEC tipo_graf END PUNTO_COMA
+                {: RESULT = new Object[]{ "EXEC", null }; :} ;
+
+valor_attr  ::= expr:e     {: RESULT = e; :}
+              | arreglo:a  {: RESULT = a; :} ;

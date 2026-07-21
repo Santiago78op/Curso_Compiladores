@@ -1,0 +1,36 @@
+// Archivo con errores A PROPOSITO: uno lexico, uno sintactico, varios semanticos.
+// Sirve para probar el reporte de errores (seccion 6.1).
+
+// (1) Error LEXICO: el caracter '#' no pertenece al lenguaje
+let a: int = 10 # 5;
+
+// (2) Error SINTACTICO: falta el punto y coma / expresion mal formada
+let b: int = ;
+
+// declaraciones validas para las pruebas semanticas
+let texto: string = "hola";
+let bandera: bool = true;
+
+function void main() {
+    // (3) Error SEMANTICO: resta entre CADENA y CADENA no esta permitida (5.5.2)
+    let mala: string = texto - "mundo";
+
+    // (4) Error SEMANTICO: variable no declarada
+    echo noExiste;
+
+    // (5) Error SEMANTICO: reasignar una constante
+    // (const declarada abajo)
+    ci = 5;
+
+    // (6) Error SEMANTICO: condicion de if no booleana
+    if (10 + 2) {
+        echo "no deberia";
+    }
+
+    // (7) Error SEMANTICO: orden entre BOOLEAN no permitido (decision de disenio 5.6)
+    let x: bool = bandera > true;
+}
+
+const ci: int = 99;
+
+ejecutar main();

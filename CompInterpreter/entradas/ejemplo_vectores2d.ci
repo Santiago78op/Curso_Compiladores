@@ -1,0 +1,38 @@
+// Vectores 1D y 2D, acceso, modificacion y funciones nativas de vector
+let numeros: int[] = [5, 3, 8, 1, 9];
+let matriz: int[][] = [ [1, 2, 3], [4, 5, 6] ];
+let vacio: char[] = new vector char[3];
+let palabras: string[] = ["hola", "mundo", "olc1"];
+
+function void main() {
+    // acceso 1D
+    echo "Primer numero: " + numeros[0];
+    // acceso 2D
+    echo "matriz[1][2] = " + matriz[1][2];
+
+    // modificacion 1D y 2D
+    numeros[0] = 100;
+    matriz[0][0] = 99;
+    echo "numeros[0] ahora: " + numeros[0];
+    echo "matriz[0][0] ahora: " + matriz[0][0];
+
+    // funciones nativas de vector
+    echo "len(numeros) = " + len(numeros);
+    echo "max(numeros) = " + max(numeros);
+    echo "min(numeros) = " + min(numeros);
+    echo "sum(numeros) = " + sum(numeros);
+    echo "average(numeros) = " + average(numeros);
+
+    // reverse y recorrido con while
+    let invertido: int[] = reverse(numeros);
+    let i: int = 0;
+    while (i < len(invertido)) {
+        echo "invertido[" + i + "] = " + invertido[i];
+        i++;
+    }
+
+    // sum de strings = concatenacion
+    echo "sum(palabras) = " + sum(palabras);
+}
+
+ejecutar main();

@@ -1,0 +1,42 @@
+! Prueba de la Etapa 2: gráficas y anidación profunda
+PROGRAM
+
+    arr:double::@notas <- [50, 30, 70] end;
+    arr:char[]::@actividades <- ["1 Parcial", "2 parcial", "Final"] end;
+
+    ! anidación: funciones dentro de funciones (la gramática es recursiva)
+    var:double:: mitad <- DIV( SUM( Max(@notas), Min(@notas) ), 2 ) end;
+    console::print = "punto medio:", mitad end;
+
+    graphBar(
+        titulo::char[]  = "Estudiantes" end;
+        ejeX::char[]    = @actividades end;
+        ejeY::double    = [50, 30, 70] end;
+        tituloX::char[] = "Actividades" end;
+        tituloY::char[] = "Notas" end;
+        EXEC grapBar end;
+    ) end;
+
+    graphPie(
+        label::char[]  = ["Uno", "Dos", "Tres"] end;
+        values::double = [50, 30, 20] end;
+        titulo::char[] = "Ejemplo Grafica de Pie" end;
+        EXEC grapPie end;
+    ) end;
+
+    graphLine(
+        titulo::char[]  = "Grafica de Linea" end;
+        ejeX::char[]    = @actividades end;
+        ejeY::double    = [50, 30, 70] end;
+        tituloX::char[] = "Actividades" end;
+        tituloY::char[] = "Notas" end;
+        EXEC grapLine end;
+    ) end;
+
+    Histogram(
+        titulo::char[] = "Analisis de Arreglo" end;
+        values::char[] = [2, 2, 2, 5, 5, 7, 8] end;
+        EXEC Histogram end;
+    ) end;
+
+END PROGRAM

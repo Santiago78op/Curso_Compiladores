@@ -1,0 +1,26 @@
+{
+    # Casos que SI se simplifican (seccion 7)
+
+    CONJ : conjA -> a~e;
+    CONJ : conjB -> c~g;
+    CONJ : conjC -> 0~5;
+
+    # DeMorgan + doble complemento:  ^( ^(A & B) & ^C )  =  (A & B) U C
+    # se serializa como: U & {conjA} {conjB} {conjC}
+    OPERA : demorgan -> ^ & ^ & {conjA} {conjB} ^ {conjC};
+
+    # Doble complemento:  ^^A = A
+    OPERA : doble -> ^ ^ {conjA};
+
+    # Idempotente:  A U A = A
+    OPERA : idempotente -> U {conjA} {conjA};
+
+    # Absorcion:  A U (A & B) = A
+    OPERA : absorcion -> U {conjA} & {conjA} {conjB};
+
+    # Distributiva (factorizando):  (A & B) U (A & C) = A & (B U C)
+    OPERA : distributiva -> U & {conjA} {conjB} & {conjA} {conjC};
+
+    EVALUAR ( {a, b, c} , demorgan );
+    EVALUAR ( {a, z} , doble );
+}

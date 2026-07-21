@@ -1,0 +1,321 @@
+================================================================
+ GRAMATICA LIBRE DE CONTEXTO — LENGUAJE .ci (CompInterpreter)
+ OLC1 - Proyecto 2                        (entregable, seccion 8)
+================================================================
+
+Convenciones:
+  <no-terminal>      entre angulos
+  "terminal"         entre comillas (palabras reservadas y simbolos,
+                     todas case-insensitive — seccion 5.1)
+  ID, ENTERO, DECIMAL, CADENA, CARACTER   terminales con patron lexico
+  |                  alternativa
+  [ X ]              X es opcional (no es literal del lenguaje; solo
+                     notacion de esta gramatica para evitar repetir
+                     producciones casi identicas)
+  epsilon            produccion vacia
+
+Nota: esta gramatica es una redaccion propia en BNF a partir del
+comportamiento del lenguaje descrito en el enunciado y de la gramatica
+de trabajo (`server/src/grammar.jison`); NO es una copia de ese archivo
+(no incluye directivas de Jison, acciones semanticas `{ ... }`, tokens
+internos con nombres de implementacion, ni las reglas `%prec`/`error`
+de recuperacion, que son mecanismos de la herramienta, no de la
+gramatica formal del lenguaje).
+
+----------------------------------------------------------------
+ 1. Lexico (terminales con patron)
+----------------------------------------------------------------
+
+ID        = letra ( letra | digito | "_" )*
+ENTERO    = digito+
+DECIMAL   = digito+ "." digito+
+CADENA    = '"' ( caracter-escapado | cualquier-caracter-menos-comilla )* '"'
+CARACTER  = "'" ( caracter-escapado | un-caracter ) "'"
+
+Se descartan (no generan token): espacios en blanco, comentarios de
+linea "// ..." y comentarios de bloque "/* ... */" (seccion 5.2).
+
+Palabras reservadas (case-insensitive, tienen prioridad sobre ID):
+  true false null let const int double bool char string void
+  new vector cast as if else switch case default while for do until
+  loop break continue return function echo ejecutar is
+  lower upper round len truncate tostring tochararray reverse
+  max min sum average
+
+Simbolos: ++ -- == != <= >= && || + - * / ^ $ % < > ! =
+          ( ) { } [ ] ; : ,
+
+----------------------------------------------------------------
+ 2. Programa y elementos globales (seccion 5.27)
+----------------------------------------------------------------
+
+<programa>        ::= <lista-global>
+
+<lista-global>    ::= <lista-global> <elemento-global>
+                    | <elemento-global>
+
+<elemento-global>  ::= <declaracion> ";"
+                    | <funcion>
+                    | <sentencia-ejecutar>
+
+Fuera de funciones/metodos solo se permite declarar variables,
+constantes y vectores (seccion 5.27); toda instruccion ejecutable
+vive dentro de un cuerpo de funcion/metodo.
+
+----------------------------------------------------------------
+ 3. Funciones y metodos (secciones 5.19, 5.20)
+----------------------------------------------------------------
+
+<funcion>          ::= "function" <tipo> ID "(" <parametros> ")" <bloque>
+                    | "function" "void" ID "(" <parametros> ")" <bloque>
+
+<parametros>       ::= <lista-parametros>
+                    | epsilon
+
+<lista-parametros> ::= <lista-parametros> "," <parametro>
+                    | <parametro>
+
+<parametro>        ::= ID ":" <tipo>
+                    | ID ":" <tipo> "=" <expresion>
+
+<bloque>           ::= "{" <instrucciones> "}"
+                    | "{" "}"
+
+<instrucciones>    ::= <instrucciones> <instruccion>
+                    | <instruccion>
+
+----------------------------------------------------------------
+ 4. Instrucciones (seccion 5.16 - 5.18, 5.21, 5.26)
+----------------------------------------------------------------
+
+<instruccion>      ::= <declaracion> ";"
+                    | <asignacion> ";"
+                    | <incremento-decremento> ";"
+                    | <llamada> ";"
+                    | <nativa> ";"
+                    | "echo" <expresion> ";"
+                    | <sentencia-if>
+                    | <sentencia-switch>
+                    | <sentencia-while>
+                    | <sentencia-for>
+                    | <sentencia-do-until>
+                    | <sentencia-loop>
+                    | "break" ";"
+                    | "continue" ";"
+                    | "return" ";"
+                    | "return" <expresion> ";"
+
+<sentencia-ejecutar> ::= "ejecutar" ID "(" <argumentos> ")" ";"
+
+----------------------------------------------------------------
+ 5. Declaracion de variables, constantes y vectores (5.12, 5.15)
+----------------------------------------------------------------
+
+<declaracion>      ::= <mutabilidad> <lista-ids> ":" <tipo>
+                    | <mutabilidad> <lista-ids> ":" <tipo> "=" <expresion>
+                    | <mutabilidad> <lista-ids> ":" <tipo> "[" "]" "=" <vector-init-1d>
+                    | <mutabilidad> <lista-ids> ":" <tipo> "[" "]" "[" "]" "=" <vector-init-2d>
+
+<mutabilidad>      ::= "let"
+                    | "const"
+
+<lista-ids>        ::= <lista-ids> "," ID
+                    | ID
+
+<vector-init-1d>   ::= "new" "vector" <tipo> "[" <expresion> "]"
+                    | "[" <lista-expresiones> "]"
+
+<vector-init-2d>   ::= "new" "vector" <tipo> "[" <expresion> "]" "[" <expresion> "]"
+                    | "[" <lista-filas> "]"
+
+<lista-filas>      ::= <lista-filas> "," "[" <lista-expresiones> "]"
+                    | "[" <lista-expresiones> "]"
+
+<lista-expresiones> ::= <lista-expresiones> "," <expresion>
+                    | <expresion>
+
+<tipo>             ::= "int" | "double" | "bool" | "char" | "string"
+
+Nota: un vector se declara con un unico identificador en <lista-ids>;
+el enunciado no contempla declarar varios vectores en una sola
+sentencia (a diferencia de las variables simples).
+
+----------------------------------------------------------------
+ 6. Asignacion, incremento/decremento, acceso a vectores (5.14, 5.15.2-3)
+----------------------------------------------------------------
+
+<asignacion>       ::= ID "=" <expresion>
+                    | ID "[" <expresion> "]" "=" <expresion>
+                    | ID "[" <expresion> "]" "[" <expresion> "]" "=" <expresion>
+
+<incremento-decremento> ::= ID "++"
+                    | ID "--"
+
+<acceso-vector>    ::= ID "[" <expresion> "]"
+                    | ID "[" <expresion> "]" "[" <expresion> "]"
+
+----------------------------------------------------------------
+ 7. Llamadas a funciones/metodos y funcion echo (5.21)
+----------------------------------------------------------------
+
+<llamada>          ::= ID "(" <argumentos> ")"
+
+<argumentos>       ::= <lista-argumentos>
+                    | epsilon
+
+<lista-argumentos> ::= <lista-argumentos> "," <argumento>
+                    | <argumento>
+
+<argumento>        ::= ID "=" <expresion>
+
+Los argumentos se pasan siempre por nombre (`id = expresion`); un
+parametro con valor por defecto puede omitirse en la llamada.
+
+----------------------------------------------------------------
+ 8. Sentencias de control (5.16)
+----------------------------------------------------------------
+
+<sentencia-if>     ::= "if" "(" <expresion> ")" <bloque>
+                    | "if" "(" <expresion> ")" <bloque> "else" <bloque>
+                    | "if" "(" <expresion> ")" <bloque> "else" <sentencia-if>
+
+<sentencia-switch> ::= "switch" "(" <expresion> ")" "{" <cuerpo-switch> "}"
+
+<cuerpo-switch>    ::= <lista-casos>
+                    | <lista-casos> <caso-default>
+                    | <caso-default>
+
+<lista-casos>      ::= <lista-casos> <caso>
+                    | <caso>
+
+<caso>             ::= "case" <expresion> ":" <instrucciones>
+                    | "case" <expresion> ":"
+
+<caso-default>     ::= "default" ":" <instrucciones>
+                    | "default" ":"
+
+Fall-through (5.16.2, observacion explicita del enunciado): un `case`
+sin `break` continua evaluando los `case` siguientes en vez de salir
+del switch.
+
+----------------------------------------------------------------
+ 9. Sentencias ciclicas (5.17)
+----------------------------------------------------------------
+
+<sentencia-while>  ::= "while" "(" <expresion> ")" <bloque>
+
+<sentencia-for>    ::= "for" "(" <inicializacion-for> ";" <expresion> ";" <actualizacion-for> ")" <bloque>
+
+<inicializacion-for> ::= <declaracion>
+                    | <asignacion>
+
+<actualizacion-for> ::= <incremento-decremento>
+                    | <asignacion>
+
+<sentencia-do-until> ::= "do" <bloque> "until" "(" <expresion> ")" ";"
+
+<sentencia-loop>   ::= "loop" <bloque>
+
+----------------------------------------------------------------
+ 10. Expresiones (5.5 - 5.10, 5.13)
+----------------------------------------------------------------
+
+La gramatica de expresiones se escribe SIN ambiguedad, en capas que
+reflejan directamente la tabla de precedencia del enunciado (5.10),
+de la de menor a mayor prioridad (el operador ternario es el de menor
+prioridad de todos, y la negacion unaria "-" el de mayor):
+
+<expresion>        ::= <ternario>
+                    | <expresion-or>
+
+<ternario>         ::= "if" "(" <expresion> ")" <expresion> ":" <expresion>
+
+<expresion-or>     ::= <expresion-or> "||" <expresion-and>
+                    | <expresion-and>
+
+<expresion-and>     ::= <expresion-and> "&&" <expresion-not>
+                    | <expresion-not>
+
+<expresion-not>     ::= "!" <expresion-not>
+                    | <expresion-relacional>
+
+<expresion-relacional> ::= <expresion-relacional> "==" <expresion-suma>
+                    | <expresion-relacional> "!=" <expresion-suma>
+                    | <expresion-relacional> "<" <expresion-suma>
+                    | <expresion-relacional> "<=" <expresion-suma>
+                    | <expresion-relacional> ">" <expresion-suma>
+                    | <expresion-relacional> ">=" <expresion-suma>
+                    | <expresion-relacional> "is" <tipo>
+                    | <expresion-suma>
+
+<expresion-suma>   ::= <expresion-suma> "+" <expresion-termino>
+                    | <expresion-suma> "-" <expresion-termino>
+                    | <expresion-termino>
+
+<expresion-termino> ::= <expresion-termino> "*" <expresion-potencia>
+                    | <expresion-termino> "/" <expresion-potencia>
+                    | <expresion-termino> "%" <expresion-potencia>
+                    | <expresion-potencia>
+
+<expresion-potencia> ::= <expresion-unaria> "^" <expresion-unaria>
+                    | <expresion-unaria> "$" <expresion-unaria>
+                    | <expresion-unaria>
+
+<expresion-unaria>  ::= "-" <expresion-unaria>
+                    | <expresion-primaria>
+
+<expresion-primaria> ::= "(" <expresion> ")"
+                    | "cast" "(" <expresion> "as" <tipo> ")"
+                    | <llamada>
+                    | <nativa>
+                    | <acceso-vector>
+                    | ID
+                    | ENTERO
+                    | DECIMAL
+                    | CADENA
+                    | CARACTER
+                    | "true"
+                    | "false"
+                    | "null"
+
+Nota de precedencia (5.10): ^ y $ son NO asociativos (no se pueden
+encadenar dos veces seguidas sin parentesis, p.ej. `2^3^2` no es
+valido); todos los demas niveles binarios son asociativos a la
+izquierda; la negacion unaria "-" y el "!" logico asocian a la
+derecha.
+
+----------------------------------------------------------------
+ 11. Casteos (5.13)
+----------------------------------------------------------------
+
+El casteo es una expresion primaria (ver <expresion-primaria>):
+
+<casteo>           ::= "cast" "(" <expresion> "as" <tipo> ")"
+
+Conversiones permitidas: int<->double, int->string, int->char,
+double->string, char->int, char->double.
+
+----------------------------------------------------------------
+ 12. Funciones nativas (5.22 - 5.25)
+----------------------------------------------------------------
+
+<nativa>           ::= "lower" "(" <expresion> ")"
+                    | "upper" "(" <expresion> ")"
+                    | "round" "(" <expresion> ")"
+                    | "len" "(" <expresion> ")"
+                    | "truncate" "(" <expresion> ")"
+                    | "tostring" "(" <expresion> ")"
+                    | "tochararray" "(" <expresion> ")"
+                    | "reverse" "(" <expresion> ")"
+                    | "max" "(" <expresion> ")"
+                    | "min" "(" <expresion> ")"
+                    | "sum" "(" <expresion> ")"
+                    | "average" "(" <expresion> ")"
+
+Todas se usan como expresion (su resultado puede asignarse o
+concatenarse) y tambien pueden invocarse como instruccion suelta
+(`reverse(v);`) segun la regla 4 de este documento.
+
+================================================================
+ Fin de la gramatica.
+================================================================

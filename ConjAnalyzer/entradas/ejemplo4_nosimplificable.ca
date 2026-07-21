@@ -1,0 +1,20 @@
+{
+    # Operaciones que NO se pueden simplificar: el JSON debe devolver el
+    # string literal "No se puede simplificar la operacion" para cada una.
+
+    CONJ : letras -> a~z;
+    CONJ : digitos -> 0~9;
+    CONJ : signos -> !,?,@,$,%;
+
+    # union simple de dos conjuntos distintos
+    OPERA : union1 -> U {letras} {digitos};
+
+    # interseccion de tres conjuntos distintos, sin patrones aplicables
+    OPERA : combo -> & U {letras} {digitos} {signos};
+
+    # diferencia (la diferencia no tiene ley de simplificacion aca)
+    OPERA : resta -> - {letras} {digitos};
+
+    EVALUAR ( {a, 5, @} , combo );
+    EVALUAR ( {a, 0} , resta );
+}

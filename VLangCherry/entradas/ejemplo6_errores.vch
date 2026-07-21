@@ -1,0 +1,34 @@
+// Archivo CON ERRORES A PROPOSITO: lexico, sintactico y varios semanticos.
+// Sirve para probar el reporte de errores (8.1).
+
+struct Persona {
+    string Nombre
+}
+
+func main() {
+    // (1) Error SEMANTICO: asignar tipo incompatible
+    mut edad int = "no soy un numero"
+
+    // (2) Error SEMANTICO: variable no declarada
+    print(noExiste)
+
+    // (3) Error SEMANTICO: campo inexistente
+    mut p := Persona{Nombre: "Ana"}
+    print(p.Apellido)
+
+    // (4) Error SEMANTICO: redeclaracion en el mismo ambito
+    mut x int = 10
+    mut x int = 20
+
+    // (5) Error SEMANTICO: division entre cero
+    mut cero int = 0
+    print(10 / cero)
+
+    // (6) Error LEXICO: caracter no perteneciente al lenguaje
+    mut raro := 5 # 2
+
+    // (7) Error SEMANTICO: condicion de if no booleana
+    if 10 + 5 {
+        print("no deberia ejecutarse")
+    }
+}

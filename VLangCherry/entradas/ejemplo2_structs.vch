@@ -1,0 +1,30 @@
+// Structs, metodos por referencia y anidados (6.1-6.3)
+struct Direccion {
+    string Ciudad
+    int CodigoPostal
+}
+
+struct Persona {
+    string Nombre
+    int Edad
+    Direccion Domicilio
+}
+
+func (p Persona) Saludar() string {
+    return "Hola, soy " + p.Nombre
+}
+
+func (p *Persona) Cumplir() {
+    p.Edad = p.Edad + 1
+}
+
+func main() {
+    mut casa := Direccion{Ciudad: "Guatemala", CodigoPostal: 1010}
+    mut persona := Persona{Nombre: "Ana", Edad: 25, Domicilio: casa}
+
+    print(persona.Saludar())
+    print("Edad antes:", persona.Edad)
+    persona.Cumplir()
+    print("Edad despues:", persona.Edad)
+    print("Ciudad:", persona.Domicilio.Ciudad)
+}

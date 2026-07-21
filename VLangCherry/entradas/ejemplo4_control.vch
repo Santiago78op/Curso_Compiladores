@@ -1,0 +1,52 @@
+// Sentencias de control y de transferencia (4.7-4.8)
+func clasificar(n int) string {
+    if n < 0 {
+        return "negativo"
+    } else if n == 0 {
+        return "cero"
+    } else {
+        return "positivo"
+    }
+}
+
+func main() {
+    print(clasificar(-5))
+    print(clasificar(0))
+    print(clasificar(8))
+
+    mut dia := 3
+    switch dia {
+    case 1:
+        print("lunes")
+    case 2:
+        print("martes")
+    case 3:
+        print("miercoles")
+    default:
+        print("otro dia")
+    }
+
+    // for condicion (equivalente a while)
+    mut i := 0
+    for i < 5 {
+        print("while-like:", i)
+        i++
+    }
+
+    // for clasico con break
+    for j := 0; j < 100; j++ {
+        if j == 3 {
+            break
+        }
+        print("clasico:", j)
+    }
+
+    // for-in con continue
+    valores := []int{1, 2, 3, 4, 5, 6}
+    for _, v in valores {
+        if v % 2 == 0 {
+            continue
+        }
+        print("impar:", v)
+    }
+}

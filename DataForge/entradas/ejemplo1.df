@@ -1,0 +1,16 @@
+! Mi primer programa DataForge — prueba del analizador léxico
+PROGRAM
+
+    var:double:: numero <- 2.5 end;
+    var:char[]:: saludo <- "hola mundo" end;
+
+    <! declaración de un arreglo,
+       con comentario multilínea de por medio !>
+    arr:double::@datos <- [1, 2.5, SUM(3, 4)] end;
+
+    var:double:: m <- Media(@datos) end;
+
+    console::print = "la media es:", m end;
+    console::column = "Datos" -> @datos end;
+
+END PROGRAM

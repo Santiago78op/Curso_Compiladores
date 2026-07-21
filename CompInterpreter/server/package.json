@@ -1,0 +1,19 @@
+{
+  "name": "compinterpreter-server",
+  "version": "1.0.0",
+  "description": "Servidor Express + interprete Jison para CompInterpreter (OLC1 Proyecto 2 - USAC)",
+  "main": "server.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node server.js",
+    "grammar": "jison src/grammar.jison -o src/parser.js",
+    "build": "npm run grammar"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.19.2"
+  },
+  "devDependencies": {
+    "jison": "^0.4.18"
+  }
+}

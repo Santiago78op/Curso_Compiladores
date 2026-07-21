@@ -1,0 +1,16 @@
+{
+    # Ejemplo de la seccion 4.8 del enunciado (caso basico)
+
+    # Definicion de conjuntos
+    CONJ : conjuntoA -> 1,2,3,a,b;
+    CONJ : conjuntoB -> a~z;
+    CONJ : conjuntoC -> 0~9;
+
+    # Definicion de operaciones (notacion prefija)
+    OPERA : operacion1 -> & {conjuntoA} {conjuntoB};
+    OPERA : operacion2 -> & U {conjuntoB} {conjuntoC} {conjuntoA};
+
+    # Evaluar conjuntos de datos
+    EVALUAR ( {a, b, c} , operacion1 );
+    EVALUAR ( {1, b} , operacion1 );
+}

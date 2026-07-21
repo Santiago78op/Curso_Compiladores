@@ -1,0 +1,290 @@
+================================================================
+ GRAMATICA LIBRE DE CONTEXTO — LENGUAJE CompScript (formato BNF)
+ OLC1 - Proyecto 1 (PT1 VD2024)          (entregable, seccion 7 y 8)
+================================================================
+
+Convenciones:
+  <no-terminal>      entre angulos
+  "terminal"         entre comillas (palabras reservadas y simbolos,
+                     todas case-insensitive: el lexer usa %ignorecase)
+  ID, ENTERO, DECIMAL, CADENA, CARACTER   terminales con patron lexico
+  |                  alternativa
+  ε                  cadena vacia
+
+Simbolo inicial: <programa>
+
+----------------------------------------------------------------
+ ESTRUCTURA GENERAL
+----------------------------------------------------------------
+
+<programa>            ::= <lista-instrucciones>
+
+<lista-instrucciones> ::= <lista-instrucciones> <instruccion>
+                        | ε
+
+<instruccion>         ::= <sentencia-simple> ";"
+                        | <if>
+                        | <match>
+                        | <while>
+                        | <for>
+                        | <do-while> ";"
+                        | <funcion>
+                        | <struct>
+
+<sentencia-simple>    ::= <declaracion>
+                        | <asignacion>
+                        | <incremento-decremento>
+                        | <imprimir>
+                        | <llamada>
+                        | <operacion-lista>
+                        | <run-main>
+                        | "break"
+                        | "continue"
+                        | "return"
+                        | "return" <expresion>
+
+<bloque>              ::= "{" <lista-instrucciones> "}"
+
+----------------------------------------------------------------
+ TIPOS DE DATO (5.3, 5.18, 5.19)
+----------------------------------------------------------------
+
+<tipo>            ::= "int" | "double" | "bool" | "char" | "string"
+
+<tipo-dato>       ::= <tipo>
+                    | <tipo> "[" "]"                    (vector de 1 dimension)
+                    | <tipo> "[" "]" "[" "]"             (vector de 2 dimensiones)
+                    | "list" "<" <tipo> ">"              (lista dinamica)
+
+<tipo-parametro>  ::= <tipo-dato>
+                    | ID                                (nombre de un struct)
+
+<tipo-retorno>    ::= <tipo>
+                    | "void"
+
+----------------------------------------------------------------
+ DECLARACION Y ASIGNACION DE VARIABLES (5.11, 5.12, 5.20.2, 5.20.4)
+----------------------------------------------------------------
+
+<mutabilidad>     ::= "let" | "const"
+
+<declaracion>     ::= <mutabilidad> ID ":" <tipo-dato>
+                    | <mutabilidad> ID ":" <tipo-dato> "=" <expresion>
+                    | <mutabilidad> ID ":" ID                            (instancia de struct sin valores)
+                    | <mutabilidad> ID ":" ID "=" <literal-struct>       (instancia de struct)
+
+<literal-struct>      ::= "{" <lista-campos-valor> "}"
+
+<lista-campos-valor>  ::= <lista-campos-valor> "," <campo-valor>
+                        | <campo-valor>
+
+<campo-valor>         ::= ID ":" <expresion>
+
+<asignacion>      ::= ID "=" <expresion>
+                    | ID "[" <expresion> "]" "=" <expresion>
+                    | ID "[" <expresion> "]" "[" <expresion> "]" "=" <expresion>
+                    | ID "." ID "=" <expresion>
+
+<incremento-decremento> ::= ID "++"
+                          | ID "--"
+
+----------------------------------------------------------------
+ SALIDA POR CONSOLA (5.24)
+----------------------------------------------------------------
+
+<imprimir>        ::= "console" "." "log" "(" <expresion> ")"
+
+----------------------------------------------------------------
+ SENTENCIAS DE CONTROL (5.15)
+----------------------------------------------------------------
+
+<if>              ::= "if" "(" <expresion> ")" <bloque>
+                    | "if" "(" <expresion> ")" <bloque> "else" <bloque>
+                    | "if" "(" <expresion> ")" <bloque> "else" <if>
+
+<match>           ::= "match" <expresion> "{" <lista-casos> "}"
+                    | "match" <expresion> "{" <lista-casos> <default> "}"
+                    | "match" <expresion> "{" <default> "}"
+
+<lista-casos>     ::= <lista-casos> <caso>
+                    | <caso>
+
+<caso>            ::= <expresion> "=>" "{" <lista-instrucciones> "}"
+
+<default>         ::= "default" "=>" "{" <lista-instrucciones> "}"
+
+----------------------------------------------------------------
+ SENTENCIAS CICLICAS (5.16)
+----------------------------------------------------------------
+
+<while>           ::= "while" "(" <expresion> ")" <bloque>
+
+<for>             ::= "for" "(" <asignacion> ";" <expresion> ";" <actualizacion> ")" <bloque>
+
+<actualizacion>   ::= <asignacion>
+                    | <incremento-decremento>
+
+<do-while>        ::= "do" <bloque> "while" "(" <expresion> ")"
+
+----------------------------------------------------------------
+ OPERACIONES SOBRE LISTAS DINAMICAS (5.19.2 - 5.19.7)
+----------------------------------------------------------------
+ (aparecen tanto como <sentencia-simple> -push/set/remove/pop/reverse- como
+  dentro de <expresion> -get/remove/pop, que ademas devuelven un valor-)
+
+<operacion-lista> ::= ID "." "push"    "(" <expresion> ")"
+                    | ID "." "get"     "(" <expresion> ")"
+                    | ID "." "set"     "(" <expresion> "," <expresion> ")"
+                    | ID "." "remove"  "(" <expresion> ")"
+                    | ID "." "pop"     "(" ")"
+                    | ID "." "reverse" "(" ")"
+
+----------------------------------------------------------------
+ STRUCTS (5.20)
+----------------------------------------------------------------
+
+<struct>              ::= "struct" ID "{" <lista-campos-struct> "}" ";"
+
+<lista-campos-struct> ::= <lista-campos-struct> <campo-struct>
+                        | <campo-struct>
+
+<campo-struct>        ::= ID ":" <tipo-parametro> ";"
+
+----------------------------------------------------------------
+ FUNCIONES, METODOS Y LLAMADAS (5.21, 5.22, 5.23)
+----------------------------------------------------------------
+
+<funcion>                  ::= <tipo-retorno> ID "(" <lista-parametros> ")" <bloque>
+
+<lista-parametros>         ::= ε
+                             | <lista-parametros-nvacia>
+
+<lista-parametros-nvacia>  ::= <lista-parametros-nvacia> "," <parametro>
+                             | <parametro>
+
+<parametro>                ::= ID ":" <tipo-parametro>
+                             | ID ":" <tipo-parametro> "=" <expresion>
+
+<llamada>                  ::= ID "(" ")"
+                             | ID "(" <lista-argumentos> ")"
+
+<lista-argumentos>         ::= <lista-argumentos> "," <argumento>
+                             | <argumento>
+
+<argumento>                ::= ID "=" <expresion>
+
+<run-main>                 ::= "run_main" ID "(" ")"
+                             | "run_main" ID "(" <lista-argumentos> ")"
+
+----------------------------------------------------------------
+ EXPRESIONES (5.5-5.9, 5.13, 5.18.2, 5.19.3, 5.25-5.27)
+----------------------------------------------------------------
+
+<expresion>   ::= <expresion> "+" <expresion>
+               | <expresion> "-" <expresion>
+               | <expresion> "*" <expresion>
+               | <expresion> "/" <expresion>
+               | <expresion> "^" <expresion>              (potencia)
+               | <expresion> "$" <expresion>              (raiz)
+               | <expresion> "%" <expresion>              (modulo)
+               | <expresion> "==" <expresion>
+               | <expresion> "!=" <expresion>
+               | <expresion> "<" <expresion>
+               | <expresion> "<=" <expresion>
+               | <expresion> ">" <expresion>
+               | <expresion> ">=" <expresion>
+               | <expresion> "&&" <expresion>
+               | <expresion> "||" <expresion>
+               | "!" <expresion>
+               | "-" <expresion>                          (negacion unaria)
+               | "(" <expresion> ")"
+               | ENTERO | DECIMAL | CADENA | CARACTER | "true" | "false"
+               | "cast" "(" <expresion> "as" <tipo> ")"
+               | "[" <lista-expresiones> "]"               (literal de vector)
+               | "round"    "(" <expresion> ")"
+               | "length"   "(" <expresion> ")"
+               | "tostring" "(" <expresion> ")"
+               | <llamada>
+               | <operacion-lista>
+               | ID
+               | ID "[" <expresion> "]"
+               | ID "[" <expresion> "]" "[" <expresion> "]"
+               | ID "." ID
+
+<lista-expresiones> ::= <lista-expresiones> "," <expresion>
+                      | <expresion>
+
+----------------------------------------------------------------
+ TABLA DE PRECEDENCIA Y ASOCIATIVIDAD (5.9)
+----------------------------------------------------------------
+ <expresion> tal como esta escrita arriba es ambigua (una gramatica BNF
+ "de libro" la partiria en niveles expr/termino/factor); en su lugar se
+ desambigua con una tabla de precedencia y asociatividad, exactamente
+ como la declara el propio enunciado en 5.9. Nivel 0 = liga MAS fuerte.
+
+  Nivel | Operador(es)                      | Asociatividad
+  ------|-----------------------------------|---------------
+    0   | -   (negacion unaria)             | derecha
+    1   | ^  $                              | no asociativa
+    2   | *  /  %                           | izquierda
+    3   | +  -                              | izquierda
+    4   | ==  !=  <  <=  >  >=              | izquierda
+    5   | !                                 | derecha
+    6   | &&                                | izquierda
+    7   | ||                                | izquierda   (liga MAS debil)
+
+ El "else" colgante (if-else if-else anidados sin llaves de por medio)
+ se resuelve a favor del "else" mas cercano al "if" que lo precede.
+
+----------------------------------------------------------------
+ TERMINALES (patrones lexicos)
+----------------------------------------------------------------
+
+  ID        ::= letra ( letra | digito )*         letra = [a-zA-Z_]
+  ENTERO    ::= digito+
+  DECIMAL   ::= digito+ "." digito+
+  CADENA    ::= '"' ( cualquier caracter excepto '"' o secuencia de escape )* '"'
+  CARACTER  ::= "'" ( un caracter o una secuencia de escape ) "'"
+
+  Secuencias de escape (5.4), validas dentro de CADENA y CARACTER:
+      \n  \t  \\  \"  \'
+
+  Comentario de linea     : "//" ... hasta fin de linea       (se ignora)
+  Comentario multilinea   : "/*" ... "*/"                     (se ignora)
+
+  Palabras reservadas (37, case-insensitive):
+    int  double  bool  char  string  void
+    let  const  true  false
+    if  else  match  default
+    while  for  do
+    break  continue  return
+    struct  list  cast  as
+    console  log  push  get  set  remove  pop  reverse
+    round  length  tostring  run_main
+
+  Simbolos (28):
+    ++  --  ==  !=  <=  >=  &&  ||  =>
+    +  -  *  /  ^  $  %  !  <  >  =
+    (  )  [  ]  {  }  ,  ;  :  .
+
+----------------------------------------------------------------
+ NOTAS DE DISEÑO (documentadas; no forman parte de la BNF)
+----------------------------------------------------------------
+
+  - El lenguaje es case insensitive (5.1): palabras reservadas y, ademas,
+    los identificadores (la tabla de simbolos guarda claves en minuscula).
+  - El analizador construye un AST (arbol de sintaxis abstracta, seccion 2
+    de objetivos especificos); NO ejecuta en las mismas acciones del parser
+    (a diferencia de otros proyectos del curso que sí evaluan S-atribuidos).
+  - Segun 5.23, se recomiendan 3 pasadas sobre el AST: (1) registrar
+    funciones/metodos/structs para permitir referencias hacia adelante,
+    (2) declaraciones y asignaciones globales, (3) ejecutar RUN_MAIN.
+  - En <llamada> y <run-main> los argumentos se asocian por IDENTIFICADOR
+    (no por posicion): <argumento> ::= ID "=" <expresion>.
+  - No hay sobrecarga: un mismo identificador no puede nombrar mas de una
+    funcion/metodo/struct (error semantico si se repite).
+  - Un error semantico en tiempo de ejecucion queda registrado en el
+    reporte de errores y termina la ejecucion del programa de forma
+    ordenada (4.3); los errores lexicos y sintacticos, en cambio, se
+    acumulan y el analisis continua (recuperacion en modo panico con la
+    produccion <instruccion> ::= error ";").

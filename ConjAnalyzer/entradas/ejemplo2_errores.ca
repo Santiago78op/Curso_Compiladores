@@ -1,0 +1,23 @@
+{
+    # Este archivo provoca errores a proposito para probar la recuperacion
+
+    # OK: conjunto valido
+    CONJ : vocales -> a,e,i,o,u;
+
+    # ERROR LEXICO: la ñ (fuera del universo ASCII 33..126) se descarta y el
+    # analisis continua (el nombre queda como "conju")
+    CONJ : conjuñ -> a~c;
+
+    # ERROR SINTACTICO: falta el nombre despues de CONJ (modo panico hasta ';')
+    CONJ : -> a~z;
+
+    # ERROR SINTACTICO: operador sin operandos suficientes
+    OPERA : mala -> U {vocales} ;
+
+    # ERROR SEMANTICO: referencia a un conjunto que no existe
+    OPERA : fantasma -> & {vocales} {noExiste};
+
+    # OK: se sigue analizando despues de los errores
+    OPERA : buena -> ^ {vocales};
+    EVALUAR ( {a, z} , buena );
+}

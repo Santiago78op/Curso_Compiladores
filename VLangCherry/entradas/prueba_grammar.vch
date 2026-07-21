@@ -1,0 +1,68 @@
+struct Persona {
+    string Nombre
+    int Edad
+}
+
+func (p *Persona) Saludar() string {
+    return "Hola, soy " + p.Nombre
+}
+
+func suma(a int, b int) int {
+    return a + b
+}
+
+func main() {
+    mut i := 10
+    mut z := 0
+    println("Valor de i:", i)
+    {
+        j := 20
+        i = i + j
+        z := 40
+    }
+
+    numeros := []int{10, 20, 30, 40, 50}
+    print("Elemento en indice 2:", numeros[2])
+    numeros[2] = 100
+
+    mtx := [][]int{
+        {1, 2, 3},
+        {4, 5, 6},
+    }
+    print(mtx[0][1])
+
+    p := Persona{
+        Nombre: "Alice",
+        Edad: 25,
+    }
+    print(p.Saludar())
+
+    if i > 5 {
+        print("mayor")
+    } else if i == 5 {
+        print("igual")
+    } else {
+        print("menor")
+    }
+
+    switch i {
+    case 1:
+        print("uno")
+    default:
+        print("otro")
+    }
+
+    for k := 1; k <= 5; k++ {
+        if k % 2 == 0 {
+            continue
+        }
+        print(k)
+    }
+
+    for indice, valor in numeros {
+        print(indice, valor)
+    }
+
+    resultado := suma(3, 7)
+    print(resultado)
+}

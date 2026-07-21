@@ -1,0 +1,19 @@
+! Los TRES tipos de error en un mismo programa —
+! y gracias a la recuperación en modo pánico, se reportan TODOS
+PROGRAM
+
+    var:double:: bueno <- 10 end;
+
+    ! error LÉXICO: $ no pertenece al lenguaje (se descarta y sigue)
+    var:double:: precio <- $ 99 end;
+
+    ! error SINTÁCTICO: falta el <- (modo pánico salta hasta el ;)
+    var:double:: roto 5 end;
+
+    ! error SEMÁNTICO: variable no declarada
+    console::print = "fantasma vale:", fantasma end;
+
+    ! y esta línea corre perfectamente pese a todo lo anterior
+    console::print = "final:", bueno, "precio:", precio end;
+
+END PROGRAM

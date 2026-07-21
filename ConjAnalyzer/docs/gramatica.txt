@@ -1,0 +1,103 @@
+================================================================
+ GRAMATICA LIBRE DE CONTEXTO — LENGUAJE ConjAnalyzer (formato BNF)
+ OLC1 - Proyecto 1                       (entregable, seccion 9)
+================================================================
+
+Convenciones:
+  <no-terminal>      entre angulos
+  "terminal"         entre comillas (palabras reservadas y simbolos)
+  ID, NUMERO, SIMBOLO, CARACTER   terminales con patron lexico
+  |                  alternativa
+  { }                (en la META-gramatica NO: las llaves son terminales
+                      del lenguaje; aqui se escriben siempre entre comillas)
+
+El lenguaje es CASE SENSITIVE: las palabras reservadas van en MAYUSCULAS
+(CONJ, OPERA, EVALUAR) y "conjuntoA" es distinto de "conjuntoa".
+
+----------------------------------------------------------------
+ ESTRUCTURA GENERAL
+----------------------------------------------------------------
+
+<inicio>        ::= "{" <sentencias> "}"
+
+<sentencias>    ::= <sentencias> <sentencia>
+                  | <sentencia>
+
+<sentencia>     ::= <definicion-conjunto>
+                  | <definicion-operacion>
+                  | <evaluacion>
+
+----------------------------------------------------------------
+ DEFINICION DE CONJUNTOS (4.5)
+----------------------------------------------------------------
+
+<definicion-conjunto> ::= "CONJ" ":" ID "->" <notacion> ";"
+
+<notacion>      ::= <elemento> "~" <elemento>        (rango, inclusive)
+                  | <lista-elementos>                (enumeracion)
+
+<lista-elementos> ::= <lista-elementos> "," <elemento>
+                    | <elemento>
+
+<elemento>      ::= CARACTER          (un unico simbolo del universo:
+                                       letra, digito o signo ASCII 33..126)
+
+----------------------------------------------------------------
+ DEFINICION DE OPERACIONES (4.6) — notacion prefija / polaca
+----------------------------------------------------------------
+
+<definicion-operacion> ::= "OPERA" ":" ID "->" <operacion> ";"
+
+<operacion>     ::= "U" <operacion> <operacion>      (union)
+                  | "&" <operacion> <operacion>      (interseccion)
+                  | "-" <operacion> <operacion>      (diferencia)
+                  | "^" <operacion>                  (complemento, unario)
+                  | "{" ID "}"                       (referencia a un conjunto)
+
+  El operador va ANTES de sus operandos y las operaciones se anidan sin
+  limite. El unico operando "hoja" es el nombre de un conjunto ya definido,
+  encerrado entre llaves.  Ejemplos:
+      U U {A} {B} {C}     =  (A U B) U C
+      & U {C} {A} {B}     =  (C U A) & B
+
+----------------------------------------------------------------
+ EVALUACION DE PERTENENCIA (4.7)
+----------------------------------------------------------------
+
+<evaluacion>    ::= "EVALUAR" "(" "{" <lista-elementos> "}" "," ID ")" ";"
+
+  Cada elemento de la lista se prueba contra el conjunto RESULTANTE de la
+  operacion nombrada; en consola se imprime "elemento -> exitoso" o
+  "elemento -> fallo".
+
+----------------------------------------------------------------
+ COMENTARIOS Y UNIVERSO (4.3, 4.4)  — nivel lexico
+----------------------------------------------------------------
+
+  Comentario de linea      : "#"  ... hasta fin de linea      (se ignora)
+  Comentario multilinea    : "<!" ... "!>"                    (se ignora)
+  Universo                 : caracteres ASCII 33 ('!') .. 126 ('~')
+
+----------------------------------------------------------------
+ TERMINALES (patrones lexicos)
+----------------------------------------------------------------
+
+  ID       ::= letra ( letra | digito )*        nombre de conjunto/operacion
+  NUMERO   ::= digito+                           (como elemento: un digito)
+  SIMBOLO  ::= cualquier caracter ASCII 33..126 que no sea reservado
+  CARACTER ::= ID | NUMERO | SIMBOLO             (usado como <elemento>;
+                                                  debe ser de longitud 1)
+
+  Palabras/simbolos reservados: CONJ  OPERA  EVALUAR
+                                U  &  ^  -  ~  ->  {  }  (  )  :  ;  ,
+
+----------------------------------------------------------------
+ RESTRICCIONES DE DISENO (documentadas)
+----------------------------------------------------------------
+
+  - Los caracteres reservados como operadores/estructura ( U & ^ - ~ { }
+    ( ) : ; , ) y el inicio de comentario ( # , <! ) NO pueden usarse como
+    ELEMENTO de un conjunto ni como nombre. El resto del universo si.
+  - Un conjunto no puede definirse en terminos de otro conjunto; solo una
+    operacion puede referenciar conjuntos (y anidar otras operaciones).
+  - Cada elemento de un rango o de una lista es un unico caracter.

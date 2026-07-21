@@ -1,0 +1,340 @@
+/* ============================================================
+ * parser.cup — Analizador sintactico de CompScript (OLC1, PT1 VD2024)
+ *
+ * A diferencia de DataForge (S-atribuida, ejecuta en las acciones),
+ * aqui las acciones CONSTRUYEN un AST (new A.X(...)); el Interprete lo
+ * recorre despues en 3 pasadas (5.23). La precedencia de operadores
+ * (5.9) se declara abajo: el nivel 0 (negacion unaria) es el mas alto.
+ * ============================================================ */
+package compscript.analisis;
+
+import java_cup.runtime.*;
+import java.util.ArrayList;
+import compscript.ast.A;
+import compscript.interprete.Tipo;
+import compscript.interprete.Valor;
+import compscript.interprete.Contexto;
+
+parser code {:
+    /* Estado compartido con el lexer (tokens + errores lexicos) y con el
+       Interprete (raiz del AST). Los setea el Interprete tras crear el parser. */
+    public Contexto contexto;
+    public ArrayList raiz = new ArrayList();
+
+    public void syntax_error(Symbol s) {
+        contexto.error("Sintactico",
+            "error de sintaxis, no se esperaba '" + s.value + "'", s.left, s.right);
+        System.err.printf("Error sintactico: '%s' (linea %d, col %d)%n",
+            s.value, s.left + 1, s.right + 1);
+    }
+:};
+
+/* ============================================================
+ * TERMINALES
+ * ============================================================ */
+terminal T_INT, T_DOUBLE, T_BOOL, T_CHAR, T_STRING, VOID;
+terminal LET, CONST, TRUE, FALSE;
+terminal IF, ELSE, MATCH, DEFAULT;
+terminal WHILE, FOR, DO;
+terminal BREAK, CONTINUE, RETURN;
+terminal STRUCT, LIST, CAST, AS;
+terminal CONSOLE, LOG, PUSH, GET, SET, REMOVE, POP, REVERSE;
+terminal ROUND, LENGTH, TOSTRING, RUN_MAIN;
+
+terminal INCR, DECR, IGUAL_IGUAL, DIFERENTE, MENOR_IGUAL, MAYOR_IGUAL, AND, OR, FLECHA;
+terminal MAS, MENOS, POR, DIV, POT, RAIZ, MOD, NOT, MENOR, MAYOR, IGUAL;
+terminal PAR_IZQ, PAR_DER, COR_IZQ, COR_DER, LLAVE_IZQ, LLAVE_DER;
+terminal COMA, PUNTO_COMA, DOS_PUNTOS, PUNTO;
+terminal UMENOS;   /* pseudo-terminal para la precedencia de la negacion unaria */
+
+terminal Integer   ENTERO;
+terminal Double    DECIMAL;
+terminal Character CARACTER;
+terminal String    CADENA, ID;
+
+/* ============================================================
+ * NO TERMINALES (tipados raw para no chocar con las clases anidadas de A)
+ * ============================================================ */
+non terminal          programa;
+non terminal ArrayList lista_inst, bloque, casos, default_case, lista_expr;
+non terminal ArrayList params, lista_params, args, lista_args;
+non terminal ArrayList campos_struct, lista_campos_valor;
+non terminal Object   instruccion, sent_simple, declaracion, asignacion, incdec;
+non terminal Object   imprimir, llamada, operacion_lista, run_main, struct_decl, funcion_decl;
+non terminal Object   if_stmt, match_stmt, while_stmt, for_stmt, do_while, caso, actualizacion;
+non terminal Object   expr, opt_init, struct_literal, campo_valor, param, arg, campo_struct;
+non terminal Tipo     tipo, tipo_dato, tipo_ret, tipo_param;
+non terminal Boolean  mut;
+
+/* ============================================================
+ * PRECEDENCIA (5.9): el declarado ULTIMO liga mas fuerte.
+ *   || (7, mas debil) ... negacion unaria (0, mas fuerte)
+ * ============================================================ */
+precedence left  OR;
+precedence left  AND;
+precedence right NOT;
+precedence left  IGUAL_IGUAL, DIFERENTE, MENOR, MENOR_IGUAL, MAYOR, MAYOR_IGUAL;
+precedence left  MAS, MENOS;
+precedence left  POR, DIV, MOD;
+precedence nonassoc POT, RAIZ;
+precedence right UMENOS;
+
+start with programa;
+
+/* ============================================================
+ * PRODUCCIONES
+ * ============================================================ */
+
+programa ::= lista_inst:l {: parser.raiz = l; :} ;
+
+lista_inst ::= lista_inst:l instruccion:i {: if (i != null) l.add(i); RESULT = l; :}
+             |                             {: RESULT = new ArrayList(); :}
+             ;
+
+instruccion ::= sent_simple:s PUNTO_COMA {: RESULT = s; :}
+              | if_stmt:s                {: RESULT = s; :}
+              | match_stmt:s             {: RESULT = s; :}
+              | while_stmt:s             {: RESULT = s; :}
+              | for_stmt:s               {: RESULT = s; :}
+              | do_while:s PUNTO_COMA    {: RESULT = s; :}
+              | funcion_decl:s           {: RESULT = s; :}
+              | struct_decl:s            {: RESULT = s; :}
+              | error PUNTO_COMA         {: RESULT = null; :}
+              ;
+
+sent_simple ::= declaracion:s     {: RESULT = s; :}
+              | asignacion:s       {: RESULT = s; :}
+              | incdec:s           {: RESULT = s; :}
+              | imprimir:s         {: RESULT = s; :}
+              | llamada:s          {: RESULT = new A.ExpresionStmt(s); :}
+              | operacion_lista:s  {: RESULT = new A.ExpresionStmt(s); :}
+              | run_main:s         {: RESULT = s; :}
+              | BREAK:b            {: RESULT = new A.Break(bleft, bright); :}
+              | CONTINUE:b         {: RESULT = new A.Continue(bleft, bright); :}
+              | RETURN:r           {: RESULT = new A.Return(null, rleft, rright); :}
+              | RETURN:r expr:e    {: RESULT = new A.Return(e, rleft, rright); :}
+              ;
+
+mut ::= LET   {: RESULT = Boolean.FALSE; :}
+      | CONST {: RESULT = Boolean.TRUE; :}
+      ;
+
+/* --- declaracion de variables / vectores / listas / structs (5.11, 5.18-5.20) --- */
+declaracion ::= mut:m ID:id DOS_PUNTOS tipo_dato:t opt_init:e
+                {: if (t.cat == Tipo.Cat.LIST && ((Boolean) m).booleanValue()) {
+                       parser.contexto.error("Sintactico",
+                           "una lista dinamica no puede declararse como const", idleft, idright);
+                       RESULT = new A.Declaracion(false, id, t, e, idleft, idright);
+                   } else {
+                       RESULT = new A.Declaracion(((Boolean) m).booleanValue(), id, t, e, idleft, idright);
+                   } :}
+              | mut:m ID:id DOS_PUNTOS ID:st
+                {: RESULT = new A.Declaracion(((Boolean) m).booleanValue(), id, Tipo.struct(st), null, idleft, idright); :}
+              | mut:m ID:id DOS_PUNTOS ID:st IGUAL struct_literal:sl
+                {: RESULT = new A.Declaracion(((Boolean) m).booleanValue(), id, Tipo.struct(st), sl, idleft, idright); :}
+              ;
+
+opt_init ::=                {: RESULT = null; :}
+           | IGUAL expr:e   {: RESULT = e; :}
+           ;
+
+tipo_dato ::= tipo:t                                          {: RESULT = t; :}
+            | tipo:t COR_IZQ COR_DER                          {: RESULT = Tipo.vector(t, 1); :}
+            | tipo:t COR_IZQ COR_DER COR_IZQ COR_DER          {: RESULT = Tipo.vector(t, 2); :}
+            | LIST MENOR tipo:t MAYOR                         {: RESULT = Tipo.lista(t); :}
+            ;
+
+tipo ::= T_INT    {: RESULT = Tipo.INT; :}
+       | T_DOUBLE {: RESULT = Tipo.DOUBLE; :}
+       | T_BOOL   {: RESULT = Tipo.BOOL; :}
+       | T_CHAR   {: RESULT = Tipo.CHAR; :}
+       | T_STRING {: RESULT = Tipo.STRING; :}
+       ;
+
+struct_literal ::= LLAVE_IZQ lista_campos_valor:l LLAVE_DER {: RESULT = new A.LiteralStruct(l); :} ;
+
+lista_campos_valor ::= lista_campos_valor:l COMA campo_valor:cv {: l.add(cv); RESULT = l; :}
+                     | campo_valor:cv {: ArrayList a = new ArrayList(); a.add(cv); RESULT = a; :}
+                     ;
+
+campo_valor ::= ID:id DOS_PUNTOS expr:e {: RESULT = new A.CampoValor(id, e, idleft, idright); :} ;
+
+/* --- asignacion (5.12, 5.18.3, 5.20.4) --- */
+asignacion ::= ID:id IGUAL expr:e
+               {: RESULT = new A.AsignacionVariable(id, e, idleft, idright); :}
+             | ID:id COR_IZQ expr:i COR_DER IGUAL expr:e
+               {: RESULT = new A.AsignacionVector(id, i, null, e, idleft, idright); :}
+             | ID:id COR_IZQ expr:i COR_DER COR_IZQ expr:j COR_DER IGUAL expr:e
+               {: RESULT = new A.AsignacionVector(id, i, j, e, idleft, idright); :}
+             | ID:id PUNTO ID:campo IGUAL expr:e
+               {: RESULT = new A.AsignacionCampo(id, campo, e, idleft, idright); :}
+             ;
+
+/* --- incremento / decremento (5.14) --- */
+incdec ::= ID:id INCR {: RESULT = new A.IncDec(id, true, idleft, idright); :}
+         | ID:id DECR {: RESULT = new A.IncDec(id, false, idleft, idright); :}
+         ;
+
+/* --- console.log (5.24) --- */
+imprimir ::= CONSOLE:cs PUNTO LOG PAR_IZQ expr:e PAR_DER
+             {: RESULT = new A.ImprimirConsola(e, csleft, csright); :} ;
+
+/* --- llamadas (5.23) --- */
+llamada ::= ID:id PAR_IZQ PAR_DER       {: RESULT = new A.Llamada(id, new ArrayList(), idleft, idright); :}
+          | ID:id PAR_IZQ args:a PAR_DER {: RESULT = new A.Llamada(id, a, idleft, idright); :}
+          ;
+
+args ::= lista_args:l {: RESULT = l; :} ;
+
+lista_args ::= lista_args:l COMA arg:a {: l.add(a); RESULT = l; :}
+             | arg:a {: ArrayList x = new ArrayList(); x.add(a); RESULT = x; :}
+             ;
+
+arg ::= ID:id IGUAL expr:e {: RESULT = new A.Argumento(id, e, idleft, idright); :} ;
+
+/* --- operaciones sobre listas dinamicas (5.19) --- */
+operacion_lista ::= ID:id PUNTO PUSH PAR_IZQ expr:e PAR_DER
+                    {: ArrayList a = new ArrayList(); a.add(e);
+                       RESULT = new A.OperacionLista(id, "push", a, idleft, idright); :}
+                  | ID:id PUNTO GET PAR_IZQ expr:e PAR_DER
+                    {: ArrayList a = new ArrayList(); a.add(e);
+                       RESULT = new A.OperacionLista(id, "get", a, idleft, idright); :}
+                  | ID:id PUNTO SET PAR_IZQ expr:e1 COMA expr:e2 PAR_DER
+                    {: ArrayList a = new ArrayList(); a.add(e1); a.add(e2);
+                       RESULT = new A.OperacionLista(id, "set", a, idleft, idright); :}
+                  | ID:id PUNTO REMOVE PAR_IZQ expr:e PAR_DER
+                    {: ArrayList a = new ArrayList(); a.add(e);
+                       RESULT = new A.OperacionLista(id, "remove", a, idleft, idright); :}
+                  | ID:id PUNTO POP PAR_IZQ PAR_DER
+                    {: RESULT = new A.OperacionLista(id, "pop", new ArrayList(), idleft, idright); :}
+                  | ID:id PUNTO REVERSE PAR_IZQ PAR_DER
+                    {: RESULT = new A.OperacionLista(id, "reverse", new ArrayList(), idleft, idright); :}
+                  ;
+
+/* --- RUN_MAIN (5.29) --- */
+run_main ::= RUN_MAIN:r ID:id PAR_IZQ PAR_DER
+             {: RESULT = new A.RunMain(id, new ArrayList(), rleft, rright); :}
+           | RUN_MAIN:r ID:id PAR_IZQ args:a PAR_DER
+             {: RESULT = new A.RunMain(id, a, rleft, rright); :}
+           ;
+
+/* --- structs (5.20.1) --- */
+struct_decl ::= STRUCT:s ID:id LLAVE_IZQ campos_struct:c LLAVE_DER PUNTO_COMA
+                {: RESULT = new A.DeclaracionStruct(id, c, sleft, sright); :} ;
+
+campos_struct ::= campos_struct:l campo_struct:cs {: l.add(cs); RESULT = l; :}
+                | campo_struct:cs {: ArrayList a = new ArrayList(); a.add(cs); RESULT = a; :}
+                ;
+
+campo_struct ::= ID:id DOS_PUNTOS tipo_param:t PUNTO_COMA {: RESULT = new A.CampoStruct(id, t); :} ;
+
+tipo_param ::= tipo_dato:t {: RESULT = t; :}
+             | ID:st       {: RESULT = Tipo.struct(st); :}
+             ;
+
+/* --- funciones y metodos (5.21, 5.22) --- */
+funcion_decl ::= tipo_ret:t ID:id PAR_IZQ params:p PAR_DER bloque:b
+                 {: RESULT = new A.DeclaracionFuncion(t, id, p, b, idleft, idright); :} ;
+
+tipo_ret ::= tipo:t {: RESULT = t; :}
+           | VOID   {: RESULT = Tipo.VOID; :}
+           ;
+
+params ::=                    {: RESULT = new ArrayList(); :}
+         | lista_params:l     {: RESULT = l; :}
+         ;
+
+lista_params ::= lista_params:l COMA param:p {: l.add(p); RESULT = l; :}
+               | param:p {: ArrayList a = new ArrayList(); a.add(p); RESULT = a; :}
+               ;
+
+param ::= ID:id DOS_PUNTOS tipo_param:t             {: RESULT = new A.Parametro(id, t, null); :}
+        | ID:id DOS_PUNTOS tipo_param:t IGUAL expr:e {: RESULT = new A.Parametro(id, t, e); :}
+        ;
+
+/* --- bloque de instrucciones --- */
+bloque ::= LLAVE_IZQ lista_inst:l LLAVE_DER {: RESULT = l; :} ;
+
+/* --- if / if-else / if-else if (5.15.1). El else colgante se resuelve
+       por defecto con SHIFT (se une al if mas cercano). --- */
+if_stmt ::= IF:f PAR_IZQ expr:c PAR_DER bloque:b
+            {: RESULT = new A.If(c, b, null, null, fleft, fright); :}
+          | IF:f PAR_IZQ expr:c PAR_DER bloque:b ELSE bloque:e
+            {: RESULT = new A.If(c, b, e, null, fleft, fright); :}
+          | IF:f PAR_IZQ expr:c PAR_DER bloque:b ELSE if_stmt:ei
+            {: RESULT = new A.If(c, b, null, ei, fleft, fright); :}
+          ;
+
+/* --- match (5.15.2): 3 variantes validas --- */
+match_stmt ::= MATCH:m expr:s LLAVE_IZQ casos:cs LLAVE_DER
+               {: RESULT = new A.Match(s, cs, null, mleft, mright); :}
+             | MATCH:m expr:s LLAVE_IZQ casos:cs default_case:d LLAVE_DER
+               {: RESULT = new A.Match(s, cs, d, mleft, mright); :}
+             | MATCH:m expr:s LLAVE_IZQ default_case:d LLAVE_DER
+               {: RESULT = new A.Match(s, null, d, mleft, mright); :}
+             ;
+
+casos ::= casos:l caso:c {: l.add(c); RESULT = l; :}
+        | caso:c {: ArrayList a = new ArrayList(); a.add(c); RESULT = a; :}
+        ;
+
+caso ::= expr:v FLECHA LLAVE_IZQ lista_inst:b LLAVE_DER {: RESULT = new A.CasoMatch(v, b); :} ;
+
+default_case ::= DEFAULT FLECHA LLAVE_IZQ lista_inst:b LLAVE_DER {: RESULT = b; :} ;
+
+/* --- ciclos (5.16) --- */
+while_stmt ::= WHILE:w PAR_IZQ expr:c PAR_DER bloque:b
+               {: RESULT = new A.While(c, b, wleft, wright); :} ;
+
+for_stmt ::= FOR:f PAR_IZQ asignacion:i PUNTO_COMA expr:c PUNTO_COMA actualizacion:u PAR_DER bloque:b
+             {: RESULT = new A.For(i, c, u, b, fleft, fright); :} ;
+
+actualizacion ::= asignacion:a {: RESULT = a; :}
+                | incdec:a     {: RESULT = a; :}
+                ;
+
+do_while ::= DO:d bloque:b WHILE PAR_IZQ expr:c PAR_DER
+             {: RESULT = new A.DoWhile(b, c, dleft, dright); :} ;
+
+/* --- expresiones (5.5-5.8, 5.13, 5.18.2, 5.19.3, 5.25-5.27) --- */
+expr ::= expr:a MAS expr:b          {: RESULT = new A.Binaria("+", a, b, aleft, aright); :}
+       | expr:a MENOS expr:b        {: RESULT = new A.Binaria("-", a, b, aleft, aright); :}
+       | expr:a POR expr:b          {: RESULT = new A.Binaria("*", a, b, aleft, aright); :}
+       | expr:a DIV expr:b          {: RESULT = new A.Binaria("/", a, b, aleft, aright); :}
+       | expr:a POT expr:b          {: RESULT = new A.Binaria("^", a, b, aleft, aright); :}
+       | expr:a RAIZ expr:b         {: RESULT = new A.Binaria("$", a, b, aleft, aright); :}
+       | expr:a MOD expr:b          {: RESULT = new A.Binaria("%", a, b, aleft, aright); :}
+       | expr:a IGUAL_IGUAL expr:b  {: RESULT = new A.Binaria("==", a, b, aleft, aright); :}
+       | expr:a DIFERENTE expr:b    {: RESULT = new A.Binaria("!=", a, b, aleft, aright); :}
+       | expr:a MENOR expr:b        {: RESULT = new A.Binaria("<", a, b, aleft, aright); :}
+       | expr:a MENOR_IGUAL expr:b  {: RESULT = new A.Binaria("<=", a, b, aleft, aright); :}
+       | expr:a MAYOR expr:b        {: RESULT = new A.Binaria(">", a, b, aleft, aright); :}
+       | expr:a MAYOR_IGUAL expr:b  {: RESULT = new A.Binaria(">=", a, b, aleft, aright); :}
+       | expr:a AND expr:b          {: RESULT = new A.Binaria("&&", a, b, aleft, aright); :}
+       | expr:a OR expr:b           {: RESULT = new A.Binaria("||", a, b, aleft, aright); :}
+       | NOT:n expr:a               {: RESULT = new A.Unaria("NOT", a, nleft, nright); :}
+       | MENOS:m expr:a             {: RESULT = new A.Unaria("NEG", a, mleft, mright); :} %prec UMENOS
+       | PAR_IZQ expr:a PAR_DER     {: RESULT = a; :}
+       | ENTERO:v                   {: RESULT = new A.Literal(Valor.vInt(v.intValue())); :}
+       | DECIMAL:v                  {: RESULT = new A.Literal(Valor.vDouble(v.doubleValue())); :}
+       | CADENA:v                   {: RESULT = new A.Literal(Valor.vString(v)); :}
+       | CARACTER:v                 {: RESULT = new A.Literal(Valor.vChar(v.charValue())); :}
+       | TRUE                       {: RESULT = new A.Literal(Valor.vBool(true)); :}
+       | FALSE                      {: RESULT = new A.Literal(Valor.vBool(false)); :}
+       | CAST PAR_IZQ expr:e AS tipo:t PAR_DER {: RESULT = new A.Cast(e, t, eleft, eright); :}
+       | COR_IZQ lista_expr:l COR_DER {: RESULT = new A.LiteralVector(l); :}
+       | ROUND:r PAR_IZQ expr:e PAR_DER    {: RESULT = new A.Nativa("round", e, rleft, rright); :}
+       | LENGTH:r PAR_IZQ expr:e PAR_DER   {: RESULT = new A.Nativa("length", e, rleft, rright); :}
+       | TOSTRING:r PAR_IZQ expr:e PAR_DER {: RESULT = new A.Nativa("tostring", e, rleft, rright); :}
+       | llamada:c                  {: RESULT = c; :}
+       | operacion_lista:o          {: RESULT = o; :}
+       | ID:id                      {: RESULT = new A.AccesoVariable(id, idleft, idright); :}
+       | ID:id COR_IZQ expr:i COR_DER {: RESULT = new A.AccesoVector(id, i, null, idleft, idright); :}
+       | ID:id COR_IZQ expr:i COR_DER COR_IZQ expr:j COR_DER
+                                    {: RESULT = new A.AccesoVector(id, i, j, idleft, idright); :}
+       | ID:id PUNTO ID:campo       {: RESULT = new A.AccesoCampo(id, campo, idleft, idright); :}
+       ;
+
+lista_expr ::= lista_expr:l COMA expr:e {: l.add(e); RESULT = l; :}
+             | expr:e {: ArrayList a = new ArrayList(); a.add(e); RESULT = a; :}
+             ;

@@ -1,0 +1,60 @@
+// Ejemplo oficial del Anexo 11.1 del enunciado (OLC1 Proyecto 2)
+// Comentarios de una linea y multilinea
+// Esto es un comentario de una sola linea
+/* Este es un comentario
+de multiples lineas */
+
+// Declaracion de variables globales
+let x: int = 10;
+let y: double = 5.5;
+let mensaje: string = "Hola Mundo";
+let suma: double;
+let resta: int;
+let potencia: double;
+let modulo: int;
+let esMayor: bool;
+let resultado: string;
+
+// Funcion principal
+function void main() {
+    // Operaciones aritmeticas
+    suma = x + y;
+    resta = x - 3;
+    potencia = x ^ 2;
+    modulo = x % 3;
+
+    // Uso de operadores relacionales y logicos
+    esMayor = x > y && x != 0;
+
+    // Condicionales con IF
+    if (esMayor) {
+        echo "X es mayor que Y y no es cero";
+    } else {
+        echo "X no es mayor que Y o es cero";
+    }
+
+    // Uso de un operador ternario
+    resultado = if (suma > 15) "Mayor a 15" : "Menor o igual a 15";
+    echo resultado;
+
+    // Ciclo FOR
+    for (let i: int = 0; i < 5; i++) {
+        echo "El valor de i es: " + i;
+    }
+
+    // Llamadas a funciones y metodos
+    let resultadoSuma: int = sumaNumeros(a=3, b=7);
+    imprimirMensaje(mensaje = "La suma de 3 y 7 es: " + resultadoSuma);
+}
+
+// Funciones y metodos
+function int sumaNumeros(a: int, b: int) {
+    return a + b;
+}
+
+function void imprimirMensaje(mensaje: string) {
+    echo mensaje;
+}
+
+// Sentencia ejecutar
+ejecutar main();

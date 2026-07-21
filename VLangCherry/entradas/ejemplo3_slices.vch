@@ -1,0 +1,32 @@
+// Slices 1D/2D y funciones nativas (5.1-5.2, 7.2)
+func main() {
+    mut numeros := []int{10, 20, 30, 40, 50}
+    print("len:", len(numeros))
+    print("indexOf 30:", indexOf(numeros, 30))
+    print("indexOf 999:", indexOf(numeros, 999))
+
+    numeros = append(numeros, 60)
+    print("despues de append:", numeros)
+
+    numeros[0] = 100
+    print("modificado:", numeros)
+
+    palabras := []string{"hola", "mundo", "vlang"}
+    print("join:", join(palabras, " "))
+
+    mtx := [][]int{
+        {1, 2, 3},
+        {4, 5, 6},
+        {7, 8, 9},
+    }
+    for f, fila in mtx {
+        for c, val in fila {
+            print("mtx[", f, "][", c, "] =", val)
+        }
+    }
+
+    print("Atoi:", Atoi("123"))
+    print("parseFloat:", parseFloat("3.14"))
+    print("typeOf numeros:", typeOf(numeros))
+    print("typeOf palabras:", typeOf(palabras))
+}
