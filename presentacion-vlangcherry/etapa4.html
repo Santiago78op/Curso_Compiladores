@@ -1,0 +1,174 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Etapa 4 · Slices 1D/2D — VLangCherry</title>
+<link rel="stylesheet" href="assets/estilo.css">
+</head>
+<body>
+
+<div class="deck">
+  <div class="topbar">
+    <a class="brand" href="index.html" title="Volver al índice">VLang<em>Cherry</em> · curso guiado</a>
+    <span class="chip">Etapa 4 · Slices 1D/2D</span>
+    <span class="counter"><span id="cur">1</span> / <span id="tot">?</span></span>
+    <button id="theme" type="button" title="Cambiar tema claro/oscuro" aria-label="Cambiar tema claro/oscuro">◐</button>
+  </div>
+  <div class="progress"><div id="bar"></div></div>
+
+  <div class="stage">
+
+    <!-- 1 · Intro -->
+    <section class="slide">
+      <div class="inner titleslide">
+        <p class="eyebrow">Etapa 4 · Parte 1</p>
+        <h1>Un slice de slices, sin tipo especial para 2D</h1>
+        <p class="lead">VLangCherry no tiene un tipo aparte para arreglos bidimensionales: un <code class="inline">[][]int</code> es, simplemente, un slice cuyos elementos son a su vez slices. La misma estructura de datos (<code class="inline">SliceVal</code>) sirve para ambos casos.</p>
+      </div>
+    </section>
+
+    <!-- 2 · SliceVal -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">La estructura de datos (<code class="inline">internal/runtime/valores.go</code>)</p>
+        <h2><code class="inline">SliceVal</code>: un arreglo de <code class="inline">Valor</code></h2>
+        <pre class="code">// SliceVal es la representacion de un []T o [][]T. Append (5.1.5) genera
+// SIEMPRE un SliceVal nuevo, igual que en Go real: la variable debe
+// reasignarse con el resultado.
+type SliceVal struct {
+    Elems    []Valor
+    TipoElem Tipo
+}
+
+func NuevoSlice(tipoElem Tipo, elems []Valor) Valor {
+    return Valor{Tipo: TipoSliceDe(tipoElem), Slice: &amp;SliceVal{Elems: elems, TipoElem: tipoElem}}
+}</pre>
+        <p>Para un <code class="inline">[]int</code>, <code class="inline">TipoElem</code> es <code class="inline">int</code> y cada <code class="inline">Elems[i]</code> es un <code class="inline">Valor</code> con su campo <code class="inline">I</code> poblado. Para un <code class="inline">[][]int</code>, <code class="inline">TipoElem</code> es <em>en sí mismo</em> un tipo slice (<code class="inline">[]int</code>), y cada <code class="inline">Elems[i]</code> es un <code class="inline">Valor</code> cuyo campo <code class="inline">Slice</code> apunta a otro <code class="inline">SliceVal</code>. No hace falta ningún caso especial para "2D": es recursión de la misma estructura.</p>
+      </div>
+    </section>
+
+    <!-- 3 · Gramática -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">Cómo se declara en la gramática (Etapa 1)</p>
+        <h2>El tipo slice es recursivo por definición</h2>
+        <pre class="code">tipo
+    : tipoSlice
+    | tipoPrimitivo
+    | ID
+    ;
+
+tipoSlice
+    : '[' ']' tipo
+    ;</pre>
+        <p><code class="inline">tipoSlice</code> se define en términos de <code class="inline">tipo</code>, que a su vez puede volver a ser <code class="inline">tipoSlice</code>. <code class="inline">[]int</code> hace un solo salto (<code class="inline">tipoSlice → tipoPrimitivo</code>); <code class="inline">[][]int</code> hace dos (<code class="inline">tipoSlice → tipoSlice → tipoPrimitivo</code>). La gramática no distingue "1D" de "2D" como conceptos separados — es la misma regla aplicada dos veces.</p>
+      </div>
+    </section>
+
+    <!-- 4 · Ejemplo real 1D -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">Ejemplo real — <code class="inline">entradas/ejemplo3_slices.vch</code></p>
+        <h2>Slice de una dimensión y funciones nativas</h2>
+        <pre class="code">mut numeros := []int{10, 20, 30, 40, 50}
+print("len:", len(numeros))
+print("indexOf 30:", indexOf(numeros, 30))
+print("indexOf 999:", indexOf(numeros, 999))
+
+numeros = append(numeros, 60)
+print("despues de append:", numeros)
+
+numeros[0] = 100
+print("modificado:", numeros)
+
+palabras := []string{"hola", "mundo", "vlang"}
+print("join:", join(palabras, " "))</pre>
+        <p>Cuatro funciones nativas sobre slices (sección 7.2 del enunciado): <code class="inline">len</code> (cantidad de elementos), <code class="inline">append</code> (agrega, siempre devuelve un slice nuevo — Etapa 3), <code class="inline">indexOf</code> (posición de un valor, o <code class="inline">-1</code> si no está) y <code class="inline">join</code> (concatena un slice de strings con separador).</p>
+        <p><code class="inline">numeros[0] = 100</code> muta el elemento en el lugar — vía <code class="inline">resolverLugar</code> (Etapa 3), no reasignación completa del slice.</p>
+      </div>
+    </section>
+
+    <!-- 5 · Ejemplo real 2D -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">Ejemplo real — <code class="inline">entradas/ejemplo3_slices.vch</code></p>
+        <h2>Slice de dos dimensiones, con literal anidado</h2>
+        <pre class="code">mtx := [][]int{
+    {1, 2, 3},
+    {4, 5, 6},
+    {7, 8, 9},
+}
+for f, fila in mtx {
+    for c, val in fila {
+        print("mtx[", f, "][", c, "] =", val)
+    }
+}</pre>
+        <p>El literal de slice 2D usa <strong>filas</strong> (<code class="inline">{1, 2, 3}</code>, <code class="inline">filaSlice</code> en la gramática) en vez de una lista plana de argumentos: cada fila es, a su vez, un literal de slice implícito de tipo <code class="inline">TipoElem</code>. El <code class="inline">for … in</code> anidado recorre <code class="inline">mtx</code> (filas) y luego cada <code class="inline">fila</code> (columnas), con índice y valor en cada nivel — la forma "rango" del <code class="inline">for</code>, que se retoma en la Etapa 5.</p>
+      </div>
+    </section>
+
+    <!-- 6 · Literal de slice en la gramática -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">La gramática detrás del literal</p>
+        <h2>Dos formas de <code class="inline">literalSlice</code></h2>
+        <pre class="code">literalSlice
+    : '[' ']' tipo '{' listaArgumentos? '}'
+    | '[' ']' tipo '{' filaSlice (',' filaSlice)* ','? '}'
+    ;
+
+filaSlice
+    : '{' listaArgumentos? '}'
+    ;</pre>
+        <p>La primera alternativa cubre <code class="inline">[]int{10, 20, 30}</code> (lista plana de expresiones). La segunda cubre <code class="inline">[][]int{ {1,2,3}, {4,5,6} }</code> (lista de filas, cada una entre llaves). La coma final opcional (<code class="inline">','?</code>) antes de la llave de cierre replica una convención habitual de Go: permite dejar una coma colgante en literales multilínea sin que sea error sintáctico.</p>
+      </div>
+    </section>
+
+    <!-- 7 · Quiz -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">Chequeo rápido</p>
+        <h2>Sobre slices 1D y 2D</h2>
+        <div class="quiz">
+          <div class="q">
+            <p class="question">1 · ¿Existe un tipo <code class="inline">Slice2D</code> en el runtime, separado de <code class="inline">SliceVal</code>?</p>
+            <button type="button" onclick="this.parentElement.classList.add('revealed')">Revelar respuesta</button>
+            <div class="answer"><p>No. Un <code class="inline">[][]int</code> es un <code class="inline">SliceVal</code> cuyo <code class="inline">TipoElem</code> es a su vez un tipo slice, y cuyos <code class="inline">Elems</code> son <code class="inline">Valor</code> con su propio campo <code class="inline">Slice</code> poblado. Es la misma estructura, anidada — no hay un caso especial para 2D.</p></div>
+          </div>
+          <div class="q">
+            <p class="question">2 · Tras <code class="inline">numeros = append(numeros, 60)</code>, ¿por qué no alcanzaba con <code class="inline">append(numeros, 60)</code> sin la reasignación?</p>
+            <button type="button" onclick="this.parentElement.classList.add('revealed')">Revelar respuesta</button>
+            <div class="answer"><p>Porque <code class="inline">append</code> siempre produce un <code class="inline">SliceVal</code> nuevo (Etapa 3) — la variable <code class="inline">numeros</code> seguiría apuntando al slice viejo, sin el elemento agregado, si no se reasignara explícitamente.</p></div>
+          </div>
+          <div class="q">
+            <p class="question">3 · En <code class="inline">for f, fila in mtx { for c, val in fila { ... } }</code>, ¿qué tipo tiene <code class="inline">fila</code> en cada iteración del ciclo externo?</p>
+            <button type="button" onclick="this.parentElement.classList.add('revealed')">Revelar respuesta</button>
+            <div class="answer"><p><code class="inline">[]int</code> — cada elemento de <code class="inline">mtx</code> (que es <code class="inline">[][]int</code>) es a su vez un slice de <code class="inline">int</code>, así que el ciclo interno puede volver a iterar sobre él con la misma sintaxis <code class="inline">for … in</code>.</p></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 8 · Cierre -->
+    <section class="slide">
+      <div class="inner titleslide">
+        <p class="eyebrow">Etapa 4 · construida</p>
+        <h1>Los slices quedan resueltos con una sola estructura recursiva</h1>
+        <p class="lead"><code class="inline">SliceVal</code> anidado para 1D y 2D, cuatro funciones nativas (<code>len</code>, <code>append</code>, <code>indexOf</code>, <code>join</code>) y literales con filas para el caso bidimensional.</p>
+        <p class="kicker">Próxima: <strong>Etapa 5 — control de flujo, recursión y la auditoría de validación semántica</strong>.<br><a class="btn" href="index.html" style="margin-top:14px">⌂ Volver al índice</a></p>
+      </div>
+    </section>
+
+  </div>
+
+  <div class="navbar">
+    <button id="prev" type="button">← Anterior</button>
+    <button id="next" type="button">Siguiente →</button>
+    <span class="hint">también se pueden usar las flechas del teclado</span>
+  </div>
+</div>
+
+<script src="assets/deck.js"></script>
+</body>
+</html>

@@ -1,0 +1,220 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Etapa 4 · Editor JavaFX — DataForge</title>
+<link rel="stylesheet" href="assets/estilo.css">
+</head>
+<body>
+
+<div class="deck">
+  <div class="topbar">
+    <a class="brand" href="index.html" title="Volver al índice">Data<em>Forge</em> · curso guiado</a>
+    <span class="chip">Etapa 4 · Editor JavaFX</span>
+    <span class="counter"><span id="cur">1</span> / <span id="tot">?</span></span>
+    <button id="theme" type="button" title="Cambiar tema claro/oscuro" aria-label="Cambiar tema claro/oscuro">◐</button>
+  </div>
+  <div class="progress"><div id="bar"></div></div>
+
+  <div class="stage">
+
+    <!-- 1 · Portada -->
+    <section class="slide">
+      <div class="inner titleslide">
+        <p class="eyebrow">Etapa 4 · Ponerle cara</p>
+        <h1>El entorno de trabajo</h1>
+        <p class="lead">El intérprete ya lee, valida y ejecuta — pero vive en la terminal. El enunciado (§4) pide un <strong>editor</strong>: pestañas, abrir/guardar <code class="inline">.df</code>, botón Ejecutar y consola de salida. Hoy se construye con JavaFX.</p>
+        <p class="kicker">Novedad de la etapa: acá no hay Dragón — es ingeniería de UI. La teoría vuelve en las Etapas 5 y 6.</p>
+      </div>
+    </section>
+
+    <!-- 2 · JavaFX -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">La herramienta</p>
+        <h2>JavaFX en 3 conceptos (y un déjà vu)</h2>
+        <div class="cards three">
+          <div class="card"><h3>Stage</h3><p>La <strong>ventana</strong> del sistema operativo. JavaFX la entrega en el método <code>start(Stage stage)</code>.</p></div>
+          <div class="card"><h3>Scene</h3><p>El <strong>contenido</strong> de la ventana. Una ventana muestra una escena a la vez.</p></div>
+          <div class="card"><h3>Nodos</h3><p>Todo lo que se ve — botones, pestañas, áreas de texto — organizados en un <strong>scene graph</strong>.</p></div>
+        </div>
+        <p>¿Y el déjà vu? El scene graph es un <strong>árbol</strong>: contenedores con hijos, hijos con hijos… Van tres etapas trabajando con árboles (derivaciones, cajas anidadas, atributos que suben) — la UI es otro más:</p>
+        <pre class="code">Stage
+└── Scene
+    └── BorderPane                    (raíz)
+        ├── top:    HBox              (barra de botones)
+        │           ├── Nuevo · Abrir · Guardar · ▶ Ejecutar
+        └── center: SplitPane         (dividido en vertical)
+                    ├── TabPane       (el editor: una pestaña por archivo)
+                    │   └── Tab → TextArea (el código fuente)
+                    └── TextArea      (la consola, NO editable)</pre>
+        <p class="muted">Ciclo de vida: JavaFX llama a <code class="inline">start()</code>, se arma el árbol, <code class="inline">stage.show()</code>, y de ahí en más todo es reaccionar a eventos (<code class="inline">setOnAction</code>).</p>
+      </div>
+    </section>
+
+    <!-- 3 · Decisión FXML -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">Decisión de diseño</p>
+        <h2>¿UI por código o con FXML/Scene Builder?</h2>
+        <p>JavaFX ofrece dos caminos para armar el árbol:</p>
+        <div class="cards">
+          <div class="card"><h3>FXML + Scene Builder</h3><p>La UI se describe en un XML que se diseña arrastrando controles en Scene Builder; un «controller» Java le pone la lógica. Bueno para interfaces grandes con diseñador visual.</p></div>
+          <div class="card"><h3>Por código (la opción elegida) ✓</h3><p>El árbol se construye con <code>new</code> y métodos — todo en un solo archivo Java, sin XML, sin recursos que cargar, sin herramienta extra. Para una UI de 6 controles, es lo más directo y lo más fácil de depurar.</p></div>
+        </div>
+        <div class="callout"><p><strong>El porqué pedagógico:</strong> al construir el scene graph a mano, queda a la vista — cada contenedor, cada hijo. Con FXML el árbol queda escondido en el XML. Cuando la UI crezca (o se prefiera diseñar visualmente), Scene Builder queda disponible — el enunciado no exige ninguno de los dos caminos.</p></div>
+      </div>
+    </section>
+
+    <!-- 4 · Las piezas -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">El código clave · 1 de 2</p>
+        <h2>Pestañas y archivos</h2>
+        <p>Cada requisito del §4 se mapea a un control estándar. La pestaña es la unidad central — un <code class="inline">Tab</code> cuyo contenido es el editor y cuyo <code class="inline">userData</code> recuerda a qué archivo pertenece:</p>
+        <pre class="code"><span class="tk-res">private void</span> nuevaPestana(String titulo, String contenido, File archivo) {
+    TextArea area = <span class="tk-res">new</span> TextArea(contenido);
+    area.setFont(Font.font(<span class="tk-str">"Consolas"</span>, 14));
+    Tab tab = <span class="tk-res">new</span> Tab(titulo, area);
+    tab.setUserData(archivo);      <span class="tk-sym">// null = nuevo, sin guardar aún</span>
+    pestanas.getTabs().add(tab);
+    pestanas.getSelectionModel().select(tab);
+}</pre>
+        <p>Abrir y guardar usan <code class="inline">FileChooser</code> con filtro <code class="inline">*.df</code> (requisito 4.2 exacto). El truco de Guardar: si <code class="inline">userData</code> es null, es un archivo nuevo → diálogo «Guardar como», y la pestaña adopta el nombre del archivo:</p>
+        <pre class="code">fc.getExtensionFilters().add(
+    <span class="tk-res">new</span> FileChooser.ExtensionFilter(<span class="tk-str">"DataForge (*.df)"</span>, <span class="tk-str">"*.df"</span>));
+File f = fc.showOpenDialog(stage);   <span class="tk-sym">// o showSaveDialog para guardar</span>
+Files.readString(f.toPath(), StandardCharsets.UTF_8);  <span class="tk-sym">// leer moderno, sin loops</span></pre>
+        <p class="muted">«Eliminar pestaña: si los cambios no se han guardado, se descartan» (4.2) — las Tab de JavaFX traen la ✕ de cierre por defecto, y descartar es exactamente no hacer nada. Requisito cumplido gratis.</p>
+      </div>
+    </section>
+
+    <!-- 5 · Conectar el intérprete -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">El código clave · 2 de 2</p>
+        <h2>El botón que une las 4 etapas</h2>
+        <p>La elegancia de esta etapa: conectar TODO lo construido cuesta tres líneas, gracias a una fachada nueva (<code class="inline">Interprete.java</code>):</p>
+        <pre class="code"><span class="tk-sym">// la fachada: String → pipeline completo → Entorno con resultados</span>
+<span class="tk-res">public static</span> Entorno ejecutar(String codigo) {
+    Parser parser = <span class="tk-res">new</span> Parser(<span class="tk-res">new</span> Lexer(<span class="tk-res">new</span> StringReader(codigo)));
+    <span class="tk-res">try</span> { parser.parse(); } <span class="tk-res">catch</span> (Exception e) { <span class="tk-sym">/* ya registrado */</span> }
+    <span class="tk-res">return</span> parser.entorno;
+}
+
+<span class="tk-sym">// y el botón Ejecutar en la GUI:</span>
+ultimoEntorno = Interprete.ejecutar(areaActual().getText());
+consola.setText(ultimoEntorno.getConsola() + <span class="tk-sym">/* + errores */</span>);</pre>
+        <ul style="line-height:1.9">
+          <li><strong><code class="inline">StringReader</code> en vez de <code class="inline">FileReader</code>:</strong> al lexer le da igual de dónde vienen los caracteres — ahora vienen de la pestaña, no del disco. Mismo pipeline, otra fuente.</li>
+          <li><strong>Entorno fresco por ejecución:</strong> cada clic crea parser y entorno nuevos — el estado de una corrida no contamina la siguiente (§6: los reportes son solo del último análisis).</li>
+          <li><strong><code class="inline">ultimoEntorno</code> queda guardado:</strong> ahí esperan las gráficas registradas (Etapa 5) y los datos de los reportes (Etapa 6).</li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- 6 · pom y Lanzador -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">Infraestructura</p>
+        <h2>El pom nuevo y el truco del Lanzador</h2>
+        <p>Dos agregados al <code class="inline">pom.xml</code>:</p>
+        <pre class="code">&lt;dependency&gt;            <span class="tk-sym">&lt;!-- los controles de UI (traen también los Charts) --&gt;</span>
+    &lt;groupId&gt;org.openjfx&lt;/groupId&gt;
+    &lt;artifactId&gt;javafx-controls&lt;/artifactId&gt;
+    &lt;version&gt;21.0.4&lt;/version&gt;
+&lt;/dependency&gt;
+
+&lt;plugin&gt;                <span class="tk-sym">&lt;!-- para correr con: mvn clean javafx:run --&gt;</span>
+    &lt;groupId&gt;org.openjfx&lt;/groupId&gt;
+    &lt;artifactId&gt;javafx-maven-plugin&lt;/artifactId&gt;
+    &lt;version&gt;0.0.8&lt;/version&gt;
+    &lt;configuration&gt;&lt;mainClass&gt;dataforge.gui.EditorApp&lt;/mainClass&gt;&lt;/configuration&gt;
+&lt;/plugin&gt;</pre>
+        <div class="callout"><p><strong>El error famoso:</strong> si se le da ▶ Run directo a <code class="inline">EditorApp</code>, Java puede abortar con <em>«JavaFX runtime components are missing»</em>. El launcher de Java revisa si la clase main extiende <code class="inline">Application</code> y exige module-path. La esquiva clásica: una clase <code class="inline">Lanzador</code> que NO extiende Application y solo llama a <code class="inline">EditorApp.main()</code> — el chequeo no se dispara y el classpath plano de IDEA alcanza. <strong>En IDEA hay que correr siempre <code class="inline">Lanzador</code>.</strong></p></div>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>WARNING al arrancar (esperados, NO son errores)</th><th>Qué significa</th></tr></thead>
+            <tbody>
+              <tr><td><code>Unsupported JavaFX configuration: classes were loaded from 'unnamed module'</code></td><td>JavaFX preferiría el module-path; se carga por classpath a propósito (el truco del Lanzador). Funciona igual.</td></tr>
+              <tr><td><code>Restricted method … / native access</code></td><td>JDK moderno avisando que JavaFX carga sus DLL nativos de gráficos. Solo aviso; a futuro se silencia con <code>--enable-native-access=ALL-UNNAMED</code> en VM options.</td></tr>
+              <tr><td><code>sun.misc.Unsafe::allocateMemory …</code></td><td>El renderizador de JavaFX usa una API vieja del JDK — asunto de los mantenedores de JavaFX, no de quien desarrolla.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- 7 · Checklist + cómo correr -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">Manos al proyecto</p>
+        <h2>Checklist contra el enunciado y cómo correrlo</h2>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>Requisito §4</th><th>Dónde quedó</th></tr></thead>
+            <tbody>
+              <tr><td>4.2 Nuevo archivo en pestaña con nombre</td><td>botón Nuevo → <code>nuevaPestana("nuevoN.df"…)</code></td></tr>
+              <tr><td>4.2 Abrir <code>.df</code> en pestaña nueva</td><td>botón Abrir → FileChooser con filtro *.df</td></tr>
+              <tr><td>4.2 Guardar estado del archivo</td><td>botón Guardar (+ «Guardar como» si es nuevo)</td></tr>
+              <tr><td>4.2 Eliminar pestaña, cambios se descartan</td><td>✕ de cada Tab (comportamiento default)</td></tr>
+              <tr><td>4.3 Múltiples pestañas, una por archivo</td><td>TabPane + userData con el File</td></tr>
+              <tr><td>4.4 Ejecutar la pestaña seleccionada</td><td>▶ Ejecutar → <code>Interprete.ejecutar(...)</code></td></tr>
+              <tr><td>4.6 Consola no editable, solo información</td><td>TextArea con <code>setEditable(false)</code></td></tr>
+              <tr><td>4.5 Reportes</td><td>⏳ Etapa 6 (los datos ya viven en <code>ultimoEntorno</code>)</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p><strong>Para correrlo:</strong> 🔄 Reload All Maven Projects (pom nuevo) → Maven <code class="inline">compile</code> → ▶ Run sobre <strong><code class="inline">Lanzador</code></strong> (no sobre EditorApp). Alternativa terminal: <code class="inline">mvn clean javafx:run</code>.</p>
+        <p><strong>La prueba de fuego:</strong> hay que abrir <code class="inline">entradas/ejemplo1.df</code> con el botón Abrir, dar ▶ Ejecutar y ver la media aparecer en la consola de ABAJO, no en la de IDEA. Después conviene abrir <code class="inline">ejemplo3_errores.df</code> en OTRA pestaña y ejecutarla: los 5 errores, cada uno con su línea.</p>
+      </div>
+    </section>
+
+    <!-- 8 · Quiz -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">Chequeo rápido · Etapa 4</p>
+        <h2>¿Quedaron entendidas las costuras?</h2>
+        <div class="quiz">
+          <div class="q">
+            <p class="question">1 · ¿Por qué bastó cambiar <code class="inline">FileReader</code> por <code class="inline">StringReader</code> para que el intérprete corra desde la GUI?</p>
+            <button type="button" onclick="this.parentElement.classList.add('revealed')">Revelar respuesta</button>
+            <div class="answer"><p>Porque el lexer se programó contra la abstracción <code class="inline">Reader</code> (un chorro de caracteres), no contra archivos. Da igual si los caracteres vienen del disco, de una pestaña o de un socket: el pipeline lexer→parser→entorno no se enteró del cambio. Programar contra interfaces pagó su dividendo.</p></div>
+          </div>
+          <div class="q">
+            <p class="question">2 · ¿Qué pasaría si reutilizáramos el MISMO Entorno entre clics de ▶ Ejecutar?</p>
+            <button type="button" onclick="this.parentElement.classList.add('revealed')">Revelar respuesta</button>
+            <div class="answer"><p>El estado se acumularía: la segunda ejecución vería las variables de la primera (¡todas «ya declaradas»!), los errores viejos seguirían en la lista y los reportes mezclarían análisis — justo lo que el enunciado §6 prohíbe («no deberá mostrarse reportes de análisis anteriores»). Por eso: parser y entorno nuevos en cada clic.</p></div>
+          </div>
+          <div class="q">
+            <p class="question">3 · ¿Para qué existe <code class="inline">Lanzador.java</code> si tiene una sola línea?</p>
+            <button type="button" onclick="this.parentElement.classList.add('revealed')">Revelar respuesta</button>
+            <div class="answer"><p>Para esquivar el chequeo del launcher de Java: al arrancar desde una clase que NO extiende <code class="inline">Application</code>, no se exige tener JavaFX en el module-path, y el classpath plano que IDEA arma desde el pom funciona. Una línea que ahorra pelearse con módulos de Java.</p></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 9 · Cierre -->
+    <section class="slide">
+      <div class="inner titleslide">
+        <p class="eyebrow">Etapa 4 · lista para probar</p>
+        <h1>El compilador tiene interfaz</h1>
+        <p class="lead">Editor con pestañas, archivos <code class="inline">.df</code> que se abren y guardan, y el botón que une las cuatro etapas: código → tokens → árbol → ejecución → consola. Lo que sigue es puro placer: <strong>las gráficas</strong>.</p>
+        <p class="kicker"><a class="btn" href="index.html">⌂ Volver al índice</a></p>
+      </div>
+    </section>
+
+  </div>
+
+  <div class="navbar">
+    <button id="prev" type="button">← Anterior</button>
+    <button id="next" type="button">Siguiente →</button>
+    <span class="hint">también pueden usarse las flechas del teclado</span>
+  </div>
+</div>
+
+<script src="assets/deck.js"></script>
+</body>
+</html>

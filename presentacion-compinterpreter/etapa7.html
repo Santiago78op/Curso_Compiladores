@@ -1,0 +1,176 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Etapa 7 · Pruebas E2E con Playwright — CompInterpreter</title>
+<link rel="stylesheet" href="assets/estilo.css">
+</head>
+<body>
+
+<div class="deck">
+  <div class="topbar">
+    <a class="brand" href="index.html" title="Volver al índice">Comp<em>Interpreter</em> · curso guiado</a>
+    <span class="chip">Etapa 7 · Pruebas E2E</span>
+    <span class="counter"><span id="cur">1</span> / <span id="tot">?</span></span>
+    <button id="theme" type="button" title="Cambiar tema claro/oscuro" aria-label="Cambiar tema claro/oscuro">◐</button>
+  </div>
+  <div class="progress"><div id="bar"></div></div>
+
+  <div class="stage">
+
+    <!-- 1 · Intro -->
+    <section class="slide">
+      <div class="inner titleslide">
+        <p class="eyebrow">Etapa 7 · Parte 1</p>
+        <h1>Verificar el sistema completo, no sus piezas por separado</h1>
+        <p class="lead">Las etapas anteriores se pueden (y se verificaron) probar por separado: <code class="inline">analizar()</code> desde una consola de Node, componentes de React de forma aislada. Una prueba de extremo a extremo (E2E) es distinta: levanta el servidor Express <strong>y</strong> el cliente Vite juntos, abre un navegador de verdad y confirma que la aplicación completa —tal como la usaría un estudiante— se comporta como se espera.</p>
+      </div>
+    </section>
+
+    <!-- 2 · Config -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">Playwright orquesta ambos procesos</p>
+        <h2>Un solo comando levanta servidor + cliente + navegador</h2>
+        <p><code class="inline">client/playwright.config.js</code> configura Playwright para arrancar automáticamente tanto el servidor Express como el cliente Vite antes de correr las pruebas, y apagarlos al terminar. El script <code class="inline">e2e</code> del <code class="inline">package.json</code> del cliente (<code class="inline">playwright test</code>) es el punto de entrada.</p>
+        <div class="callout"><p><strong>Por qué <code class="inline">GET /salud</code> importa acá:</strong> Playwright necesita saber cuándo el servidor terminó de arrancar antes de dejar correr las pruebas contra él — ese endpoint mínimo (Etapa 5) es justamente el mecanismo que usa la configuración para esperar sin condiciones de carrera.</p></div>
+      </div>
+    </section>
+
+    <!-- 3 · Test 1 -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">Test 1 de 3 · el camino feliz</p>
+        <h2>Ejecutar el ejemplo del Anexo y verificar los 4 reportes</h2>
+        <pre class="code">test('ejecuta el ejemplo del anexo y muestra consola/símbolos/AST', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: '▶ Ejecutar' }).click();
+
+  // Sin errores: el panel debe quedar en Consola automáticamente.
+  await expect(page.locator('.pestana.es-activa')).toHaveText('Consola');
+  const consola = page.locator('.consola');
+  await expect(consola).toContainText('X es mayor que Y y no es cero');
+  await expect(consola).toContainText('El valor de i es: 4');
+  await expect(consola).toContainText('La suma de 3 y 7 es: 10');
+
+  await page.getByRole('button', { name: /Errores/ }).click();
+  await expect(page.locator('.panel-vacio')).toContainText('Sin errores');
+
+  await page.getByRole('button', { name: 'Símbolos' }).click();
+  await expect(page.locator('.tabla-reporte tbody tr', { hasText: 'x' }).first()).toBeVisible();
+
+  await page.getByRole('button', { name: 'AST' }).click();
+  await expect(page.locator('.ast-grafo canvas')).toBeVisible();
+});</pre>
+        <p class="muted">El archivo inicial que carga el editor es exactamente el ejemplo del Anexo 11.1 del enunciado (<code class="inline">ejemplo-anexo.js</code> en el cliente) — la prueba confirma valores de salida esperados de ese programa específico, no solo "que algo se imprimió".</p>
+      </div>
+    </section>
+
+    <!-- 4 · Test 2 -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">Test 2 de 3 · los tres tipos de error, a propósito</p>
+        <h2>Reportar errores y navegar a la línea con un clic</h2>
+        <pre class="code">test('reporta errores léxicos/sintácticos/semánticos y salta a la línea', async ({ page }) => {
+  await page.goto('/');
+  const textarea = page.locator('.editor-textarea');
+  await textarea.click();
+  await textarea.fill(EJEMPLO_ERRORES);   // entradas/ejemplo_errores.ci
+  await page.getByRole('button', { name: '▶ Ejecutar' }).click();
+
+  await expect(page.locator('.pestana.es-activa')).toHaveText(/Errores/);
+
+  const filas = page.locator('.tabla-reporte tbody tr');
+  await expect(filas).toHaveCount(8);
+  await expect(page.locator('.fila-error-léxico')).toHaveCount(1);
+  await expect(page.locator('.fila-error-sintáctico')).toHaveCount(2);
+  await expect(page.locator('.fila-error-semántico')).toHaveCount(5);
+
+  await filas.first().click();
+  await expect(page.locator('.editor-gutter-linea.es-actual')).toHaveText('5');
+});</pre>
+        <p>Confirma, en un solo test, tres cosas a la vez: que el panel salta solo a "Errores" (Etapa 6), que el desglose exacto por tipo coincide con lo verificado manualmente en la Etapa 1 (1 léxico + 2 sintácticos + 5 semánticos = 8), y que hacer clic en una fila mueve el editor a la línea correcta (Etapa 6, <code class="inline">irALinea</code>).</p>
+      </div>
+    </section>
+
+    <!-- 5 · Test 3 -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">Test 3 de 3 · lo más simple, pero igual de necesario</p>
+        <h2>Nuevo archivo agrega una pestaña editable</h2>
+        <pre class="code">test('nuevo archivo agrega una pestaña editable', async ({ page }) => {
+  await page.goto('/');
+  const pestanasIniciales = await page.locator('.file-tab').count();
+
+  await page.getByRole('button', { name: 'Nuevo' }).click();
+  await expect(page.locator('.file-tab')).toHaveCount(pestanasIniciales + 1);
+  await expect(page.locator('.file-tab.es-activa')).toContainText('sin-titulo-');
+});</pre>
+        <p class="muted">Corto, pero cubre una funcionalidad explícitamente exigida por el enunciado (4.2: "Nuevo archivo: El editor deberá de ser capaz de crear archivos en blanco") que de otro modo dependería enteramente de pruebas manuales.</p>
+      </div>
+    </section>
+
+    <!-- 6 · Resultado -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">Resultado real de la última corrida</p>
+        <h2>3 de 3 pruebas, verde</h2>
+        <pre class="code">Running 3 tests using 1 worker
+
+  ✓ ejecuta el ejemplo del anexo y muestra consola/símbolos/AST
+  ✓ reporta errores léxicos/sintácticos/semánticos y salta a la línea
+  ✓ nuevo archivo agrega una pestaña editable
+
+  3 passed</pre>
+        <div class="callout"><p><strong>Qué cubren y qué NO cubren estas tres pruebas:</strong> validan el flujo completo tal como lo experimenta un usuario real, incluyendo la integración servidor-cliente por HTTP. No sustituyen la verificación exhaustiva de cada regla semántica del lenguaje (esa se hizo con los 5 archivos de <code class="inline">entradas/</code> corridos directamente contra <code class="inline">analizar()</code>, ver Etapas 3 y 4) — son complementarias, no redundantes.</p></div>
+      </div>
+    </section>
+
+    <!-- 7 · Quiz -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">Chequeo rápido</p>
+        <h2>Sobre las pruebas E2E</h2>
+        <div class="quiz">
+          <div class="q">
+            <p class="question">1 · ¿Qué diferencia hay entre correr <code class="inline">analizar()</code> directamente desde una consola Node (como en las Etapas 3-4) y correr la suite Playwright?</p>
+            <button type="button" onclick="this.parentElement.classList.add('revealed')">Revelar respuesta</button>
+            <div class="answer"><p>Correr <code class="inline">analizar()</code> desde consola prueba solo el motor de análisis/ejecución, sin servidor HTTP ni interfaz. Playwright levanta el sistema completo — servidor Express real, cliente Vite real, navegador real— y verifica la integración entre todas las piezas: que el fetch llegue, que el JSON se parsee bien, que el DOM refleje el resultado correctamente.</p></div>
+          </div>
+          <div class="q">
+            <p class="question">2 · El test 2 usa el mismo archivo <code class="inline">ejemplo_errores.ci</code> que se verificó manualmente en la Etapa 1. ¿Por qué es valioso reutilizar el mismo caso en vez de inventar uno nuevo para la prueba automatizada?</p>
+            <button type="button" onclick="this.parentElement.classList.add('revealed')">Revelar respuesta</button>
+            <div class="answer"><p>Porque ya se conoce el resultado esperado exacto (8 errores: 1 léxico, 2 sintácticos, 5 semánticos) de haberlo corrido directamente contra <code class="inline">analizar()</code>. Reutilizarlo permite que la prueba E2E confirme que ese mismo resultado, ya verificado a nivel de motor, también llega correctamente hasta la interfaz — en vez de introducir una nueva fuente de verdad que habría que volver a auditar.</p></div>
+          </div>
+          <div class="q">
+            <p class="question">3 · ¿Por qué el endpoint <code class="inline">GET /salud</code> (Etapa 5) es relevante específicamente para esta suite de pruebas?</p>
+            <button type="button" onclick="this.parentElement.classList.add('revealed')">Revelar respuesta</button>
+            <div class="answer"><p>Porque Playwright arranca el servidor y el cliente como parte de la propia ejecución de las pruebas, y necesita un mecanismo confiable para saber cuándo el servidor ya está listo para recibir peticiones antes de dejar avanzar los tests — sin ese endpoint, existiría el riesgo de una condición de carrera donde el primer test intenta ejecutar código antes de que el servidor esté escuchando.</p></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 8 · Cierre -->
+    <section class="slide">
+      <div class="inner titleslide">
+        <p class="eyebrow">Etapa 7 · construida — proyecto completo</p>
+        <h1>CompInterpreter queda verificado de punta a punta</h1>
+        <p class="lead">Tres pruebas Playwright confirman el camino feliz, los tres tipos de error con navegación a línea, y la creación de archivos — todo contra el sistema real, servidor y cliente corriendo juntos. Con esto se cierra el recorrido: léxico, sintáctico, semántico, servidor, cliente y pruebas, las ocho etapas completas.</p>
+        <p class="kicker">Para profundizar en la decisión arquitectónica que más distingue a este proyecto de los otros tres del curso: <strong>profundización ★ — Arquitectura cliente-servidor REST</strong>.<br><a class="btn" href="arquitectura-rest.html" style="margin-top:14px">★ Ver profundización</a> <a class="btn" href="index.html" style="margin-top:14px">⌂ Volver al índice</a></p>
+      </div>
+    </section>
+
+  </div>
+
+  <div class="navbar">
+    <button id="prev" type="button">← Anterior</button>
+    <button id="next" type="button">Siguiente →</button>
+    <span class="hint">también se pueden usar las flechas del teclado</span>
+  </div>
+</div>
+
+<script src="assets/deck.js"></script>
+</body>
+</html>

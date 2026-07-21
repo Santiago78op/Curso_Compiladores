@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Las fases del compilador — DataForge</title>
+<link rel="stylesheet" href="assets/estilo.css">
+</head>
+<body>
+
+<div class="deck">
+  <div class="topbar">
+    <a class="brand" href="index.html" title="Volver al índice">Data<em>Forge</em> · curso guiado</a>
+    <span class="chip">Especial · Fases</span>
+    <span class="counter"><span id="cur">1</span> / <span id="tot">?</span></span>
+    <button id="theme" type="button" title="Cambiar tema claro/oscuro" aria-label="Cambiar tema claro/oscuro">◐</button>
+  </div>
+  <div class="progress"><div id="bar"></div></div>
+
+  <div class="stage">
+
+    <!-- 1 · Portada -->
+    <section class="slide">
+      <div class="inner titleslide">
+        <p class="eyebrow">Profundización · Dragón §1.1–1.2</p>
+        <h1>Las fases del compilador</h1>
+        <p class="lead">El mapa completo del Cap. 1 — la figura 1.6 que abre TODO parcial de compiladores — y dónde está cada fase en DataForge (incluidas las que deliberadamente no están presentes).</p>
+        <p class="kicker">El edificio quedó construido pieza por pieza; esta presentación es el plano visto desde arriba.</p>
+      </div>
+    </section>
+
+    <!-- 2 · Las fases -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">La figura 1.6 del libro</p>
+        <h2>Seis fases en cadena, dos columnas transversales</h2>
+        <pre class="code">        código fuente (caracteres)
+              ↓
+  ① Análisis LÉXICO          → tokens                ┐
+              ↓                                       │ FRONT-END
+  ② Análisis SINTÁCTICO      → árbol sintáctico      │ (análisis:
+              ↓                                       │  entender el
+  ③ Análisis SEMÁNTICO       → árbol verificado      ┘  programa)
+              ↓
+  ④ Generación de código INTERMEDIO → ej. tres direcciones  ┐
+              ↓                                              │ BACK-END
+  ⑤ OPTIMIZACIÓN de código intermedio                       │ (síntesis:
+              ↓                                              │  producir el
+  ⑥ GENERACIÓN de código máquina                            ┘  programa destino)
+
+  transversales a TODO:  ▓ Tabla de símbolos   ▓ Manejo de errores</pre>
+        <p>Dos ideas que el libro subraya: las fases son <strong>conceptuales</strong> (en la práctica varias se funden en una pasada), y la <strong>tabla de símbolos y el manejo de errores atraviesan todas</strong> — no son fases, son infraestructura compartida. ¿Suena conocido? El <code class="inline">Entorno</code> es exactamente eso.</p>
+      </div>
+    </section>
+
+    <!-- 3 · El ejemplo del libro -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">El ejemplo canónico · fig. 1.7</p>
+        <h2><code class="inline">position = initial + rate * 60</code>, fase por fase</h2>
+        <p>El libro persigue esta asignación por todas las fases. Condensado (y es pregunta de parcial reconstruirlo):</p>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>Fase</th><th>Qué produce</th></tr></thead>
+            <tbody>
+              <tr><td>① Léxico</td><td><code>⟨id,1⟩ ⟨=⟩ ⟨id,2⟩ ⟨+⟩ ⟨id,3⟩ ⟨*⟩ ⟨60⟩</code> — y los tres id entran a la tabla de símbolos</td></tr>
+              <tr><td>② Sintáctico</td><td>el árbol: <code>=</code> con <code>id1</code> a la izquierda y <code>+ ( id2, * ( id3, 60 ) )</code> — la precedencia hizo que <code>*</code> quede abajo</td></tr>
+              <tr><td>③ Semántico</td><td>los id son <code>float</code> y 60 es <code>int</code> → inserta la <strong>coerción</strong> <code>inttofloat(60)</code></td></tr>
+              <tr><td>④ Intermedio</td><td><code>t1 = inttofloat(60)</code> · <code>t2 = id3 * t1</code> · <code>t3 = id2 + t2</code> · <code>id1 = t3</code></td></tr>
+              <tr><td>⑤ Optimización</td><td><code>t1 = id3 * 60.0</code> · <code>id1 = id2 + t1</code> — la coerción se resolvió en compilación y sobraba un temporal</td></tr>
+              <tr><td>⑥ Generación</td><td>ensamblador: <code>LDF R2, id3</code> · <code>MULF R2, R2, #60.0</code> · …</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="muted">Puede notarse cómo cada fase habla el idioma de la siguiente: caracteres → tokens → árbol → árbol tipado → tres direcciones → máquina.</p>
+      </div>
+    </section>
+
+    <!-- 4 · El mapeo a DataForge -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">El proyecto en el mapa</p>
+        <h2>Dónde vive cada fase en DataForge</h2>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>Fase del libro</th><th>En el proyecto</th><th>Etapa</th></tr></thead>
+            <tbody>
+              <tr><td>① Léxico</td><td><code>Lexer.flex</code> → JFlex genera el AFD</td><td>1</td></tr>
+              <tr><td>② Sintáctico</td><td><code>parser.cup</code> → CUP genera el LALR</td><td>2</td></tr>
+              <tr><td>③ Semántico</td><td>chequeos de <code>Entorno</code> + <code>Operaciones</code> (tipos, declaraciones, gráficas)</td><td>3 y 5</td></tr>
+              <tr><td>④⑤⑥ Intermedio/Optim./Generación</td><td><strong>NO EXISTEN</strong> — en su lugar: ejecución directa en las acciones</td><td>—</td></tr>
+              <tr><td>▓ Tabla de símbolos</td><td><code>Entorno.simbolos</code> (LinkedHashMap)</td><td>3</td></tr>
+              <tr><td>▓ Manejo de errores</td><td>las 3 familias en <code>RegistroError</code>, con recuperación en cada capa</td><td>1, 2, 6</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="callout"><p><strong>La frontera exacta del proyecto:</strong> DataForge implementa el <strong>front-end completo</strong> (fases ①-③ + las transversales) y reemplaza el back-end por <strong>ejecución inmediata</strong> — eso es ser un intérprete. Los caps. 8-12 del Dragón (el back-end) quedaron fuera del alcance del curso por diseño.</p></div>
+      </div>
+    </section>
+
+    <!-- 5 · Compilador vs intérprete -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">La otra pregunta de apertura · §1.1</p>
+        <h2>Compilador, intérprete… e híbridos</h2>
+        <div class="cards three">
+          <div class="card"><h3>Compilador</h3><p>Traduce el programa completo a código destino; la ejecución ocurre <strong>después</strong>, sin el compilador presente. Rápido de ejecutar, lento de iterar. (C, C++, Go)</p></div>
+          <div class="card"><h3>Intérprete</h3><p>Ejecuta las operaciones <strong>directamente</strong>, sobre la marcha. Mejor diagnóstico de errores (está vivo cuando ocurren), más lento. <strong>(DataForge ✓)</strong></p></div>
+          <div class="card"><h3>Híbrido</h3><p>El ejemplo del libro es <strong>Java</strong>: compila a <em>bytecode</em> (código intermedio portable) y la JVM lo interpreta — con JIT que compila a máquina lo que se usa mucho. Lo mejor de ambos.</p></div>
+        </div>
+        <p>Ironía deliciosa para el parcial: <strong>el intérprete DataForge está escrito en Java</strong>, así que corre <em>sobre</em> un híbrido — el programa <code class="inline">.df</code> es interpretado por un programa que a su vez es bytecode interpretado/JIT-compilado por la JVM. Capas sobre capas, y todas usan la misma teoría vista en el curso.</p>
+      </div>
+    </section>
+
+    <!-- 6 · Quiz -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">Chequeo rápido</p>
+        <h2>La pregunta de apertura, dominada</h2>
+        <div class="quiz">
+          <div class="q">
+            <p class="question">1 · ¿Por qué la tabla de símbolos y el manejo de errores NO son fases?</p>
+            <button type="button" onclick="this.parentElement.classList.add('revealed')">Revelar respuesta</button>
+            <div class="answer"><p>Porque no transforman la representación del programa (que es lo que define a una fase): son <strong>infraestructura transversal</strong> que todas las fases consultan y alimentan. El léxico inserta símbolos, el semántico los consulta; cada fase aporta sus errores. El <code class="inline">Entorno</code> lo demuestra: lexer, parser y ejecución escriben en él.</p></div>
+          </div>
+          <div class="q">
+            <p class="question">2 · En el ejemplo del libro, ¿en qué fase aparece <code class="inline">inttofloat(60)</code> y por qué justo ahí?</p>
+            <button type="button" onclick="this.parentElement.classList.add('revealed')">Revelar respuesta</button>
+            <div class="answer"><p>En la <strong>semántica</strong>: es la fase que conoce los TIPOS (los id son float, 60 es int) y por tanto la única que puede detectar la mezcla e insertar la <strong>coerción</strong>. Ni el léxico ni el sintáctico saben de tipos — para ellos 60 es solo un token/hoja.</p></div>
+          </div>
+          <div class="q">
+            <p class="question">3 · ¿DataForge tiene fase de generación de código intermedio? ¿Cómo se sostendría esa respuesta en la calificación?</p>
+            <button type="button" onclick="this.parentElement.classList.add('revealed')">Revelar respuesta</button>
+            <div class="answer"><p><strong>No — deliberadamente.</strong> DataForge es un intérprete: el front-end completo (léxico JFlex, sintáctico CUP, semántico en el Entorno) desemboca en <strong>ejecución directa</strong> durante el análisis, en vez de producir una representación intermedia para un back-end. El alcance del curso es el front-end (caps. 1-7 del Dragón); generación y optimización (caps. 8-12) quedan fuera por diseño del proyecto.</p></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 7 · Cierre -->
+    <section class="slide">
+      <div class="inner titleslide">
+        <p class="eyebrow">Resumen en una pantalla</p>
+        <h1>Front-end ①②③ + transversales</h1>
+        <p class="lead">Léxico → sintáctico → semántico, con tabla de símbolos y errores atravesando todo · back-end (④⑤⑥) reemplazado por ejecución directa = intérprete · Java es el híbrido canónico — y el propio intérprete corre encima de uno.</p>
+        <p class="kicker"><a class="btn" href="index.html">⌂ Volver al índice</a></p>
+      </div>
+    </section>
+
+  </div>
+
+  <div class="navbar">
+    <button id="prev" type="button">← Anterior</button>
+    <button id="next" type="button">Siguiente →</button>
+    <span class="hint">también se pueden usar las flechas del teclado</span>
+  </div>
+</div>
+
+<script src="assets/deck.js"></script>
+</body>
+</html>

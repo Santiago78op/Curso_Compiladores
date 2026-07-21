@@ -1,0 +1,223 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Etapa 1 · Gramática ANTLR4 — VLangCherry</title>
+<link rel="stylesheet" href="assets/estilo.css">
+</head>
+<body>
+
+<div class="deck">
+  <div class="topbar">
+    <a class="brand" href="index.html" title="Volver al índice">VLang<em>Cherry</em> · curso guiado</a>
+    <span class="chip">Etapa 1 · Gramática ANTLR4</span>
+    <span class="counter"><span id="cur">1</span> / <span id="tot">?</span></span>
+    <button id="theme" type="button" title="Cambiar tema claro/oscuro" aria-label="Cambiar tema claro/oscuro">◐</button>
+  </div>
+  <div class="progress"><div id="bar"></div></div>
+
+  <div class="stage">
+
+    <!-- 1 · Intro -->
+    <section class="slide">
+      <div class="inner titleslide">
+        <p class="eyebrow">Etapa 1 · Parte 1</p>
+        <h1>Un solo archivo para léxico y sintaxis</h1>
+        <p class="lead">Con JFlex+CUP hacen falta dos archivos (<code>.flex</code> y <code>.cup</code>) y dos herramientas. Con ANTLR4, el vocabulario del lenguaje y su gramática viven juntos en <code class="inline">grammar/VLangCherry.g4</code>: reglas de <em>parser</em> en minúscula, reglas de <em>lexer</em> en MAYÚSCULA, en el mismo archivo.</p>
+        <p class="kicker">Método: mismo que en los proyectos hermanos — recorrer el enunciado sección por sección construyendo primero las reglas, después el léxico que las sostiene.</p>
+      </div>
+    </section>
+
+    <!-- 2 · Estructura del programa -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">Reglas de parser · 1 de 3</p>
+        <h2>La forma general de un programa</h2>
+        <p>Un programa VLangCherry es una lista de declaraciones globales — structs, funciones o variables — en cualquier orden, seguida del fin de archivo:</p>
+        <pre class="code">programa
+    : declaracionGlobal* EOF
+    ;
+
+declaracionGlobal
+    : declaracionStruct
+    | declaracionFuncion
+    | declaracionVariable
+    ;</pre>
+        <div class="callout"><p><strong>"En cualquier orden" es clave:</strong> nada impide que <code class="inline">main()</code> llame a una función declarada más abajo en el archivo. Eso lo garantiza el intérprete de dos pasadas (Etapa 5), no la gramática — la gramática solo permite el orden; quien lo aprovecha es el runtime.</p></div>
+      </div>
+    </section>
+
+    <!-- 3 · Structs y funciones -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">Reglas de parser · 2 de 3</p>
+        <h2>Structs, funciones y métodos</h2>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>Regla</th><th>Gramática (ANTLR4)</th><th>Sección enunciado</th></tr></thead>
+            <tbody>
+              <tr><td><code>declaracionStruct</code></td><td><code>'struct' ID '{' campoStruct+ '}'</code></td><td>6</td></tr>
+              <tr><td><code>declaracionFuncion</code></td><td><code>'func' receptor? ID '(' listaParametros? ')' tipo? bloque</code></td><td>6.3, 7</td></tr>
+              <tr><td><code>receptor</code></td><td><code>'(' ID '*'? ID ')'</code></td><td>7.1</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p>El <code class="inline">'*'?</code> opcional dentro de <code class="inline">receptor</code> es la diferencia entre un método por valor — <code class="inline">func (p Persona) Saludar()</code> — y uno por puntero — <code class="inline">func (p *Persona) Cumplir()</code>. Una sola regla cubre ambos casos; el intérprete decide qué hacer con cada uno (Etapa 3).</p>
+      </div>
+    </section>
+
+    <!-- 4 · Precedencia -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">Reglas de parser · 3 de 3</p>
+        <h2>La regla <code class="inline">expr</code>: precedencia por orden de alternativas</h2>
+        <p>En una gramática LL manual, la precedencia de operadores obliga a factorizar la regla en una cascada de no-terminales (<code>expr → term → factor → …</code>). En ANTLR4, alcanza con <strong>una sola regla recursiva</strong>: el orden de las alternativas, de arriba hacia abajo, ES la precedencia (de mayor a menor), siguiendo la tabla 4.6 del enunciado:</p>
+        <pre class="code">expr
+    : expr '(' listaArgumentos? ')'            # exprLlamada
+    | expr '[' expr ']'                        # exprIndice
+    | expr '.' ID                              # exprCampo
+    | '(' expr ')'                             # exprParentesis
+    | op=('!'|'-') expr                        # exprUnario
+    | expr op=('*'|'/'|'%') expr               # exprMultiplicativa
+    | expr op=('+'|'-') expr                   # exprAditiva
+    | expr op=('&lt;'|'&lt;='|'&gt;='|'&gt;') expr         # exprRelacional
+    | expr op=('=='|'!=') expr                 # exprIgualdad
+    | expr '&amp;&amp;' expr                           # exprAnd
+    | expr '||' expr                           # exprOr
+    | literalSlice                             # exprSliceLit
+    | literalStruct                            # exprStructLit
+    | literal                                  # exprLiteral
+    | ID                                       # exprIdentificador
+    ;</pre>
+        <div class="callout"><p><strong>ANTLR4 reescribe la recursión izquierda por vos.</strong> Una regla como <code class="inline">expr : expr '+' expr | ...</code> sería recursiva por la izquierda — un problema real para un parser LL manual — pero ANTLR4 la transforma internamente antes de generar código. Es la misma inquietud que trata la nota de vault sobre recursividad izquierda y factorización, resuelta acá por la herramienta.</p></div>
+      </div>
+    </section>
+
+    <!-- 5 · Etiquetas -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">La pieza clave para lo que viene</p>
+        <h2>Las etiquetas <code class="inline">#nombre</code>: un tipo de contexto por alternativa</h2>
+        <p>Cada alternativa de <code class="inline">expr</code> lleva una etiqueta (<code>#exprMultiplicativa</code>, <code>#exprLlamada</code>, …). Eso hace que ANTLR4 genere, en Go, <strong>un tipo de contexto concreto por cada una</strong> — <code class="inline">ExprMultiplicativaContext</code>, <code class="inline">ExprLlamadaContext</code>, etc. — en vez de un único tipo genérico <code class="inline">ExprContext</code> para toda la regla.</p>
+        <div class="callout"><p><strong>Por qué importa:</strong> esta sola decisión de la gramática es la que permite, en la Etapa 2, reemplazar el patrón Visitor completo (las ~60 firmas de <code class="inline">BaseVLangCherryVisitor</code>) por un <code class="inline">type-switch</code> directo sobre esos tipos concretos. Sin etiquetas, no habría tipos distintos que distinguir.</p></div>
+      </div>
+    </section>
+
+    <!-- 6 · Terminales léxicos -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">La parte léxica, en el mismo archivo</p>
+        <h2>Terminales con patrón</h2>
+        <p>Debajo de las reglas de parser (en minúscula), el mismo <code class="inline">.g4</code> declara las reglas de lexer (en MAYÚSCULA) — palabras reservadas, símbolos, y patrones con estructura infinita:</p>
+        <pre class="code">CADENA
+    : '"' (ESC | ~["\\\r\n])* '"'
+    ;
+
+RUNE
+    : '\'' (ESC | ~['\\\r\n]) '\''
+    ;
+
+fragment ESC
+    : '\\' ["\\ntr]
+    ;
+
+COMENTARIO_LINEA
+    : '//' ~[\r\n]* -&gt; skip
+    ;
+
+COMENTARIO_BLOQUE
+    : '/*' .*? '*/' -&gt; skip
+    ;</pre>
+        <p><code class="inline">fragment</code> declara una subregla reutilizable que no genera token propio — igual concepto que en JFlex, distinto nombre. <code class="inline">-&gt; skip</code> descarta el token (comentarios, espacios) sin que llegue nunca al parser — equivalente a no escribir acción alguna en una regla de JFlex.</p>
+      </div>
+    </section>
+
+    <!-- 7 · Decisiones de diseño -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">Decisiones frente a un enunciado inconsistente</p>
+        <h2>Tres desambiguaciones documentadas</h2>
+        <p>El enunciado (sección 11.9) autoriza explícitamente a diseñar la gramática con libertad ("la sintaxis descrita en este documento es con fines descriptivos"). Tres inconsistencias reales, resueltas y documentadas en <code class="inline">docs/gramatica.txt</code>:</p>
+        <div class="cards">
+          <div class="card">
+            <h3>1 · <code>func</code>, no <code>fn</code></h3>
+            <p>Un único ejemplo de la sección 4.1 usa <code>fn main()</code>, pero TODA la sección 7 (Funciones) usa <code>func</code> consistentemente. Se adoptó <code>func</code> como única palabra reservada; <code>fn</code> no se reconoce.</p>
+          </div>
+          <div class="card">
+            <h3>2 · Comillas dobles para string, sin interpolación</h3>
+            <p>El mismo ejemplo de 4.1 muestra comilla simple e interpolación (<code>'...$i...'</code>) — sintaxis real de V-lang, pero no la que describen las secciones 3.7 y 3.10 del propio enunciado. Se siguió 3.7/3.10: comillas dobles para <code>string</code>, comilla simple solo para <code>rune</code>, sin interpolación.</p>
+          </div>
+          <div class="card">
+            <h3>3 · <code>in</code>, no <code>range</code></h3>
+            <p>La tercera forma del <code>for</code> (sección 4.7.3) usa literalmente <code>in</code> en el ejemplo del enunciado (<code>for indice, valor in numeros</code>), no <code>range</code> como el Go real. Se mantuvo <code>in</code> como palabra reservada.</p>
+          </div>
+        </div>
+        <p class="muted">La lista completa (8 decisiones, incluida la de comparación relacional de strings) está en <code class="inline">docs/gramatica.txt</code> — se retoma en la Etapa 5.</p>
+      </div>
+    </section>
+
+    <!-- 8 · Generación -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">De la gramática al código</p>
+        <h2>Un comando, cuatro archivos generados</h2>
+        <pre class="code">java -jar tools/antlr.jar -Dlanguage=Go -visitor \
+     -o server/internal/parser -package parser \
+     grammar/VLangCherry.g4</pre>
+        <p>Ese comando produce en <code class="inline">server/internal/parser/</code>:</p>
+        <pre class="code">vlangcherry_lexer.go
+vlangcherry_parser.go
+vlangcherry_base_visitor.go
+vlangcherry_visitor.go</pre>
+        <div class="callout"><p><strong>100% generado — jamás se edita a mano.</strong> Exactamente la misma regla que <code class="inline">Lexer</code>/<code class="inline">Parser</code>/<code class="inline">sym</code> en DataForge: cualquier cambio de léxico o sintaxis se hace en <code class="inline">VLangCherry.g4</code> y se regenera con este mismo comando.</p></div>
+      </div>
+    </section>
+
+    <!-- 9 · Quiz -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">Chequeo rápido</p>
+        <h2>Sobre la gramática real</h2>
+        <div class="quiz">
+          <div class="q">
+            <p class="question">1 · ¿Qué pasa si se agrega una alternativa nueva a <code class="inline">expr</code> sin etiquetarla con <code class="inline">#nombre</code>?</p>
+            <button type="button" onclick="this.parentElement.classList.add('revealed')">Revelar respuesta</button>
+            <div class="answer"><p>ANTLR4 no genera un tipo de contexto Go propio para ella — cae en el tipo genérico de la regla. El <code class="inline">type-switch</code> del traductor (Etapa 2) no podrá distinguirla de las demás alternativas sin etiqueta.</p></div>
+          </div>
+          <div class="q">
+            <p class="question">2 · ¿Por qué <code class="inline">exprMultiplicativa</code> aparece ANTES que <code class="inline">exprAditiva</code> en la regla?</p>
+            <button type="button" onclick="this.parentElement.classList.add('revealed')">Revelar respuesta</button>
+            <div class="answer"><p>Porque el orden de las alternativas codifica la precedencia, de mayor a menor: <code class="inline">*</code>/<code class="inline">/</code>/<code class="inline">%</code> deben resolverse antes que <code class="inline">+</code>/<code class="inline">-</code>, tal como indica la tabla 4.6 del enunciado.</p></div>
+          </div>
+          <div class="q">
+            <p class="question">3 · ¿Cuántos archivos hay que tocar a mano para agregar un operador nuevo al lenguaje?</p>
+            <button type="button" onclick="this.parentElement.classList.add('revealed')">Revelar respuesta</button>
+            <div class="answer"><p>Uno: <code class="inline">grammar/VLangCherry.g4</code>. Los cuatro archivos de <code class="inline">internal/parser/</code> se regeneran completos con el comando de ANTLR; nunca se editan directamente.</p></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 10 · Cierre -->
+    <section class="slide">
+      <div class="inner titleslide">
+        <p class="eyebrow">Etapa 1 · construida</p>
+        <h1>Queda construida la gramática completa</h1>
+        <p class="lead">Un solo archivo <code class="inline">.g4</code> con reglas de parser y de lexer, precedencia por orden de alternativas, y etiquetas <code class="inline">#nombre</code> que van a habilitar el traductor de la próxima etapa sin necesidad del patrón Visitor completo.</p>
+        <p class="kicker">Próxima: <strong>Etapa 2 — del parse tree al AST propio</strong>.<br><a class="btn" href="index.html" style="margin-top:14px">⌂ Volver al índice</a></p>
+      </div>
+    </section>
+
+  </div>
+
+  <div class="navbar">
+    <button id="prev" type="button">← Anterior</button>
+    <button id="next" type="button">Siguiente →</button>
+    <span class="hint">también se pueden usar las flechas del teclado</span>
+  </div>
+</div>
+
+<script src="assets/deck.js"></script>
+</body>
+</html>

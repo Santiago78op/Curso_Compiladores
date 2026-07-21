@@ -1,0 +1,203 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Etapa 6 · Reportes HTML — DataForge</title>
+<link rel="stylesheet" href="assets/estilo.css">
+</head>
+<body>
+
+<div class="deck">
+  <div class="topbar">
+    <a class="brand" href="index.html" title="Volver al índice">Data<em>Forge</em> · curso guiado</a>
+    <span class="chip">Etapa 6 · Reportes</span>
+    <span class="counter"><span id="cur">1</span> / <span id="tot">?</span></span>
+    <button id="theme" type="button" title="Cambiar tema claro/oscuro" aria-label="Cambiar tema claro/oscuro">◐</button>
+  </div>
+  <div class="progress"><div id="bar"></div></div>
+
+  <div class="stage">
+
+    <!-- 1 · Portada -->
+    <section class="slide">
+      <div class="inner titleslide">
+        <p class="eyebrow">Etapa 6 · El último requisito grande</p>
+        <h1>Los reportes HTML</h1>
+        <p class="lead">Tokens, errores y tabla de símbolos en HTML (§6) — y de regalo, el último concepto teórico del proyecto: la <strong>recuperación de errores en modo pánico</strong>, para que el reporte muestre TODOS los errores y no solo el primero.</p>
+        <p class="kicker">Al final de esta etapa, DataForge cumple todos los requisitos mínimos del enunciado (§7).</p>
+      </div>
+    </section>
+
+    <!-- 2 · Los 3 reportes -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">El inventario</p>
+        <h2>Tres reportes, tres fuentes de datos</h2>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>Reporte</th><th>Fuente</th><th>Qué faltaba construir</th></tr></thead>
+            <tbody>
+              <tr><td><strong>§6.1 Tokens</strong><br>#, lexema, tipo, línea, columna</td><td>el <strong>lexer</strong></td><td>¡recolectarlos! El parser los consume y descarta — nadie los guardaba. Y el lexema ORIGINAL, no el valor convertido.</td></tr>
+              <tr><td><strong>§6.2 Errores</strong><br>#, tipo, descripción, línea, columna</td><td><code>Entorno.getErrores()</code></td><td>estructurarlos (eran Strings) + que los léxicos lleguen (iban a stderr) + que los sintácticos se ACUMULEN (moría en el primero).</td></tr>
+              <tr><td><strong>§6.3 Símbolos</strong><br>#, nombre, categoría, tipo, valor, línea, columna</td><td><code>Entorno.getSimbolos()</code></td><td>nada — la tabla de símbolos estaba lista desde la Etapa 3. Solo darle formato.</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="callout"><p>«Cada reporte debe generarse luego de cada ejecución, sin mostrar análisis anteriores» (§6) — ya quedaba resuelto por arquitectura: el <strong>entorno fresco por ejecución</strong> de la Etapa 4. Los reportes solo leen <code class="inline">ultimoEntorno</code>.</p></div>
+      </div>
+    </section>
+
+    <!-- 3 · Recolectar tokens -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">Pieza 1 · el lexer chismoso</p>
+        <h2>Registrar cada token al producirlo</h2>
+        <p>El lugar natural para capturar tokens es donde nacen: los helpers <code class="inline">symbol()</code> del <code class="inline">.flex</code>. Un campo público conecta lexer y entorno:</p>
+        <pre class="code"><span class="tk-sym">// en la sección %{ ... %} del Lexer.flex:</span>
+<span class="tk-res">public</span> dataforge.interprete.Entorno entorno;   <span class="tk-sym">// lo setea el Interprete</span>
+
+<span class="tk-res">private</span> Symbol symbol(<span class="tk-res">int</span> type) {
+    registrar(type);                             <span class="tk-sym">// ← la línea nueva</span>
+    <span class="tk-res">return new</span> Symbol(type, yyline, yycolumn, yytext());
+}
+<span class="tk-res">private void</span> registrar(<span class="tk-res">int</span> type) {
+    <span class="tk-res">if</span> (entorno != <span class="tk-res">null</span>) entorno.registrarToken(<span class="tk-str">yytext()</span>, type, yyline, yycolumn);
+}</pre>
+        <ul style="line-height:1.9">
+          <li><strong><code class="inline">yytext()</code>, no el valor:</strong> el reporte quiere el lexema tal como se escribió — <code class="inline">1</code> se reporta <code class="inline">1</code>, no <code class="inline">1.0</code>. (La deuda anotada en la Etapa 1, saldada.)</li>
+          <li><strong>Los errores léxicos también migran:</strong> la regla <code class="inline">[^]</code> ya no imprime a stderr — llama a <code class="inline">entorno.error("Léxico", …)</code> y el <code class="inline">$</code> intruso aparece en la tabla §6.2, exactamente como el ejemplo del enunciado.</li>
+          <li><strong>Si <code class="inline">entorno == null</code></strong> (TestLexer viejo), todo sigue funcionando como antes.</li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- 4 · Modo pánico -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">Pieza 2 · la teoría de la etapa · Dragón §4.8.3</p>
+        <h2>Recuperación en modo pánico: el terminal <code class="inline">error</code></h2>
+        <p>Hasta hoy, el primer error sintáctico mataba el análisis (<em>«Couldn't repair and continue parse»</em>). Pero el reporte quiere <strong>todos</strong> los errores. La herramienta es un terminal especial que CUP (y Yacc, y Jison) traen de fábrica:</p>
+        <pre class="code">instruccion ::= decl_var | decl_arr | imprimir | columna | grafica
+              | <span class="tk-res">error</span> PUNTO_COMA ;   <span class="tk-sym">// ← la producción de pánico</span></pre>
+        <p>Qué hace CUP cuando el parser se atasca, paso a paso:</p>
+        <div class="cards three">
+          <div class="card"><div class="step">1</div><h3>Reportar</h3><p>Llama a <code>syntax_error</code> — el override propio lo registra en el Entorno con línea/columna.</p></div>
+          <div class="card"><div class="step">2</div><h3>Podar la pila</h3><p>Descarta símbolos de la pila hasta llegar a un estado donde el terminal <code>error</code> se pueda desplazar (o sea: donde empezaba una instrucción).</p></div>
+          <div class="card"><div class="step">3</div><h3>Descartar y seguir</h3><p>Tira tokens de la entrada hasta encontrar <code>;</code>, reduce <code>instruccion ::= error PUNTO_COMA</code>… y el análisis continúa con la siguiente instrucción como si nada.</p></div>
+        </div>
+        <div class="callout"><p><strong>¿Por qué «pánico»?</strong> Porque ante el error el parser huye hacia un punto de sincronización seguro — el <code class="inline">;</code>, que en DataForge cierra toda instrucción — sacrificando lo que haya en el camino. Simple, robusto, y el método que el libro recomienda como primera opción (§4.8.1). El costo honesto: lo descartado no se analiza (un error puede ocultar otro en la misma instrucción).</p></div>
+      </div>
+    </section>
+
+    <!-- 5 · Errores estructurados -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">Pieza 3 · refactor pequeño</p>
+        <h2>De Strings a <code class="inline">RegistroError</code></h2>
+        <p>La tabla §6.2 tiene columnas (#, tipo, descripción, línea, columna) — un String formateado no se puede descomponer en celdas. Refactor mínimo:</p>
+        <pre class="code"><span class="tk-res">public class</span> RegistroError {
+    <span class="tk-res">public final</span> String tipo;         <span class="tk-sym">// "Léxico" | "Sintáctico" | "Semántico"</span>
+    <span class="tk-res">public final</span> String descripcion;
+    <span class="tk-res">public final int</span> linea, columna;  <span class="tk-sym">// ya en base 1, listos para mostrar</span>
+
+    @Override <span class="tk-res">public</span> String toString() { <span class="tk-sym">/* mismo formato de siempre */</span> }
+}</pre>
+        <p>El truco del refactor indoloro: <code class="inline">toString()</code> devuelve el formato que ya se usaba, así la consola de la GUI y <code class="inline">TestInterprete</code> siguen mostrando lo mismo sin cambiar su lógica — pero el generador de reportes ahora accede a cada campo por separado.</p>
+        <p class="muted">Con esto, las TRES familias de errores conviven en una sola lista tipada, cada una etiquetada con su origen: el lexer registra los léxicos, <code class="inline">syntax_error</code> los sintácticos, y Entorno/Operaciones los semánticos.</p>
+      </div>
+    </section>
+
+    <!-- 6 · Generar HTML -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">Pieza 4 · el generador</p>
+        <h2><code class="inline">Reportes.java</code>: plantilla + filas + escape</h2>
+        <p>Generar HTML es armar texto. Una plantilla común (título + tabla con CSS embebido — autocontenida, como esta presentación) y un método por reporte que fabrica las filas:</p>
+        <pre class="code"><span class="tk-sym">// el nombre del token, sin switch de 40 casos: reflexión sobre sym</span>
+<span class="tk-res">for</span> (Field f : sym.class.getFields())
+    <span class="tk-res">if</span> (f.getType() == <span class="tk-res">int</span>.class) nombres.put(f.getInt(<span class="tk-res">null</span>), f.getName());
+
+<span class="tk-sym">// y cada lexema se ESCAPA antes de entrar a la tabla:</span>
+s.replace(<span class="tk-str">"&amp;"</span>, <span class="tk-str">"&amp;amp;"</span>).replace(<span class="tk-str">"&lt;"</span>, <span class="tk-str">"&amp;lt;"</span>).replace(<span class="tk-str">"&gt;"</span>, <span class="tk-str">"&amp;gt;"</span>);</pre>
+        <div class="callout"><p><strong>¿Por qué escapar? Meta-momento:</strong> el reporte de tokens contiene el lexema <code class="inline">&lt;-</code>… que para un navegador parece el inicio de una etiqueta HTML. Es el mismo problema de todo el curso — un texto interpretado por OTRO lenguaje — visto del lado contrario: ahora es quien construye el compilador el que genera código para el intérprete de otro (el navegador).</p></div>
+        <p>El botón <strong>Reportes</strong> de la GUI llama a <code class="inline">Reportes.generar(ultimoEntorno, new File("reportes"))</code> y abre los tres archivos con <code class="inline">getHostServices().showDocument(...)</code> — la forma JavaFX de lanzar el navegador.</p>
+      </div>
+    </section>
+
+    <!-- 7 · Cambios + probar -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">Manos al proyecto</p>
+        <h2>Qué cambió y la prueba total</h2>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>Archivo</th><th>Cambio</th></tr></thead>
+            <tbody>
+              <tr><td><code>reportes/Reportes.java</code></td><td><strong>NUEVO</strong> ★ — genera tokens.html, errores.html, simbolos.html</td></tr>
+              <tr><td><code>interprete/RegistroError.java</code></td><td><strong>NUEVO</strong> — errores estructurados (tipo/desc/línea/col)</td></tr>
+              <tr><td><code>Lexer.flex</code></td><td>+ campo <code>entorno</code>: registra tokens y manda errores léxicos al reporte</td></tr>
+              <tr><td><code>parser.cup</code></td><td>+ producción <code>instruccion ::= error PUNTO_COMA</code> (modo pánico)</td></tr>
+              <tr><td><code>Entorno.java</code></td><td>+ lista de tokens + <code>registrarToken</code>; errores ahora tipados</td></tr>
+              <tr><td><code>gui/EditorApp.java</code></td><td>+ botón <strong>Reportes</strong> (genera y abre en el navegador)</td></tr>
+              <tr><td><code>entradas/ejemplo4_mixto.df</code></td><td><strong>NUEVO</strong> — los 3 tipos de error en un programa</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p><strong>La prueba total:</strong> Maven <code class="inline">compile</code> → ▶ <code class="inline">Lanzador</code> → Abrir <code class="inline">ejemplo4_mixto.df</code> → ▶ Ejecutar → botón <strong>Reportes</strong>. Se abren 3 pestañas del navegador:</p>
+        <ul style="line-height:1.9">
+          <li><strong>errores.html</strong> — la joya: un error <em>Léxico</em> (el <code class="inline">$</code>), uno <em>Sintáctico</em> (el <code class="inline">&lt;-</code> faltante, sobrevivido por modo pánico) y uno <em>Semántico</em> (fantasma), cada uno con línea y columna.</li>
+          <li><strong>tokens.html</strong> — todos los tokens con su lexema original.</li>
+          <li><strong>simbolos.html</strong> — <code class="inline">bueno</code> y <code class="inline">precio</code> declarados (¡y <code class="inline">roto</code> NO — su instrucción fue sacrificada por el pánico!). Los valores con el formato del enunciado: cadenas con comillas (<code class="inline">"Hola Mundo"</code>) y arreglos sin los <code class="inline">.0</code> de Java (<code class="inline">[1, 2.5, 7]</code>) — vía <code class="inline">Entorno.valorReporte()</code>, distinto del formato de consola.</li>
+        </ul>
+        <p class="muted">Y en la consola: <code class="inline">final:, 10, precio:, 99</code> — la última línea corrió pese a los 3 errores.</p>
+      </div>
+    </section>
+
+    <!-- 8 · Quiz -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">Chequeo rápido · Etapa 6</p>
+        <h2>El examen de las tres familias</h2>
+        <div class="quiz">
+          <div class="q">
+            <p class="question">1 · En <code class="inline">ejemplo4_mixto.df</code>, ¿por qué <code class="inline">precio</code> SÍ queda declarada (con 99) pese al <code class="inline">$</code>, pero <code class="inline">roto</code> NO queda pese a que su error también se recuperó?</p>
+            <button type="button" onclick="this.parentElement.classList.add('revealed')">Revelar respuesta</button>
+            <div class="answer"><p>Son recuperaciones de capas distintas. El <code class="inline">$</code> es <strong>léxico</strong>: se descarta solo ese carácter y el resto de la instrucción queda intacta y válida → se ejecuta. El <code class="inline">&lt;-</code> faltante es <strong>sintáctico</strong>: el modo pánico descarta la instrucción COMPLETA hasta el <code class="inline">;</code> — sobrevive el análisis, no la instrucción.</p></div>
+          </div>
+          <div class="q">
+            <p class="question">2 · ¿Por qué elegimos <code class="inline">;</code> como punto de sincronización del modo pánico?</p>
+            <button type="button" onclick="this.parentElement.classList.add('revealed')">Revelar respuesta</button>
+            <div class="answer"><p>Porque en DataForge <strong>toda instrucción termina en <code class="inline">;</code></strong> — es el delimitador natural del lenguaje: al saltar hasta ahí, lo próximo que viene es con altísima probabilidad el inicio limpio de otra instrucción. El libro (§4.8.1) llama a estos tokens «de sincronización»; en C serían <code class="inline">;</code> y <code class="inline">}</code>.</p></div>
+          </div>
+          <div class="q">
+            <p class="question">3 · ¿Por qué el reporte de tokens necesitó tocar el LEXER, si el parser ya recibía todos los tokens?</p>
+            <button type="button" onclick="this.parentElement.classList.add('revealed')">Revelar respuesta</button>
+            <div class="answer"><p>Dos razones: el parser <strong>consume y descarta</strong> los Symbol al reducir (no queda lista de tokens en ningún lado), y además el Symbol lleva el valor <em>procesado</em> (2.5 como Double, la cadena sin comillas) — el reporte exige el <strong>lexema original</strong>, que solo existe como <code class="inline">yytext()</code> en el instante en que el lexer lo produce. Capturarlo donde nace o perderlo.</p></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 9 · Cierre -->
+    <section class="slide">
+      <div class="inner titleslide">
+        <p class="eyebrow">Etapa 6 · lista para probar</p>
+        <h1>El intérprete está completo</h1>
+        <p class="lead">Editor · léxico · sintáctico con recuperación · ejecución · gráficas · reportes de las tres familias de errores. Todos los requisitos mínimos del enunciado (§7), cubiertos. Solo queda empaquetar: documentación y entrega.</p>
+        <p class="kicker"><a class="btn" href="index.html">⌂ Volver al índice</a></p>
+      </div>
+    </section>
+
+  </div>
+
+  <div class="navbar">
+    <button id="prev" type="button">← Anterior</button>
+    <button id="next" type="button">Siguiente →</button>
+    <span class="hint">también pueden usarse las flechas del teclado</span>
+  </div>
+</div>
+
+<script src="assets/deck.js"></script>
+</body>
+</html>

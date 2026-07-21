@@ -1,0 +1,219 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Etapa 4 · Señales de control — CompInterpreter</title>
+<link rel="stylesheet" href="assets/estilo.css">
+</head>
+<body>
+
+<div class="deck">
+  <div class="topbar">
+    <a class="brand" href="index.html" title="Volver al índice">Comp<em>Interpreter</em> · curso guiado</a>
+    <span class="chip">Etapa 4 · Señales de control</span>
+    <span class="counter"><span id="cur">1</span> / <span id="tot">?</span></span>
+    <button id="theme" type="button" title="Cambiar tema claro/oscuro" aria-label="Cambiar tema claro/oscuro">◐</button>
+  </div>
+  <div class="progress"><div id="bar"></div></div>
+
+  <div class="stage">
+
+    <!-- 1 · Intro -->
+    <section class="slide">
+      <div class="inner titleslide">
+        <p class="eyebrow">Etapa 4 · Parte 1</p>
+        <h1><code>break</code>, <code>continue</code>, <code>return</code>: sin una sola excepción de JS</h1>
+        <p class="lead">Podría implementarse con <code class="inline">throw</code>/<code class="inline">try/catch</code> de JavaScript — es la solución más obvia. CompInterpreter eligió otra: un <strong>valor de señal</strong> que cada instrucción devuelve hacia quien la contiene, y que cada estructura de control decide cómo interpretar.</p>
+      </div>
+    </section>
+
+    <!-- 2 · El mecanismo -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">Cómo funciona</p>
+        <h2>Una señal es un objeto, no una excepción</h2>
+        <pre class="code">case 'BREAK': return { tipo: 'BREAK', linea: nodo.linea, columna: nodo.columna };
+case 'CONTINUE': return { tipo: 'CONTINUE', linea: nodo.linea, columna: nodo.columna };
+case 'RETURN': {
+  const v = nodo.valor ? this.evaluar(nodo.valor, entorno) : null;
+  return { tipo: 'RETURN', valor: nodo.valor ? v : null, tieneValor: !!nodo.valor };
+}</pre>
+        <p><code class="inline">ejecutarBloque()</code> recorre una lista de instrucciones y, en cuanto una de ellas devuelve una señal no nula, corta el recorrido y la retorna hacia arriba — sin ejecutar el resto del bloque:</p>
+        <pre class="code">ejecutarBloque(instrucciones, entorno) {
+  for (const inst of instrucciones) {
+    const senal = this.ejecutarInstruccion(inst, entorno);
+    if (senal) return senal;
+  }
+  return null;
+}</pre>
+        <div class="callout"><p><strong>Cada ciclo decide qué hacer con la señal que recibe.</strong> <code class="inline">while</code>/<code class="inline">for</code>/<code class="inline">do-until</code>/<code class="inline">loop</code>: <code class="inline">BREAK</code> corta el ciclo, <code class="inline">CONTINUE</code> salta a la siguiente iteración (en <code class="inline">for</code>, cae primero en la actualización), y <code class="inline">RETURN</code> simplemente se re-propaga sin tocarlo, hasta llegar a la función que lo originó.</p></div>
+      </div>
+    </section>
+
+    <!-- 3 · Fall-through con el mismo mecanismo -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">Una ventaja inesperada del mismo mecanismo</p>
+        <h2>El <em>fall-through</em> de <code>switch</code> es el mismo truco</h2>
+        <p>El enunciado (5.16.2) exige explícitamente que un <code class="inline">case</code> sin <code class="inline">break</code> siga evaluando los <code class="inline">case</code> siguientes — comportamiento clásico de C/Java, distinto del <code class="inline">switch</code> de muchos lenguajes modernos. Con señales, implementarlo es casi gratis:</p>
+        <pre class="code">for (const caso of nodo.casos) {
+  if (!coincidio) {
+    const ce = this.evaluar(caso.expr, local);
+    const igual = ops.relacional('==', expr, ce, ...);
+    if (igual !== null &amp;&amp; igual.valor === true) coincidio = true;
+  }
+  if (coincidio) {
+    const senal = this.ejecutarBloque(caso.cuerpo, local);
+    if (senal) {
+      if (senal.tipo === 'BREAK') return null;
+      return senal;   // RETURN / CONTINUE se propagan
+    }
+  }
+}</pre>
+        <p class="muted">Una vez que <code class="inline">coincidio</code> pasa a <code class="inline">true</code>, el bucle deja de volver a evaluar la expresión de cada <code class="inline">case</code> y simplemente sigue ejecutando cuerpos hasta toparse con una señal <code class="inline">BREAK</code> — o hasta acabarse los casos, cayendo en <code class="inline">default</code> si existe.</p>
+      </div>
+    </section>
+
+    <!-- 4 · Guardas de estabilidad -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">Lo que el enunciado no pide, pero el servidor necesita</p>
+        <h2>Límites contra ciclos infinitos y recursión desbordada</h2>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>Guarda</th><th>Límite</th><th>Dónde se aplica</th></tr></thead>
+            <tbody>
+              <tr><td><code>MAX_ITER</code></td><td>1,000,000 iteraciones</td><td>Cada <code>while</code>/<code>for</code>/<code>do-until</code>/<code>loop</code></td></tr>
+              <tr><td><code>MAX_DEPTH</code></td><td>2,000 niveles</td><td>Profundidad de <code>invocar()</code> (llamadas anidadas/recursión)</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p>Un <code class="inline">loop {}</code> sin ninguna forma de salir, o una función que se llama a sí misma sin caso base, colgaría el proceso Node.js del servidor completo — afectando a <strong>todas</strong> las peticiones concurrentes, no solo a la que causó el problema. Estas dos guardas no están en el enunciado; son una decisión propia para la estabilidad del servidor, y se reportan como error semántico ("Posible ciclo infinito", "Recursión demasiado profunda") en vez de colgar el proceso.</p>
+      </div>
+    </section>
+
+    <!-- 5 · La sección 5.7 del manual -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">Lo que exige literalmente el enunciado (5.18.2)</p>
+        <h2><code>continue</code> fuera de un ciclo debe ser un error</h2>
+        <p>El enunciado es explícito: <em>«La sentencia continue siempre debe de estar dentro de un ciclo, de lo contrario será un error»</em>. Con el mecanismo de señales, esa validación se resuelve en un único lugar: el punto donde <code class="inline">invocar()</code> recibe la señal final que sube desde el cuerpo completo de la función.</p>
+        <pre class="code">const senal = this.ejecutarBloque(fn.cuerpo, local);
+this.profundidad--;
+
+// 5.18.2: "continue" (y, por la misma razón, "break") deben estar
+// dentro de un ciclo; si la señal escapa hasta el cuerpo de la función o
+// método sin que ningún ciclo la consuma, se reporta como error semántico
+// en lugar de truncar en silencio el resto de la ejecución.
+if (senal &amp;&amp; (senal.tipo === 'BREAK' || senal.tipo === 'CONTINUE')) {
+  const cual = senal.tipo === 'CONTINUE' ? 'continue' : 'break';
+  this.errores.semantico('La sentencia "' + cual + '" debe estar dentro de un ciclo',
+    senal.linea, senal.columna);
+  return null;
+}</pre>
+        <p class="muted">Si un <code class="inline">BREAK</code> o <code class="inline">CONTINUE</code> llega hasta acá, significa que ningún <code class="inline">while</code>/<code class="inline">for</code>/<code class="inline">do-until</code>/<code class="inline">loop</code> en el camino lo interceptó — es decir, la instrucción estaba fuera de cualquier ciclo.</p>
+      </div>
+    </section>
+
+    <!-- 6 · Auditoría — intro -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">Caso de estudio real · Auditoría de código, 21 de julio de 2026</p>
+        <h2>Dos errores reales, encontrados y corregidos</h2>
+        <p>El 21 de julio de 2026 el proyecto pasó por una auditoría de código independiente. No es un ejercicio hipotético: se encontraron y corrigieron <strong>dos errores reales</strong> en el manejo de las señales de control, ambos relacionados directamente con lo que se acaba de explicar en esta etapa.</p>
+        <div class="callout"><p><strong>Por qué importa mostrar esto en clase:</strong> ambos errores son del tipo que un compilador de juguete "casi funcional" suele esconder durante meses — solo se manifiestan con una entrada específica que nadie probó a propósito. Son un buen recordatorio de que "los ejemplos de prueba pasan" no es lo mismo que "el manejo de errores es correcto en todos los casos".</p></div>
+      </div>
+    </section>
+
+    <!-- 7 · Bug 1 -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">Bug de la auditoría · 1 de 2</p>
+        <h2>Un vector literal con un elemento incompatible tumbaba TODO</h2>
+        <p>Entrada que disparaba el problema:</p>
+        <pre class="code">let v: int[] = [1, "hola", 3];   <span class="tk-sym">// "hola" no es coercionable a int</span></pre>
+        <p><strong>Antes de la corrección:</strong> al evaluar el elemento incompatible, la coerción fallaba y devolvía el <code class="inline">null</code> de JavaScript (propagación normal por error). Ese <code class="inline">null</code> crudo quedaba guardado en esa posición del vector. El problema es que las funciones nativas sobre vectores (<code class="inline">sum</code>, <code class="inline">max</code>, <code class="inline">min</code>, <code class="inline">average</code>) y <code class="inline">aTexto()</code> leen <code class="inline">.tipo</code> de cada elemento <strong>sin volver a comprobar si es <code class="inline">null</code></strong> — asumen que todo elemento de un vector es siempre una instancia de <code class="inline">Valor</code>. Un <code class="inline">null</code> crudo ahí producía una excepción de JavaScript no controlada que abortaba <strong>toda la interpretación</strong>, reportada genéricamente como "Error interno durante la ejecución" — un único elemento mal escrito tumbaba el análisis completo del archivo, en vez de generar un único error semántico localizado en esa línea.</p>
+      </div>
+    </section>
+
+    <!-- 8 · Bug 1 - fix -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">Bug de la auditoría · 1 de 2 (la corrección)</p>
+        <h2>Rellenar con el valor por defecto, no con <code>null</code></h2>
+        <pre class="code">// Igual que coercionarElemento, pero para usarse al RELLENAR un vector
+// (listas literales 1D/2D): si la coercion falla, el error semantico ya
+// quedo reportado por coercionar(), pero esa posicion del vector NO puede
+// quedar en JS null (a diferencia de una expresion suelta que se propaga
+// por null): los elementos de un vector deben ser siempre instancias de
+// Valor, porque las nativas (sum/max/min/average) y aTexto() leen
+// directamente `.tipo` de cada elemento sin volver a chequear null. Se
+// rellena con el valor por defecto del tipo base para poder seguir.
+coercionarElementoOValorDefecto(tipoBase, v, l, c) {
+  const coer = this.coercionar(tipoBase, v, l, c);
+  return coer !== null ? coer : new Valor(tipoBase, valorPorDefecto(tipoBase));
+}</pre>
+        <p>La distinción clave: una expresión <em>suelta</em> que falla se propaga por <code class="inline">null</code> normalmente (nadie más la va a leer). Pero un elemento <em>dentro</em> de un vector va a ser leído después por código que confía en que siempre es un <code class="inline">Valor</code> — así que se necesita una variante que, si la coerción falla, rellene con el valor por defecto del tipo base (<code class="inline">0</code> para <code class="inline">int</code>, <code class="inline">""</code> para <code class="inline">string</code>, etc.) en vez de dejar el hueco.</p>
+        <div class="callout"><p><strong>Resultado después de la corrección:</strong> el ejemplo de arriba genera un único error semántico localizado ("no se puede asignar STRING a un elemento de tipo INT", con línea y columna), y el resto de la interpretación continúa con normalidad — exactamente el comportamiento esperado de propagación por causa única.</p></div>
+      </div>
+    </section>
+
+    <!-- 9 · Bug 2 -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">Bug de la auditoría · 2 de 2</p>
+        <h2><code>break</code>/<code>continue</code> fuera de un ciclo no generaba error</h2>
+        <p>El enunciado exige explícitamente (5.18.2, citado en la diapositiva anterior de esta misma etapa) que <code class="inline">continue</code> fuera de un ciclo sea un error. <strong>Antes de la corrección</strong>, la validación en <code class="inline">invocar()</code> solo se aplicaba a <code class="inline">CONTINUE</code> — literal, sin extenderla a <code class="inline">BREAK</code> por el mismo criterio.</p>
+        <p>Consecuencia real: un <code class="inline">break;</code> escrito por error fuera de cualquier ciclo (por ejemplo, directamente en el cuerpo de una función, sin ningún <code class="inline">while</code>/<code class="inline">for</code> alrededor) no generaba ningún mensaje en el reporte de errores. La señal <code class="inline">BREAK</code> subía sin ser consumida hasta el final del cuerpo de la función y, ahí, simplemente se descartaba en silencio — truncando la ejecución de las instrucciones restantes de esa función sin dejar ningún rastro en la consola ni en la tabla de errores.</p>
+        <div class="callout"><p><strong>Por qué es peor que un error visible:</strong> un error que no se reporta es el peor tipo de error para quien depura un programa — el código simplemente deja de ejecutar instrucciones sin ninguna pista de por qué. La corrección extiende la misma validación de <code class="inline">CONTINUE</code> a <code class="inline">BREAK</code> "por consistencia": ambos son señales que solo tienen sentido dentro de un ciclo, y ambos ahora se validan en el mismo punto de <code class="inline">invocar()</code> (código mostrado en la diapositiva anterior).</p></div>
+      </div>
+    </section>
+
+    <!-- 10 · Quiz -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">Chequeo rápido</p>
+        <h2>Sobre señales y la auditoría</h2>
+        <div class="quiz">
+          <div class="q">
+            <p class="question">1 · ¿Por qué CompInterpreter no usa <code class="inline">throw</code>/<code class="inline">try-catch</code> de JavaScript para implementar <code class="inline">break</code>/<code class="inline">continue</code>/<code class="inline">return</code>?</p>
+            <button type="button" onclick="this.parentElement.classList.add('revealed')">Revelar respuesta</button>
+            <div class="answer"><p>El código no lo documenta como una prohibición técnica de JS (las excepciones funcionarían), sino como una decisión de diseño propia: un objeto de señal que cada instrucción retorna es un flujo de control explícito y visible en cada función (<code class="inline">ejecutarBloque</code>, <code class="inline">execWhile</code>, etc.), mientras que una excepción viajaría de forma implícita y sería más difícil de rastrear en cada punto donde se decide qué hacer con ella — además de que el mismo mecanismo resuelve gratis el fall-through de <code class="inline">switch</code>.</p></div>
+          </div>
+          <div class="q">
+            <p class="question">2 · En el bug 1 (vector con elemento incompatible), ¿por qué NO alcanza con propagar <code class="inline">null</code> de JavaScript como en cualquier otra expresión?</p>
+            <button type="button" onclick="this.parentElement.classList.add('revealed')">Revelar respuesta</button>
+            <div class="answer"><p>Porque una posición de un vector no es una expresión suelta: va a ser leída después por funciones (<code class="inline">sum</code>, <code class="inline">max</code>, <code class="inline">min</code>, <code class="inline">average</code>, <code class="inline">aTexto()</code>) que asumen que todo elemento es una instancia de <code class="inline">Valor</code> y leen <code class="inline">.tipo</code> directamente sin comprobar <code class="inline">null</code>. Un <code class="inline">null</code> crudo ahí provoca una excepción no controlada, no un error semántico limpio.</p></div>
+          </div>
+          <div class="q">
+            <p class="question">3 · ¿Qué tienen en común los dos bugs de la auditoría, en términos de qué tipo de error de compilador representan?</p>
+            <button type="button" onclick="this.parentElement.classList.add('revealed')">Revelar respuesta</button>
+            <div class="answer"><p>Los dos son fallas del <strong>manejo de errores</strong>, no del "camino feliz": ambos ocurren únicamente cuando el programa de entrada tiene un problema (un tipo incompatible, una instrucción de control fuera de contexto), y en ambos casos el síntoma era peor que un mensaje de error — silenciar el problema (bug 2) o abortar todo sin localizar la causa (bug 1). Confirman por qué la propagación por causa única y la validación explícita son partes centrales del diseño, no un detalle secundario.</p></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 11 · Cierre -->
+    <section class="slide">
+      <div class="inner titleslide">
+        <p class="eyebrow">Etapa 4 · construida y auditada</p>
+        <h1>El control de flujo queda robusto</h1>
+        <p class="lead">Señales en vez de excepciones resuelven <code class="inline">break</code>/<code class="inline">continue</code>/<code class="inline">return</code> y, de paso, el <em>fall-through</em> del <code class="inline">switch</code>. Guardas de estabilidad protegen al servidor de ciclos infinitos y recursión desbordada. Y la auditoría del 21 de julio de 2026 corrigió dos errores reales que ningún ejemplo de prueba anterior había ejercitado.</p>
+        <p class="kicker">Próxima: <strong>Etapa 5 — el servidor Express: el contrato REST completo</strong>.<br><a class="btn" href="index.html" style="margin-top:14px">⌂ Volver al índice</a></p>
+      </div>
+    </section>
+
+  </div>
+
+  <div class="navbar">
+    <button id="prev" type="button">← Anterior</button>
+    <button id="next" type="button">Siguiente →</button>
+    <span class="hint">también se pueden usar las flechas del teclado</span>
+  </div>
+</div>
+
+<script src="assets/deck.js"></script>
+</body>
+</html>

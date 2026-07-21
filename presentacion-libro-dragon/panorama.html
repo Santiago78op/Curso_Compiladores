@@ -1,0 +1,180 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Panorama · Caps. 8–12 — Libro del Dragón</title>
+<link rel="stylesheet" href="assets/estilo.css">
+</head>
+<body>
+
+<div class="deck">
+  <div class="topbar">
+    <a class="brand" href="index.html" title="Volver al índice">Libro del <em>Dragón</em> · capítulo a capítulo</a>
+    <span class="chip">★ Panorama · Caps. 8–12</span>
+    <span class="counter"><span id="cur">1</span> / <span id="tot">?</span></span>
+    <button id="theme" type="button" title="Cambiar tema claro/oscuro" aria-label="Cambiar tema claro/oscuro">◐</button>
+  </div>
+  <div class="progress"><div id="bar"></div></div>
+
+  <div class="stage">
+
+    <!-- 1 · Portada -->
+    <section class="slide">
+      <div class="inner titleslide">
+        <p class="eyebrow">Panorama · Capítulos 8–12</p>
+        <h1>La otra mitad del libro</h1>
+        <p class="lead">Quinientas páginas del Dragón quedan del otro lado de la frontera de OLC1. Esta página corta las recorre a vuelo de pájaro — no para estudiarlas, sino para dejar claro <strong>qué hay ahí, por qué no corresponde, y cómo defenderlo</strong> si llega a preguntarse.</p>
+        <p class="kicker">Regla de lectura: acá no hay quiz de contenido — hay contexto. Diez minutos alcanzan.<br>Se navega con ← → o los botones.</p>
+      </div>
+    </section>
+
+    <!-- 2 · La frontera -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">El argumento completo, de una vez</p>
+        <h2>Dónde termina el alcance del curso (y por qué exactamente ahí)</h2>
+        <pre class="code">caracteres → LÉXICO → SINTÁCTICO → SEMÁNTICO → ┬ EJECUTAR (intérprete) ← los 4 proyectos del curso
+                caps. 3    cap. 4      caps. 5-6   │
+                                                   └ INTERMEDIO → OPTIMIZAR → CÓDIGO MÁQUINA
+                                                        caps. 8–12: solo si existe un programa destino</pre>
+        <p>Todo el back-end existe para fabricar y pulir <strong>un programa destino</strong>. Los proyectos del curso ejecutan directamente: el programa destino <em>no existe</em>, así que no hay qué generar (cap. 8), qué optimizar (cap. 9), ni qué paralelizar (caps. 10–11). No es un recorte por pereza — es que el objeto de estudio de esos capítulos no aparece en un intérprete.</p>
+        <div class="callout"><p>La frase para la defensa del proyecto: <em>«Los proyectos de OLC1 son intérpretes: implementan el front-end completo del Dragón (caps. 3–7) con ejecución directa sobre el AST o las acciones semánticas; el back-end (caps. 8–12) no aplica porque no se genera programa destino.»</em></p></div>
+      </div>
+    </section>
+
+    <!-- 3 · Cap 8 -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">Capítulo 8</p>
+        <h2>Generación de código: del intermedio a la máquina real</h2>
+        <p>El intermedio (<code class="inline">t1 = b + c</code>) hay que volverlo instrucciones de un procesador concreto. Los dos problemas gigantes:</p>
+        <div class="cards three">
+          <div class="card">
+            <h3>Selección de instrucciones</h3>
+            <p>Hay <em>muchas</em> formas de traducir cada operación — y no cuestan lo mismo. ¿<code class="inline">ADD R1, R1, #1</code> o <code class="inline">INC R1</code>? Elegir bien es un problema de cobertura de árboles.</p>
+          </div>
+          <div class="card">
+            <h3>Asignación de registros</h3>
+            <p>El procesador tiene ~16 registros; el programa, miles de variables y temporales. Decidir quién vive en registro y quién en memoria se modela como <strong>coloreo de grafos</strong> — NP-completo.</p>
+          </div>
+          <div class="card">
+            <h3>El contacto más cercano</h3>
+            <p>El código de tres direcciones que se vio en los caps. 1 y 6 es la <em>entrada</em> de este capítulo. Ahí quedó el límite del recorrido.</p>
+          </div>
+        </div>
+        <p class="muted">Dragón cap. 8: también orden de evaluación, bloques básicos y un generador simple completo.</p>
+      </div>
+    </section>
+
+    <!-- 4 · Cap 9 -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">Capítulo 9</p>
+        <h2>Optimización: mejorar sin cambiar el significado</h2>
+        <p>El capítulo del <strong>análisis de flujo de datos</strong>: recorrer el grafo del programa preguntando «¿qué valores llegan vivos hasta acá?» para justificar transformaciones:</p>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>Optimización</th><th>Idea</th></tr></thead>
+            <tbody>
+              <tr><td>Subexpresiones comunes</td><td>Lo que el DAG del cap. 6 insinuaba, hecho análisis global</td></tr>
+              <tr><td>Propagación de constantes</td><td>Si <code class="inline">x = 5</code> siempre, reemplazá <code class="inline">x</code> por 5 y seguí simplificando</td></tr>
+              <tr><td>Código muerto</td><td>Instrucciones cuyo resultado nadie usa: afuera</td></tr>
+              <tr><td>Movimiento de código</td><td>Sacar de un ciclo lo que no cambia adentro</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="callout"><p>Ojo con una rima engañosa: la <strong>simplificación con leyes de conjuntos</strong> de ConjAnalyzer (idempotencia, absorción…) se le <em>parece</em> — transformar expresiones sin cambiar su significado — pero es manipulación algebraica sobre el AST, definida en el enunciado. No es análisis de flujo de datos; no conviene citar el cap. 9 para eso.</p></div>
+        <p class="muted">Dragón cap. 9: fundamentos de flujo de datos, ejecución parcial, análisis de regiones.</p>
+      </div>
+    </section>
+
+    <!-- 5 · Caps 10-12 -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">Capítulos 10, 11 y 12</p>
+        <h2>La frontera lejana: paralelismo y análisis global</h2>
+        <div class="cards three">
+          <div class="card">
+            <h3>Cap. 10 · Paralelismo a nivel de instrucción</h3>
+            <p>Los procesadores ejecutan varias instrucciones a la vez. El compilador reordena y agenda (<em>software pipelining</em>) para llenar esos carriles sin romper dependencias.</p>
+          </div>
+          <div class="card">
+            <h3>Cap. 11 · Paralelismo y localidad</h3>
+            <p>Transformar ciclos sobre matrices (intercambio, bloqueo, fusión) para aprovechar caché y múltiples núcleos. El mundo del cómputo científico.</p>
+          </div>
+          <div class="card">
+            <h3>Cap. 12 · Análisis interprocedural</h3>
+            <p>Analizar <em>a través</em> de las llamadas (¿a qué apunta este puntero en todo el programa?). Base de optimizadores agresivos y herramientas de seguridad.</p>
+          </div>
+        </div>
+        <p>Patrón común: los tres exigen que exista código generado que reordenar y un modelo de la máquina que explotar. A un intérprete de OLC1 le quedan a dos capítulos de distancia — primero tendrías que <em>tener</em> un back-end.</p>
+        <p class="muted">Si algún día este mundo resulta atractivo: son los capítulos que separan un compilador de juguete de GCC/LLVM.</p>
+      </div>
+    </section>
+
+    <!-- 6 · A dónde seguir -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">Bonus · para después del curso</p>
+        <h2>El Apéndice A y a dónde seguir</h2>
+        <p>El <strong>Apéndice A</strong> del Dragón trae el compilador completo en Java del cap. 2 extendido — el «juguete» con todas sus piezas ensambladas. Es la mejor lectura de código del libro: corto, real, y ya se entiende cada parte.</p>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>Para…</th><th>Conviene ir a…</th></tr></thead>
+            <tbody>
+              <tr><td>Ver el juguete completo ensamblado</td><td>Dragón, Apéndice A (Java)</td></tr>
+              <tr><td>Construir un compilador real de punta a punta</td><td><em>Modern Compiler Implementation in Java</em> (Appel) — más práctico, menos enciclopédico; la comparación está en la ficha del vault (05-Recursos)</td></tr>
+              <tr><td>Repasar el núcleo con demos</td><td>Esta presentación (caps. 1–7) + las profundizaciones del curso DataForge</td></tr>
+              <tr><td>La referencia enciclopédica de por vida</td><td>El Dragón entero — se consulta, no se lee de corrido</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- 7 · El mapa final -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">El curso completo, en una pantalla</p>
+        <h2>Qué capítulo alimenta qué parte de los proyectos del curso</h2>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>Al escribir…</th><th>La teoría está en…</th></tr></thead>
+            <tbody>
+              <tr><td>La tabla de tokens y el <code class="inline">.flex</code> / <code class="inline">%lex</code></td><td><a href="cap3.html">Cap. 3</a> (+ autómatas del curso DataForge)</td></tr>
+              <tr><td>La gramática BNF y el <code class="inline">.cup</code> / <code class="inline">.jison</code></td><td><a href="cap2.html">Cap. 2</a> y <a href="cap4.html">Cap. 4</a> (+ gramáticas del curso DataForge)</td></tr>
+              <tr><td>Las acciones <code class="inline">{: RESULT :}</code> / <code class="inline">$$</code> y el AST</td><td><a href="cap5.html">Cap. 5</a></td></tr>
+              <tr><td><code class="inline">Operaciones</code>, tipos, errores semánticos, if/while/switch</td><td><a href="cap6.html">Cap. 6</a></td></tr>
+              <tr><td>Funciones, ámbitos, recursión, return/break</td><td><a href="cap7.html">Cap. 7</a></td></tr>
+              <tr><td>La defensa del alcance («¿y por qué no optimizan?»)</td><td>Esta página + <a href="cap1.html">Cap. 1</a></td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="callout"><p><strong>Cómo usar este material de acá en adelante:</strong> cuando arranque ConjAnalyzer (con el estudiante escribiendo el código), conviene abrir el capítulo de la pieza que se esté escribiendo y trabajar con la teoría al lado. Este deck no se estudia una vez — se consulta por pieza.</p></div>
+      </div>
+    </section>
+
+    <!-- 8 · Cierre del curso -->
+    <section class="slide">
+      <div class="inner titleslide">
+        <p class="eyebrow">Presentación completa · caps. 1–7 + panorama 🎉</p>
+        <h1>Dragón domesticado</h1>
+        <p class="lead">Se recorrió el mapa (cap. 1), se vio el juguete completo (cap. 2), se entendió qué generan JFlex (cap. 3) y CUP (cap. 4), se le puso teoría al <code class="inline">RESULT</code> (cap. 5), reglas a la semántica (cap. 6) y una pila a las funciones (cap. 7). Y queda claro exactamente qué se dejó afuera y por qué.</p>
+        <p style="margin-top:28px"><a class="btn primary" href="index.html">⌂ Volver al índice del curso</a></p>
+        <p class="kicker">Siguiente aventura: ConjAnalyzer — ahora el que escribe el código es el estudiante.</p>
+      </div>
+    </section>
+
+  </div>
+
+  <div class="navbar">
+    <button id="prev" type="button">← Anterior</button>
+    <button id="next" type="button">Siguiente →</button>
+    <span class="hint">también se pueden usar las flechas del teclado</span>
+  </div>
+</div>
+
+<script src="assets/deck.js"></script>
+</body>
+</html>

@@ -1,0 +1,220 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Etapa 0 · Conceptos base — DataForge</title>
+<link rel="stylesheet" href="assets/estilo.css">
+</head>
+<body>
+
+<div class="deck">
+  <div class="topbar">
+    <a class="brand" href="index.html" title="Volver al índice">Data<em>Forge</em> · curso guiado</a>
+    <span class="chip">Etapa 0 · Conceptos base</span>
+    <span class="counter"><span id="cur">1</span> / <span id="tot">?</span></span>
+    <button id="theme" type="button" title="Cambiar tema claro/oscuro" aria-label="Cambiar tema claro/oscuro">◐</button>
+  </div>
+  <div class="progress"><div id="bar"></div></div>
+
+  <div class="stage">
+
+    <!-- 1 · Portada -->
+    <section class="slide">
+      <div class="inner titleslide">
+        <p class="eyebrow">OLC1 · USAC · Proyecto 1</p>
+        <h1>La construcción de un intérprete</h1>
+        <p class="lead">DataForge: un programa en Java que lee código escrito en un lenguaje inventado (<code class="inline">.df</code>), lo entiende y lo ejecuta — calcula, imprime y grafica.</p>
+        <p class="kicker">Etapa 0 — antes de tocar código: los tres conceptos que sostienen todo el proyecto.<br>Hay que navegar con las flechas del teclado ← → o los botones de abajo.</p>
+      </div>
+    </section>
+
+    <!-- 2 · El problema -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">El problema de fondo</p>
+        <h2>Para Java, el código es solo una tira de caracteres</h2>
+        <p>El usuario escribe un archivo <code class="inline">.df</code>. Pero Java no sabe leer DataForge: lo que recibe es esto — un carácter tras otro, sin significado:</p>
+        <pre class="code">v a r : d o u b l e : :   n u m e r o   &lt; -   2 . 5   e n d ;</pre>
+        <p>El proyecto es el proceso que convierte esa tira de caracteres en una <strong>acción</strong>: <em>"declarar una variable llamada <code class="inline">numero</code> con el valor 2.5"</em>.</p>
+        <div class="callout"><p>Un programa que lee código fuente y lo <strong>ejecuta directamente</strong> se llama <strong>intérprete</strong>. Los 4 proyectos del curso son intérpretes.</p></div>
+      </div>
+    </section>
+
+    <!-- 3 · Analogía -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">La analogía clave</p>
+        <h2>Esto ya se sabe hacer: ocurre al leer</h2>
+        <p>Cuando se lee <em>«El gato negro duerme.»</em>, el cerebro hace tres cosas sin que se note:</p>
+        <div class="cards three">
+          <div class="card">
+            <div class="step">1</div>
+            <h3>Agrupa letras en palabras</h3>
+            <p>No se lee E-l-g-a-t-o. Se lee «El», «gato», «negro», «duerme» — y se clasifica: sustantivo, adjetivo, verbo.</p>
+          </div>
+          <div class="card">
+            <div class="step">2</div>
+            <h3>Verifica el orden</h3>
+            <p>«El gato negro duerme» ✓ suena bien. «Gato el duerme negro» ✗ — mismas palabras, orden inválido.</p>
+          </div>
+          <div class="card">
+            <div class="step">3</div>
+            <h3>Entiende y reacciona</h3>
+            <p>Se imagina al gato durmiendo. El significado produce un efecto.</p>
+          </div>
+        </div>
+        <p>Un intérprete hace <strong>exactamente esas tres cosas</strong> con el código fuente. Solo cambian los nombres.</p>
+      </div>
+    </section>
+
+    <!-- 4 · Las tres capas -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">Arquitectura del intérprete</p>
+        <h2>Las tres capas (y su nombre técnico)</h2>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>La mente al leer</th><th>El intérprete</th><th>Nombre técnico</th><th>Herramienta</th></tr></thead>
+            <tbody>
+              <tr><td>Agrupar letras en palabras y clasificarlas</td><td>Agrupar caracteres en <strong>tokens</strong></td><td>Análisis <strong>léxico</strong></td><td>JFlex</td></tr>
+              <tr><td>Verificar que la frase esté bien armada</td><td>Verificar el orden contra la <strong>gramática</strong></td><td>Análisis <strong>sintáctico</strong></td><td>CUP</td></tr>
+              <tr><td>Entender y reaccionar</td><td><strong>Ejecutar</strong> la instrucción</td><td>Ejecución</td><td>Java</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="callout"><p>El enunciado mezcla las tres capas en cada renglón. Que <code class="inline">numero</code> sea una palabra es <strong>léxico</strong>; que después de <code class="inline">var:double::</code> deba venir un nombre es <strong>sintáctico</strong>; que la variable guarde 2.5 es <strong>ejecución</strong>. Separarlas mentalmente es el primer músculo de compiladorista.</p></div>
+        <p class="muted">Fuente: Libro del Dragón, caps. 1–4 · notas del vault: Cap 1 a Cap 4.</p>
+      </div>
+    </section>
+
+    <!-- 5 · Qué es un token -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">Concepto nº 1</p>
+        <h2>¿Qué es un token?</h2>
+        <p class="lead">Un token es una <strong>«palabra» del lenguaje de programación, ya clasificada</strong>. La unidad mínima con significado.</p>
+        <p>Igual que en español las palabras tienen categorías (sustantivo, verbo, adjetivo), en DataForge las «palabras» tienen categorías:</p>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>Categoría</th><th>Qué es</th><th>Ejemplos en DataForge</th></tr></thead>
+            <tbody>
+              <tr><td><span class="dot dot-res" style="display:inline-block;vertical-align:baseline;margin-right:6px"></span><strong>Palabra reservada</strong></td><td>Palabra fija del idioma: siempre significa lo mismo</td><td><code>var</code>, <code>double</code>, <code>end</code>, <code>SUM</code>, <code>PROGRAM</code></td></tr>
+              <tr><td><span class="dot dot-id" style="display:inline-block;vertical-align:baseline;margin-right:6px"></span><strong>Identificador</strong></td><td>Nombre propio inventado por el usuario</td><td><code>numero</code>, <code>edad</code>, <code>copia</code></td></tr>
+              <tr><td><span class="dot dot-num" style="display:inline-block;vertical-align:baseline;margin-right:6px"></span><strong>Literal numérico</strong></td><td>Un valor concreto</td><td><code>2.5</code>, <code>0</code>, <code>57.75</code></td></tr>
+              <tr><td><span class="dot dot-str" style="display:inline-block;vertical-align:baseline;margin-right:6px"></span><strong>Literal de cadena</strong></td><td>Texto entre comillas</td><td><code>"hola"</code>, <code>"Enteros"</code></td></tr>
+              <tr><td><span class="dot dot-sym" style="display:inline-block;vertical-align:baseline;margin-right:6px"></span><strong>Símbolo</strong></td><td>Signos de puntuación y operadores</td><td><code>:</code>, <code>::</code>, <code>&lt;-</code>, <code>;</code>, <code>(</code>, <code>)</code></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- 6 · Anatomía de una línea -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">Anatomía de una línea real</p>
+        <h2>Conviene pasar el mouse por cada pieza</h2>
+        <p>Esta línea sale del enunciado (sección 5.5). Así la parte y clasifica el analizador léxico:</p>
+        <pre class="code" style="font-size:19px"><span class="tk tk-res" tabindex="0" data-cat="palabra reservada">var</span><span class="tk tk-sym" tabindex="0" data-cat="símbolo">:</span><span class="tk tk-res" tabindex="0" data-cat="palabra reservada">double</span><span class="tk tk-sym" tabindex="0" data-cat="símbolo">::</span> <span class="tk tk-id" tabindex="0" data-cat="identificador (nombre inventado por el usuario)">numero</span> <span class="tk tk-sym" tabindex="0" data-cat="símbolo de asignación">&lt;-</span> <span class="tk tk-num" tabindex="0" data-cat="literal numérico">2.5</span> <span class="tk tk-res" tabindex="0" data-cat="palabra reservada">end</span><span class="tk tk-sym" tabindex="0" data-cat="símbolo">;</span></pre>
+        <ul class="legend">
+          <li><span class="dot dot-res"></span> palabra reservada</li>
+          <li><span class="dot dot-id"></span> identificador</li>
+          <li><span class="dot dot-num"></span> número</li>
+          <li><span class="dot dot-sym"></span> símbolo</li>
+        </ul>
+        <p style="margin-top:22px">Nueve caracteres… no: <strong>nueve tokens</strong>. La línea completa significa: <em>«declará una variable de tipo decimal, llamada numero, con el valor 2.5»</em> — pero ese significado lo arma la capa sintáctica. El léxico solo corta y clasifica.</p>
+      </div>
+    </section>
+
+    <!-- 7 · Token, lexema, patrón -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">Concepto nº 2 — la única sutileza de hoy</p>
+        <h2>Token · Lexema · Patrón</h2>
+        <p><code class="inline">var</code> es <strong>siempre el mismo texto</strong>: con verlo, ya está. Pero <code class="inline">numero</code> y <code class="inline">2.5</code> cambian en cada programa (<code class="inline">edad</code>, <code class="inline">x</code>, <code class="inline">3.14</code>, <code class="inline">100</code>…). Para esos, el analizador no memoriza textos: memoriza una <strong>regla de forma</strong>.</p>
+        <div class="cards three">
+          <div class="card">
+            <h3>Token</h3>
+            <p>La <strong>categoría</strong>.<br>Ej.: «identificador», «número».</p>
+          </div>
+          <div class="card">
+            <h3>Lexema</h3>
+            <p>El <strong>texto concreto</strong> que apareció.<br>Ej.: <code>numero</code>, <code>2.5</code>, <code>edad</code>.</p>
+          </div>
+          <div class="card">
+            <h3>Patrón</h3>
+            <p>La <strong>regla de forma</strong> que los reconoce.<br>Ej.: «letras seguidas de letras o dígitos».</p>
+          </div>
+        </div>
+        <div class="callout"><p><code class="inline">"hola"</code>, <code class="inline">"adios"</code> y <code class="inline">"Enteros"</code> son <strong>tres lexemas distintos del mismo token</strong> (cadena), reconocidos por un solo patrón: «cualquier cosa entre comillas dobles».</p></div>
+        <p class="muted">Fuente: Dragón §3.1 · nota del vault: Token, lexema y patrón.</p>
+      </div>
+    </section>
+
+    <!-- 8 · Por qué empezamos acá -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">¿Y esto para qué?</p>
+        <h2>JFlex es, literalmente, una lista de patrones</h2>
+        <p>La herramienta del proyecto (JFlex) funciona así: se le escribe una lista de reglas <em>«cuando se vea esto → se entrega este token»</em>, y ella <strong>genera automáticamente el código Java</strong> que corta y clasifica cualquier archivo <code class="inline">.df</code>.</p>
+        <pre class="code"><span class="tk-sym">// idea (todavía no es sintaxis real de JFlex):</span>
+"var"                        → token VAR
+"double"                     → token DOUBLE
+"&lt;-"                         → token ASIGNACION
+letra (letra|dígito)*        → token ID
+dígitos ("." dígitos)?       → token NUM_DOUBLE
+"texto entre comillas"       → token CADENA</pre>
+        <p>Por eso la primera pieza real del proyecto será la <strong>tabla de tokens</strong>: recorrer el enunciado completo y extraer todo el vocabulario del lenguaje con su categoría y su patrón. Esa tabla se traduce casi 1 a 1 al archivo <code class="inline">.flex</code>.</p>
+      </div>
+    </section>
+
+    <!-- 9 · Quiz -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">Chequeo rápido</p>
+        <h2>¿Quedó claro? Momento de comprobarlo</h2>
+        <p class="muted">Conviene pensar la respuesta antes de revelar. Si se falla alguna, hay que volver dos diapositivas.</p>
+        <div class="quiz">
+          <div class="q">
+            <p class="question">1 · En <code class="inline">var:char[]::cadena &lt;- "hola" end;</code> — ¿<code class="inline">cadena</code> es palabra reservada o identificador?</p>
+            <button type="button" onclick="this.parentElement.classList.add('revealed')">Revelar respuesta</button>
+            <div class="answer"><p><strong>Identificador.</strong> Es un nombre que inventó el usuario para su variable — pudo llamarse <code class="inline">saludo</code> o <code class="inline">x</code>. Que su texto «cadena» suene a concepto del lenguaje no importa: no está en la lista de palabras fijas de DataForge.</p></div>
+          </div>
+          <div class="q">
+            <p class="question">2 · <code class="inline">"hola"</code> y <code class="inline">"adios"</code> son lexemas diferentes… ¿del mismo token o de tokens diferentes?</p>
+            <button type="button" onclick="this.parentElement.classList.add('revealed')">Revelar respuesta</button>
+            <div class="answer"><p><strong>Del mismo token</strong> (cadena). Un solo patrón — «lo que sea entre comillas dobles» — reconoce infinitos lexemas posibles. Token = categoría; lexema = el texto concreto de cada aparición.</p></div>
+          </div>
+          <div class="q">
+            <p class="question">3 · Bonus: que <code class="inline">VAR</code> y <code class="inline">var</code> valgan lo mismo (el lenguaje es <em>case insensitive</em>) — ¿en qué capa se resuelve?</p>
+            <button type="button" onclick="this.parentElement.classList.add('revealed')">Revelar respuesta</button>
+            <div class="answer"><p><strong>En la léxica.</strong> Es un problema de reconocer la palabra, no del orden de la frase. El patrón de JFlex aceptará mayúsculas y minúsculas. Lo vemos en la Etapa 1.</p></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 10 · Cierre -->
+    <section class="slide">
+      <div class="inner titleslide">
+        <p class="eyebrow">Etapa 0 completada</p>
+        <h1>El idioma ya queda incorporado</h1>
+        <p class="lead">Intérprete · las tres capas · token · lexema · patrón. Con eso alcanza para empezar a construir.</p>
+        <p style="margin-top:28px"><a class="btn primary" href="etapa1.html">Continuar con la Etapa 1: análisis léxico →</a></p>
+        <p class="kicker"><a class="btn" href="index.html">⌂ Volver al índice</a></p>
+      </div>
+    </section>
+
+  </div>
+
+  <div class="navbar">
+    <button id="prev" type="button">← Anterior</button>
+    <button id="next" type="button">Siguiente →</button>
+    <span class="hint">también se pueden usar las flechas del teclado</span>
+  </div>
+</div>
+
+<script src="assets/deck.js"></script>
+</body>
+</html>

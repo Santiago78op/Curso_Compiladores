@@ -1,0 +1,173 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Etapa 3 · El intérprete — CompInterpreter</title>
+<link rel="stylesheet" href="assets/estilo.css">
+</head>
+<body>
+
+<div class="deck">
+  <div class="topbar">
+    <a class="brand" href="index.html" title="Volver al índice">Comp<em>Interpreter</em> · curso guiado</a>
+    <span class="chip">Etapa 3 · El intérprete</span>
+    <span class="counter"><span id="cur">1</span> / <span id="tot">?</span></span>
+    <button id="theme" type="button" title="Cambiar tema claro/oscuro" aria-label="Cambiar tema claro/oscuro">◐</button>
+  </div>
+  <div class="progress"><div id="bar"></div></div>
+
+  <div class="stage">
+
+    <!-- 1 · Intro -->
+    <section class="slide">
+      <div class="inner titleslide">
+        <p class="eyebrow">Etapa 3 · Parte 1</p>
+        <h1>Recorrer el árbol: semántica y ejecución juntas</h1>
+        <p class="lead">La clase <code class="inline">Interprete</code> (<code class="inline">server/src/interprete/interprete.js</code>) recorre el AST realizando <strong>al mismo tiempo</strong> la comprobación de tipos (análisis semántico) y la ejecución de las instrucciones — no hay una fase separada de "solo revisar tipos" antes de "ahora sí ejecutar".</p>
+      </div>
+    </section>
+
+    <!-- 2 · Dos pasadas -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">La recomendación del enunciado, implementada literalmente</p>
+        <h2>Dos pasadas resuelven la referencia adelantada</h2>
+        <p>El enunciado (sección 5.21) sugiere explícitamente: <em>«se podrán llamar métodos y funciones antes que se encuentren declaradas, para ello se recomienda realizar 2 pasadas del AST generado»</em>. Así quedó implementado en <code class="inline">Interprete.interpretar()</code>:</p>
+        <pre class="code">// PASADA 1: funciones y metodos
+for (const g of ast.globales) {
+  if (g.tipo === 'FUNCION' || g.tipo === 'METODO') {
+    const clave = g.id.toLowerCase();
+    if (this.funciones.has(clave)) {
+      this.errores.semantico('Ya existe una función o método con el identificador "' + g.id + '"...');
+      continue;
+    }
+    this.funciones.set(clave, g);
+    ...
+  }
+}
+// PASADA 2: variables globales y ejecutar
+for (const g of ast.globales) {
+  if (g.tipo === 'DECLARACION' || g.tipo === 'DECLARACION_VECTOR') this.ejecutarInstruccion(g, this.global);
+  else if (g.tipo === 'EJECUTAR') this.ejecutarEjecutar(g);
+}</pre>
+        <div class="callout"><p><strong>Por qué funciona:</strong> en la pasada 1 solo se <em>registra</em> el nodo de cada función/método en un <code class="inline">Map</code> — nada se ejecuta todavía. Para cuando la pasada 2 llega a la sentencia <code class="inline">ejecutar main();</code>, todas las funciones del archivo ya están disponibles, sin importar en qué orden textual aparecieron. La misma pasada 1 detecta la sobrecarga prohibida: dos funciones con el mismo identificador (case-insensitive) generan error semántico.</p></div>
+      </div>
+    </section>
+
+    <!-- 3 · Entorno y tabla de símbolos -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">Dónde viven las variables</p>
+        <h2>Una cadena de entornos, igual concepto que DataForge</h2>
+        <p><code class="inline">server/src/interprete/entorno.js</code> define la clase <code class="inline">Entorno</code>: una tabla (<code class="inline">Map</code>) más una referencia a su ámbito padre. Cada bloque anidado (cuerpo de función, ciclo, rama de un <code class="inline">if</code>) crea un <code class="inline">Entorno</code> nuevo colgado del que lo contiene; buscar un identificador recorre esa cadena hacia arriba hasta el ámbito global.</p>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>Nivel</th><th>Quién lo crea</th></tr></thead>
+            <tbody>
+              <tr><td>Global</td><td><code>this.global = new Entorno(null, 'global')</code>, uno por cada <code>Interprete</code></td></tr>
+              <tr><td>Función / método</td><td><code>invocar()</code>, colgado directamente del global (sin clausura sobre el llamador)</td></tr>
+              <tr><td>Bloque (if, ciclo, switch)</td><td>cada <code>execIf</code>/<code>execWhile</code>/<code>execFor</code>/... crea su propio <code>new Entorno(entorno, entorno.nombre)</code></td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="callout"><p><strong>Claves en minúscula:</strong> igual que en DataForge, la tabla normaliza cada clave con <code class="inline">.toLowerCase()</code> — el lenguaje es case-insensitive también para identificadores, no solo para palabras reservadas.</p></div>
+      </div>
+    </section>
+
+    <!-- 4 · Valor tipado -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">Todo dato en tiempo de ejecución sabe su propio tipo</p>
+        <h2>La clase <code>Valor</code>: uniformidad para comprobar tipos</h2>
+        <p><code class="inline">server/src/interprete/valor.js</code> define <code class="inline">Valor { tipo, valor, tipoBase, dimension }</code>. Ningún dato circula "pelado" por el intérprete — siempre va envuelto con su tipo (<code class="inline">int</code>, <code class="inline">double</code>, <code class="inline">bool</code>, <code class="inline">char</code>, <code class="inline">string</code>, <code class="inline">null</code> o <code class="inline">vector</code>). Los vectores agregan además su tipo base y su dimensión (1 o 2).</p>
+        <p>Esta uniformidad es lo que permite que <code class="inline">operaciones.js</code> compruebe compatibilidad de tipos con una simple consulta a una tabla, en vez de un árbol de <code class="inline">if</code> anidados por cada combinación:</p>
+        <pre class="code"><span class="tk-sym">// 5.5.6 Modulo -> NOTA: el enunciado define Entero % Entero = DECIMAL
+// (identico a la tabla de Raiz). Es inusual (uno esperaria Entero), pero
+// se implementa TAL CUAL lo dice la fuente, sin "corregirlo".</span></pre>
+        <p class="muted">Las tablas de <code class="inline">+ - * / ^ $ %</code> se transcriben literalmente de la sección 5.5 del enunciado como objetos JS (<code class="inline">T_SUMA</code>, <code class="inline">T_RESTA</code>...); toda combinación no contemplada produce automáticamente un error semántico, sin necesidad de una regla explícita por cada caso inválido.</p>
+      </div>
+    </section>
+
+    <!-- 5 · Coerción vs cast -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">Dos mecanismos de conversión, deliberadamente separados</p>
+        <h2>Coerción implícita vs. casteo explícito</h2>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th></th><th>Coerción (implícita)</th><th>Cast (explícito, 5.13)</th></tr></thead>
+            <tbody>
+              <tr><td>Cuándo se aplica</td><td>Al asignar, al pasar un argumento, al retornar</td><td>Solo cuando el programador escribe <code>cast(expr as tipo)</code></td></tr>
+              <tr><td>Conversiones que cubre</td><td><code>double→int</code> (trunca), <code>bool→int</code>/<code>double</code></td><td><code>int↔double</code>, <code>int→string/char</code>, <code>double→string</code>, <code>char→int/double</code></td></tr>
+              <tr><td>Método</td><td><code>coercionar(tipoDest, v, l, c)</code></td><td><code>evalCast(nodo, entorno)</code></td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p>Una decisión de diseño queda anotada en el propio código porque, sin ella, el ejemplo oficial del enunciado no compilaría:</p>
+        <pre class="code"><span class="tk-sym">/* DECISION DE DISENO: los tipos numericos son mutuamente asignables con
+   coercion (double->int trunca). Sin esto, el propio ejemplo oficial
+   del Anexo 11.1 seria invalido: `let modulo:int = x % 3` donde `%`
+   produce DECIMAL segun la tabla literal del enunciado (5.5.6). */</span></pre>
+        <p class="muted">Es decir: <code class="inline">x % 3</code> da un valor <code class="inline">DECIMAL</code> según la tabla 5.5.6, pero el Anexo 11.1 lo asigna a <code class="inline">let modulo: int</code>. Sin coerción <code class="inline">double→int</code>, ese mismo ejemplo del enunciado sería un error de tipos — la coerción es lo que lo hace válido.</p>
+      </div>
+    </section>
+
+    <!-- 6 · Propagación por null -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">Un error, un solo mensaje — sin cascadas</p>
+        <h2>Propagación por <code>null</code>: el mismo principio que DataForge</h2>
+        <p>Cuando evaluar una expresión produce un error semántico, la función devuelve el <code class="inline">null</code> de JavaScript. Toda operación que recibe ese <code class="inline">null</code> como operando lo propaga en silencio, sin generar un segundo mensaje de error sobre la misma causa raíz.</p>
+        <div class="callout"><p><strong>Cuidado con la trampa de nombres:</strong> el <code class="inline">null</code> de JavaScript (señal de "hubo un error antes") es una cosa completamente distinta del valor de tipo <code class="inline">'null'</code> propio del lenguaje <code class="inline">.ci</code> — ese es una instancia <em>válida</em> de la clase <code class="inline">Valor</code> (<code class="inline">Valor.nulo()</code>). Confundirlos rompe la propagación de errores: un <code class="inline">Valor</code> de tipo <code class="inline">'null'</code> NO significa que algo falló.</p></div>
+        <p class="muted">Este es exactamente el mismo principio documentado en la Guía de DataForge — la teoría de manejo de errores semánticos por causa-raíz-única se aplica sin cambios, cambia solo el vehículo (<code class="inline">Valor</code> en vez de un tipo primitivo de Java).</p>
+      </div>
+    </section>
+
+    <!-- 7 · Quiz -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">Chequeo rápido</p>
+        <h2>Sobre el recorrido del AST</h2>
+        <div class="quiz">
+          <div class="q">
+            <p class="question">1 · Si <code class="inline">main()</code> llama a <code class="inline">factorial()</code>, pero <code class="inline">factorial</code> está declarada más abajo en el archivo, ¿por qué funciona?</p>
+            <button type="button" onclick="this.parentElement.classList.add('revealed')">Revelar respuesta</button>
+            <div class="answer"><p>Porque la pasada 1 recorre TODOS los elementos globales y registra cada función/método en el <code class="inline">Map</code> <code class="inline">this.funciones</code> antes de que la pasada 2 ejecute ninguna instrucción. Para cuando <code class="inline">main()</code> realmente corre (durante la pasada 2, disparada por <code class="inline">ejecutar main();</code>), <code class="inline">factorial</code> ya está en el mapa sin importar su posición textual.</p></div>
+          </div>
+          <div class="q">
+            <p class="question">2 · ¿Por qué <code class="inline">let modulo: int = x % 3;</code> del Anexo 11.1 no es un error de tipos, si la tabla 5.5.6 dice que el módulo entre enteros da <code class="inline">DECIMAL</code>?</p>
+            <button type="button" onclick="this.parentElement.classList.add('revealed')">Revelar respuesta</button>
+            <div class="answer"><p>Porque la asignación aplica coerción implícita: <code class="inline">double→int</code> es una de las conversiones que <code class="inline">coercionar()</code> permite (trunca la parte decimal). El valor <code class="inline">DECIMAL</code> que produce <code class="inline">%</code> se trunca automáticamente al asignarlo a una variable <code class="inline">int</code>.</p></div>
+          </div>
+          <div class="q">
+            <p class="question">3 · ¿Qué diferencia hay entre el <code class="inline">null</code> de JavaScript que usa el intérprete y el valor de tipo <code class="inline">null</code> del lenguaje <code class="inline">.ci</code>?</p>
+            <button type="button" onclick="this.parentElement.classList.add('revealed')">Revelar respuesta</button>
+            <div class="answer"><p>El <code class="inline">null</code> de JavaScript es una señal interna de "esta expresión ya produjo un error, no reportes otro" — nunca llega al programa <code class="inline">.ci</code>. El valor de tipo <code class="inline">'null'</code> del lenguaje es una instancia normal de <code class="inline">Valor</code> (<code class="inline">Valor.nulo()</code>), tan válida como un <code class="inline">int</code> o un <code class="inline">string</code>, que el programador puede asignar y comparar deliberadamente.</p></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 8 · Cierre -->
+    <section class="slide">
+      <div class="inner titleslide">
+        <p class="eyebrow">Etapa 3 · construida</p>
+        <h1>El intérprete recorre, verifica y ejecuta</h1>
+        <p class="lead">Dos pasadas resuelven la referencia adelantada, una cadena de entornos resuelve el alcance, una clase <code class="inline">Valor</code> uniforme resuelve la comprobación de tipos, y la propagación por <code class="inline">null</code> evita cascadas de errores. Falta todavía una pieza central: cómo se implementan <code class="inline">break</code>, <code class="inline">continue</code> y <code class="inline">return</code> sin usar excepciones de JavaScript.</p>
+        <p class="kicker">Próxima: <strong>Etapa 4 — señales de control y la auditoría de código del 21 de julio de 2026</strong>.<br><a class="btn" href="index.html" style="margin-top:14px">⌂ Volver al índice</a></p>
+      </div>
+    </section>
+
+  </div>
+
+  <div class="navbar">
+    <button id="prev" type="button">← Anterior</button>
+    <button id="next" type="button">Siguiente →</button>
+    <span class="hint">también se pueden usar las flechas del teclado</span>
+  </div>
+</div>
+
+<script src="assets/deck.js"></script>
+</body>
+</html>

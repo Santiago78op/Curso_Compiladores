@@ -1,0 +1,389 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cap. 4 · Análisis sintáctico — Libro del Dragón</title>
+<link rel="stylesheet" href="assets/estilo.css">
+<style>
+  /* ---------- estilos exclusivos de las demos animadas ---------- */
+  .demo {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    box-shadow: var(--shadow);
+    padding: 20px 22px;
+    margin: 22px 0;
+  }
+  .demo .controls {
+    display: flex; align-items: center; gap: 12px;
+    margin-top: 16px; padding-top: 14px;
+    border-top: 1px dashed var(--line);
+  }
+  .demo .controls button {
+    font: inherit; font-size: 14.5px; font-weight: 600;
+    background: var(--accent); color: var(--accent-ink);
+    border: none; border-radius: 8px;
+    padding: 7px 18px; cursor: pointer;
+  }
+  .demo .controls button.reset-btn {
+    background: var(--surface); color: var(--muted);
+    border: 1px solid var(--line);
+  }
+  .demo .controls button:disabled { opacity: .35; cursor: default; }
+  .demo .controls .step-counter {
+    margin-left: auto; color: var(--muted);
+    font-variant-numeric: tabular-nums; font-size: 13.5px;
+  }
+  .demo .explica { font-size: 14px; color: var(--muted); margin: 4px 0 0; min-height: 3em; }
+
+  .t {
+    display: inline-block;
+    font-family: "Cascadia Code", Consolas, monospace;
+    background: var(--surface2);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 0 7px;
+    margin: 0 2px;
+    white-space: nowrap;
+  }
+  .derivacion { display: grid; gap: 12px; font-size: 16px; }
+  .derivacion .paso {
+    opacity: 0; transform: translateY(8px);
+    transition: opacity .4s ease, transform .4s ease;
+  }
+  .derivacion .paso.shown { opacity: 1; transform: none; }
+  .paso.current .estado { border-color: var(--accent); animation: brillo 1s ease 1; }
+  @keyframes brillo {
+    0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 55%, transparent); }
+    100% { box-shadow: 0 0 0 9px transparent; }
+  }
+
+  /* estado del autómata LR(0): caja de ítems */
+  .estado {
+    display: inline-block;
+    border: 2px solid var(--line);
+    border-radius: 10px;
+    padding: 8px 14px;
+    background: var(--surface2);
+    font-family: "Cascadia Code", Consolas, monospace;
+    font-size: 14.5px;
+    line-height: 1.8;
+    vertical-align: top;
+  }
+  .estado .nombre {
+    font-weight: 700; color: var(--accent);
+    display: block; font-size: 12.5px;
+    letter-spacing: .08em;
+  }
+  .estado .item { display: block; white-space: nowrap; }
+  .estado .item.nucleo { font-weight: 700; }
+  .estado .item.extra { color: var(--muted); }
+  .arco { font-family: "Cascadia Code", Consolas, monospace; color: var(--muted); margin: 0 8px; white-space: nowrap; }
+  .arco b { color: var(--accent); }
+  .fila-lr { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; }
+  .punto { color: var(--tk-num); font-weight: 700; }
+</style>
+</head>
+<body>
+
+<div class="deck">
+  <div class="topbar">
+    <a class="brand" href="index.html" title="Volver al índice">Libro del <em>Dragón</em> · capítulo a capítulo</a>
+    <span class="chip">Cap. 4 · Análisis sintáctico</span>
+    <span class="counter"><span id="cur">1</span> / <span id="tot">?</span></span>
+    <button id="theme" type="button" title="Cambiar tema claro/oscuro" aria-label="Cambiar tema claro/oscuro">◐</button>
+  </div>
+  <div class="progress"><div id="bar"></div></div>
+
+  <div class="stage">
+
+    <!-- 1 · Portada -->
+    <section class="slide">
+      <div class="inner titleslide">
+        <p class="eyebrow">Capítulo 4 · Análisis sintáctico</p>
+        <h1>El capítulo que corre dentro de CUP</h1>
+        <p class="lead">Es el capítulo más largo del núcleo del libro — y el que explica la herramienta usada en el curso: cómo una gramática BNF se convierte en las tablas LALR que CUP genera, por qué a veces arroja <em>«shift/reduce conflict»</em>, y cómo un parser se recupera de los errores sin morir.</p>
+        <p class="kicker">La profundización <em>Gramáticas, muy claro</em> del curso DataForge ya anima derivaciones, LL y shift/reduce; este capítulo la asume vista y completa el cuadro: recuperación de errores, recetas de parcial y el autómata LR por dentro.<br>Se navega con ← → o con los botones.</p>
+      </div>
+    </section>
+
+    <!-- 2 · Mapa del capítulo -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">El mapa del capítulo</p>
+        <h2>Qué trae el cap. 4 (y qué ya viste animado)</h2>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>Sección</th><th>Tema</th><th>¿Dónde está desarrollado?</th></tr></thead>
+            <tbody>
+              <tr><td>§4.1–4.2</td><td>Rol del parser · manejo de errores sintácticos</td><td><strong>Acá</strong>, diapositiva 3</td></tr>
+              <tr><td>§4.3</td><td>Escribir gramáticas: ambigüedad, recursión izq., factorización</td><td><strong>Acá</strong> (recetas + dangling else) · motivación en <em>Gramáticas</em></td></tr>
+              <tr><td>§4.4</td><td>Descendente: FIRST/FOLLOW, LL(1), tabla M</td><td><strong>Acá</strong> (reglas formales) · demo de la tabla M en <em>Gramáticas</em></td></tr>
+              <tr><td>§4.5</td><td>Ascendente: mangos, shift/reduce</td><td>Demo de la pila en <em>Gramáticas</em> · resumen acá</td></tr>
+              <tr><td>§4.6–4.7</td><td><strong>Ítems LR(0), SLR, LALR</strong> — el motor de CUP</td><td><strong>Acá</strong>, con demo nueva (diap. 8–9)</td></tr>
+              <tr><td>§4.8</td><td>Gramáticas ambiguas + precedencia como cura</td><td>En <em>Gramáticas</em> · resumen acá</td></tr>
+              <tr><td>§4.9</td><td>Yacc — su equivalente en el curso: CUP</td><td><strong>Acá</strong>, checklist del <code class="inline">.cup</code></td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="muted">Fuente: Dragón cap. 4 · nota del vault: Cap 4 - Análisis sintáctico.</p>
+      </div>
+    </section>
+
+    <!-- 3 · §4.1-4.2 recuperación de errores -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">Dragón §4.1.4 — lo primero que pide el enunciado</p>
+        <h2>Cuatro estrategias para sobrevivir a un error sintáctico</h2>
+        <p>Un parser de producción no puede rendirse en el primer error: tiene que reportarlo <strong>y seguir</strong> para encontrar los demás. El libro cataloga cuatro estrategias:</p>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>Estrategia</th><th>Idea</th><th>¿Quién la usa?</th></tr></thead>
+            <tbody>
+              <tr><td><strong>① Modo pánico</strong></td><td>Descartar tokens hasta un <em>token de sincronización</em> (típicamente <code class="inline">;</code>) y seguir desde ahí</td><td><strong>El proyecto</strong> — simple, nunca cae en bucle infinito</td></tr>
+              <tr><td>② Nivel de frase</td><td>Corrección local: insertar/borrar un token puntual (un <code class="inline">;</code> que falta)</td><td>IDEs y compiladores con buenos mensajes</td></tr>
+              <tr><td>③ Producciones de error</td><td>Agregar a la gramática producciones que <em>describen los errores comunes</em></td><td><strong>El proyecto también</strong> — es el token <code class="inline">error</code> de CUP</td></tr>
+              <tr><td>④ Corrección global</td><td>La mínima secuencia de cambios que vuelve válida la entrada</td><td>Casi nadie: costo prohibitivo, interés teórico</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="callout"><p>La línea <code class="inline">instruccion ::= error PUNTO_COMA {: registrarError(…); :}</code> es la <strong>③ hecha con ②①</strong>: la producción de error le dice a CUP «si una instrucción no matchea nada, entrar en pánico, descartar hasta el <code class="inline">;</code> y reducir esto como instrucción fallida». Un error por instrucción rota, y el análisis continúa — exactamente lo que exigen los reportes.</p></div>
+        <p class="muted">Fuente: Dragón §4.1.4 (estrategias), §4.8.3 (recuperación en Yacc con el token <code class="inline">error</code>).</p>
+      </div>
+    </section>
+
+    <!-- 4 · §4.3 dangling else -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">Dragón §4.3.2 — la ambigüedad más famosa de la historia</p>
+        <h2>El <em>else</em> colgante</h2>
+        <p>Con la gramática inocente <code class="inline">stmt → if expr then stmt | if expr then stmt else stmt | otro</code>, esta frase tiene <strong>dos árboles</strong>:</p>
+        <pre class="code">if E1 then if E2 then S1 else S2</pre>
+        <div class="cards three">
+          <div class="card">
+            <h3>Árbol A</h3>
+            <p><code class="inline">if E1 then (if E2 then S1 <strong>else S2</strong>)</code><br>El else es del <strong>if interno</strong> (el más cercano).</p>
+          </div>
+          <div class="card">
+            <h3>Árbol B</h3>
+            <p><code class="inline">if E1 then (if E2 then S1) <strong>else S2</strong></code><br>El else es del <strong>if externo</strong>.</p>
+          </div>
+          <div class="card">
+            <h3>La convención</h3>
+            <p>Todos los lenguajes eligen <strong>A</strong>: cada else se casa con el if sin else <strong>más cercano</strong>.</p>
+          </div>
+        </div>
+        <p>El libro da dos curas: reescribir la gramática (separar <code class="inline">matched_stmt</code> / <code class="inline">open_stmt</code>) o — la práctica — <strong>dejar la gramática ambigua y resolver el conflicto a favor del shift</strong>: al ver <code class="inline">else</code> con un if abierto en la pila, el parser lo «engancha» en vez de cerrar el if. Es la opción por defecto de Yacc/CUP.</p>
+        <div class="callout"><p>Para CompScript (que tendrá <code class="inline">if/else</code> reales): si CUP te reporta <strong>un</strong> shift/reduce conflict en el else y elegís shift, no es un bug — es la convención del else más cercano funcionando. El Dragón lo bendice en §4.8.2.</p></div>
+      </div>
+    </section>
+
+    <!-- 5 · §4.3 recetas -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">Dragón §4.3.3–4.3.4 — pack de parcial</p>
+        <h2>Dos recetas mecánicas: recursión izquierda y factorización</h2>
+        <p>Si el parcial pide «prepare esta gramática para LL(1)», son dos transformaciones de manual:</p>
+        <p><strong>① Eliminar recursión izquierda</strong> — <code class="inline">A → Aα | β</code> se reescribe:</p>
+        <pre class="code">A  → β A'
+A' → α A' | ε
+
+<span class="tk-sym">ejemplo:</span>  E → E + T | T      <span class="tk-sym">se vuelve:</span>   E  → T E'
+                                              E' → + T E' | ε</pre>
+        <p><strong>② Factorización izquierda</strong> — dos alternativas que empiezan igual, <code class="inline">A → αβ₁ | αβ₂</code>:</p>
+        <pre class="code">A  → α A'
+A' → β₁ | β₂
+
+<span class="tk-sym">ejemplo:</span>  stmt → if E then S else S | if E then S
+<span class="tk-sym">se vuelve:</span> stmt → if E then S resto     resto → else S | ε</pre>
+        <p>La intuición de ambas: un parser LL decide <em>antes de consumir</em>, así que hay que posponer la decisión hasta donde las alternativas de verdad se distinguen.</p>
+        <div class="callout"><p>Nada de esto se hace en un <code class="inline">.cup</code>: CUP es LR y <strong>prefiere</strong> la recursión izquierda (pila más chica, asociatividad natural). Estas recetas existen para el mundo LL — y para el parcial.</p></div>
+      </div>
+    </section>
+
+    <!-- 6 · §4.4 FIRST y FOLLOW -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">Dragón §4.4.2 — las dos funciones que alimentan TODAS las tablas</p>
+        <h2>FIRST y FOLLOW, con reglas de cálculo</h2>
+        <p><strong>FIRST(α)</strong> = los terminales que pueden <em>empezar</em> algo derivado de α. <strong>FOLLOW(A)</strong> = los terminales que pueden aparecer <em>inmediatamente después</em> de A en alguna derivación.</p>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>FIRST — reglas</th><th>FOLLOW — reglas</th></tr></thead>
+            <tbody>
+              <tr><td>1 · Si X es terminal: FIRST(X) = {X}</td><td>1 · $ ∈ FOLLOW(símbolo inicial)</td></tr>
+              <tr><td>2 · Si X → ε existe: ε ∈ FIRST(X)</td><td>2 · Si A → αBβ: FIRST(β) − {ε} ⊆ FOLLOW(B)</td></tr>
+              <tr><td>3 · Si X → Y₁Y₂…: agregar FIRST(Y₁); si Y₁ anula (ε), seguir con Y₂, etc.</td><td>3 · Si A → αB, o A → αBβ con ε ∈ FIRST(β): FOLLOW(A) ⊆ FOLLOW(B)</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p>Para la gramática LL clásica de expresiones (la de la demo de la tabla M):</p>
+        <pre class="code">E → T E'    E' → + T E' | ε    T → F T'    T' → * F T' | ε    F → ( E ) | id
+
+FIRST(E) = FIRST(T) = FIRST(F) = { (, id }        FIRST(E') = { +, ε }
+FOLLOW(E) = { ), $ }      FOLLOW(E') = { ), $ }    FOLLOW(T) = { +, ), $ }</pre>
+        <p>¿Para qué sirven? <strong>Llenan la tabla LL</strong> (la celda M[A, a] recibe A→α si a ∈ FIRST(α); y si α anula, en los FOLLOW(A)) y <strong>deciden las reducciones SLR</strong> (reducí A→α solo si el lookahead ∈ FOLLOW(A)). Son el pegamento de las dos familias.</p>
+        <p class="muted">Fuente: Dragón §4.4.2 · nota del vault: FIRST y FOLLOW. La condición LL(1): en cada celda de M, a lo sumo UNA producción.</p>
+      </div>
+    </section>
+
+    <!-- 7 · §4.5 resumen ascendente -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">Dragón §4.5 — el cambio de dirección</p>
+        <h2>Ascendente: reconocer el mango y reducir</h2>
+        <p>Un parser LR construye el árbol <strong>desde las hojas</strong>: mantiene una pila y solo hace dos jugadas — <strong>shift</strong> (apilar el token) o <strong>reduce</strong> (reemplazar en la pila el lado derecho de una producción por su no terminal).</p>
+        <p>El concepto teórico central es el <strong>mango</strong> (<em>handle</em>): el subconjunto de la pila que corresponde al lado derecho de una producción <em>y</em> cuya reducción es un paso correcto hacia el símbolo inicial. Todo el aparato LR (ítems, estados, tablas) existe para responder una sola pregunta:</p>
+        <div class="callout"><p><strong>¿Lo que hay en el tope de la pila ya es un mango, o me faltan tokens?</strong> — es decir: ¿reduce o shift? Un parser LR responde con precisión matemática, sin adivinar ni retroceder.</p></div>
+        <p>La demo <em>Shift-reduce: la pila en acción</em> de <em>Gramáticas, muy claro</em> muestra la pila digiriendo <code class="inline">SUM(1,2)</code> paso a paso. La pregunta que dejó abierta — <em>¿cómo sabe el parser cuándo reducir?</em> — se responde en la siguiente diapositiva.</p>
+        <p class="muted">Fuente: Dragón §4.5.1 (reducciones), §4.5.2 (poda de mangos), §4.5.3 (shift-reduce con pila).</p>
+      </div>
+    </section>
+
+    <!-- 8 · §4.6 demo LR(0) -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">Dragón §4.6 en movimiento — el corazón de CUP</p>
+        <h2>El autómata LR(0): estados hechos de ítems</h2>
+        <p>Un <strong>ítem</strong> es una producción con un punto <span class="punto">·</span> marcando cuánto ya se lleva visto. Un <strong>estado</strong> es el conjunto de ítems compatibles con lo leído. A continuación, el autómata de <code class="inline">E → E + n | n</code>:</p>
+        <div class="demo">
+          <div class="derivacion">
+            <div class="paso" data-step="0"><div class="fila-lr"><span class="estado"><span class="nombre">I0 · arranque</span><span class="item nucleo">S' → <span class="punto">·</span> E</span><span class="item extra">E  → <span class="punto">·</span> E + n</span><span class="item extra">E  → <span class="punto">·</span> n</span></span></div></div>
+            <div class="paso" data-step="1"><div class="fila-lr"><span class="arco">I0 ──<b>n</b>──▶</span><span class="estado"><span class="nombre">I2 · vi «n»</span><span class="item nucleo">E → n <span class="punto">·</span></span></span><span class="arco">punto al final ⇒ <b>REDUCE</b> E→n</span></div></div>
+            <div class="paso" data-step="2"><div class="fila-lr"><span class="arco">I0 ──<b>E</b>──▶</span><span class="estado"><span class="nombre">I1 · tengo un E</span><span class="item nucleo">S' → E <span class="punto">·</span></span><span class="item nucleo">E  → E <span class="punto">·</span> + n</span></span><span class="arco">⇒ ¿<b>ACEPTAR</b> o <b>SHIFT</b> «+»?</span></div></div>
+            <div class="paso" data-step="3"><div class="fila-lr"><span class="arco">I1 ──<b>+</b>──▶</span><span class="estado"><span class="nombre">I3 · vi «E +»</span><span class="item nucleo">E → E + <span class="punto">·</span> n</span></span></div></div>
+            <div class="paso" data-step="4"><div class="fila-lr"><span class="arco">I3 ──<b>n</b>──▶</span><span class="estado"><span class="nombre">I4 · vi «E + n»</span><span class="item nucleo">E → E + n <span class="punto">·</span></span></span><span class="arco">⇒ <b>REDUCE</b> E→E+n ✓ autómata completo</span></div></div>
+          </div>
+          <div class="controls">
+            <button type="button" class="step-btn">▶ Paso</button>
+            <button type="button" class="reset-btn">⟲ Reiniciar</button>
+            <span class="step-counter"></span>
+          </div>
+          <p class="explica" data-textos='["El estado inicial: quiero un E completo (ítem núcleo S&apos; → ·E). La CERRADURA agrega en gris todo lo que eso implica: para ver un E, quizá empiece E+n o n. El punto dice: no vi nada aún.","Si desde I0 llega una n, el punto la salta: E → n· — punto al FINAL significa producción completa: este estado ordena REDUCIR. Así sabe el parser cuándo hay un mango.","Si en cambio ya tengo un E (recién reducido), estoy en I1. Dos ítems conviven: quizá terminé (S&apos; → E·)… o viene un + y sigo (E → E·+n). El lookahead decide: fin de entrada ⇒ aceptar; + ⇒ shift. Los dos ítems juntos NO son conflicto: piden acciones ante símbolos distintos.","Consumido el +, el punto avanza. Solo falta la n.","Llega la n: E → E+n· — reducir. Los 5 estados son la TABLA que CUP genera: cada celda [estado, símbolo] dice shift/reduce/aceptar/error. El Parser.java es este dibujo, hecho int[][]."]'></p>
+        </div>
+      </div>
+    </section>
+
+    <!-- 9 · §4.6-4.7 SLR → LALR -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">Dragón §4.6–4.7</p>
+        <h2>SLR, LR(1), LALR: la escalera de poder</h2>
+        <p>¿Qué pasa cuando en un estado un ítem dice «reducí» y otro dice «shift»? Ahí se separan los miembros de la familia LR — según cuánta información usan para desempatar:</p>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>Parser</th><th>¿Cuándo reduce A→α?</th><th>Costo</th></tr></thead>
+            <tbody>
+              <tr><td><strong>LR(0)</strong></td><td>Siempre que el punto llega al final — sin mirar la entrada</td><td>Mínimo, pero casi ninguna gramática real le cabe</td></tr>
+              <tr><td><strong>SLR</strong></td><td>Solo si el lookahead ∈ <strong>FOLLOW(A)</strong></td><td>Igual de chico; FOLLOW desempata la mayoría de los casos</td></tr>
+              <tr><td><strong>LR(1) canónico</strong></td><td>Cada ítem carga su <em>propio</em> lookahead exacto</td><td>Máximo poder, tablas <strong>enormes</strong> (miles de estados)</td></tr>
+              <tr><td><strong>LALR(1)</strong></td><td>Como LR(1), pero <strong>fusionando</strong> estados que solo difieren en lookaheads</td><td>Tabla del tamaño de SLR con casi el poder de LR(1) — <strong>el punto dulce</strong></td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="callout"><p><strong>CUP y Jison son LALR(1)</strong> — como Yacc, Bison y la mayoría de los generadores de las últimas cinco décadas. Cuando CUP compila el <code class="inline">.cup</code>, construye los estados LR, fusiona, y si tras aplicar FOLLOW/lookaheads una celda sigue pidiendo dos acciones, lo reporta: <em>shift/reduce</em> o <em>reduce/reduce conflict</em>. No es CUP «fallando» — es la gramática pidiendo dos cosas a la vez en el mismo estado.</p></div>
+        <p class="muted">Fuente: Dragón §4.6.4 (SLR), §4.7 (LR canónico y LALR) · la cura de los conflictos con <code class="inline">precedence</code> está animada en <em>Gramáticas, muy claro</em>.</p>
+      </div>
+    </section>
+
+    <!-- 10 · §4.9 checklist .cup -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">Dragón §4.9 aterrizado — de Yacc a CUP</p>
+        <h2>Checklist sintáctico para los proyectos del curso</h2>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>Decisión en el <code class="inline">.cup</code></th><th>Teoría detrás</th><th>Regla práctica</th></tr></thead>
+            <tbody>
+              <tr><td>Expresiones con recursión <strong>izquierda</strong></td><td>LR la prefiere: pila acotada, asociatividad natural (§4.5)</td><td><code class="inline">lista ::= lista instruccion | instruccion</code> — nunca al revés</td></tr>
+              <tr><td>Operadores sin jerarquía de no terminales</td><td>Gramática ambigua + desempate declarado (§4.8)</td><td><code class="inline">precedence left PLUS, MINUS;</code> primero los débiles, abajo los fuertes</td></tr>
+              <tr><td>Conflicto shift/reduce reportado</td><td>Dos ítems piden acciones distintas ante el mismo token (§4.7)</td><td>Conviene leer el estado en el reporte de CUP: ¿falta precedencia? ¿es el else colgante (shift está bien)?</td></tr>
+              <tr><td>Conflicto <strong>reduce/reduce</strong></td><td>Dos producciones completas compiten — casi siempre gramática mal planteada</td><td>No conviene taparlo con precedencia: <strong>conviene rediseñar</strong> las producciones</td></tr>
+              <tr><td>Recuperación de errores</td><td>Producción de error + pánico hasta sincronizar (§4.8.3)</td><td><code class="inline">instruccion ::= error PUNTO_COMA</code> — reportar línea/columna y seguir</td></tr>
+              <tr><td>Declaraciones <code class="inline">non terminal</code></td><td>Convención de CUP</td><td><strong>Todas antes</strong> de la primera producción; tipos raw (<code class="inline">ArrayList</code>, sin genéricos)</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="muted">Las primeras cinco filas son teoría del capítulo hecha hábito; la última es idiosincrasia de CUP ya vista en DataForge.</p>
+      </div>
+    </section>
+
+    <!-- 11 · Quiz -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">Chequeo rápido</p>
+        <h2>¿Quedó claro? Un repaso rápido</h2>
+        <p class="muted">Conviene pensar la respuesta antes de revelar. Si alguna falla, conviene volver unas diapositivas.</p>
+        <div class="quiz">
+          <div class="q">
+            <p class="question">1 · CUP te reporta exactamente un <em>shift/reduce conflict</em> y el estado involucra <code class="inline">... if expr then stmt · else ...</code>. ¿Pánico o tranquilidad?</p>
+            <button type="button" onclick="this.parentElement.classList.add('revealed')">Revelar respuesta</button>
+            <div class="answer"><p><strong>Tranquilidad.</strong> Es el else colgante (§4.3.2): el parser tiene un if reducible en la pila y un <code class="inline">else</code> asomando. La resolución por defecto — <strong>shift</strong> — engancha el else al if más cercano, que es la convención de todos los lenguajes. Documentalo y seguí. Un <em>reduce/reduce</em>, en cambio, sí es señal de rediseño.</p></div>
+          </div>
+          <div class="q">
+            <p class="question">2 · En el estado I1 de la demo conviven <code class="inline">S' → E ·</code> (¡completo!) y <code class="inline">E → E · + n</code>. ¿Por qué eso NO es un conflicto?</p>
+            <button type="button" onclick="this.parentElement.classList.add('revealed')">Revelar respuesta</button>
+            <div class="answer"><p>Porque piden acciones ante <strong>símbolos distintos</strong>: aceptar solo si viene el fin de entrada ($), shift solo si viene <code class="inline">+</code>. Conflicto es cuando la <strong>misma celda</strong> [estado, token] necesita dos acciones. Ahí entra la escalera: SLR desempata con FOLLOW, LALR con lookaheads finos — y lo que sobrevive te lo reporta CUP.</p></div>
+          </div>
+          <div class="q">
+            <p class="question">3 · ¿Por qué CUP quiere <code class="inline">lista ::= lista instruccion</code> (recursión izquierda) si esa forma mataba al parser del cap. 2?</p>
+            <button type="button" onclick="this.parentElement.classList.add('revealed')">Revelar respuesta</button>
+            <div class="answer"><p>El del cap. 2 era <strong>descendente</strong>: expandía producciones desde arriba, y <code class="inline">lista → lista …</code> lo hacía llamarse a sí mismo sin consumir nada. CUP es <strong>ascendente</strong>: consume tokens y reduce desde las hojas — con recursión izquierda reduce apenas puede y la pila queda chiquita; con recursión derecha tendría que apilar TODA la lista antes de la primera reducción. Misma gramática, costo opuesto según la dirección del parser.</p></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 12 · Cierre -->
+    <section class="slide">
+      <div class="inner titleslide">
+        <p class="eyebrow">Capítulo 4 completado</p>
+        <h1>Queda claro qué genera CUP</h1>
+        <p class="lead">Cuatro estrategias de recuperación · else colgante · recetas LL (recursión izq., factorización) · FIRST/FOLLOW · mangos y shift/reduce · ítems LR(0) · la escalera SLR → LALR → la tabla de CUP.</p>
+        <p style="margin-top:28px"><a class="btn primary" href="cap5.html">Continuar con el Cap. 5: traducción dirigida por la sintaxis →</a></p>
+        <p class="kicker"><a class="btn" href="cap3.html">← Cap. 3</a> &nbsp; <a class="btn" href="index.html">⌂ Volver al índice</a></p>
+      </div>
+    </section>
+
+  </div>
+
+  <div class="navbar">
+    <button id="prev" type="button">← Anterior</button>
+    <button id="next" type="button">Siguiente →</button>
+    <span class="hint">también se pueden usar las flechas del teclado</span>
+  </div>
+</div>
+
+<script src="assets/deck.js"></script>
+<script>
+/* ---- steppers de las demos: cada clic revela el siguiente paso ---- */
+document.querySelectorAll('.demo').forEach((demo) => {
+  const pasos = Array.from(demo.querySelectorAll('[data-step]'));
+  if (!pasos.length) return;
+  const max = Math.max(...pasos.map(e => +e.dataset.step));
+  const btn = demo.querySelector('.step-btn');
+  const reset = demo.querySelector('.reset-btn');
+  const counter = demo.querySelector('.step-counter');
+  const explica = demo.querySelector('.explica');
+  const textos = explica ? JSON.parse(explica.dataset.textos || '[]') : [];
+  let cur = 0;
+
+  function render() {
+    pasos.forEach(e => {
+      const n = +e.dataset.step;
+      e.classList.toggle('shown', n <= cur);
+      e.classList.toggle('current', n === cur);
+    });
+    if (counter) counter.textContent = 'paso ' + cur + ' de ' + max;
+    if (explica) explica.textContent = textos[cur] || '';
+    btn.disabled = cur >= max;
+    reset.disabled = cur === 0;
+  }
+  btn.addEventListener('click', () => { if (cur < max) { cur++; render(); } });
+  reset.addEventListener('click', () => { cur = 0; render(); });
+  render();
+});
+</script>
+</body>
+</html>

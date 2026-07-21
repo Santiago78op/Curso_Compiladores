@@ -1,0 +1,257 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Arquitectura cliente-servidor REST — CompInterpreter</title>
+<link rel="stylesheet" href="assets/estilo.css">
+<style>
+  /* ---------- estilos exclusivos de esta profundización ---------- */
+  .demo {
+    background: var(--surface); border: 1px solid var(--line);
+    border-radius: 12px; box-shadow: var(--shadow);
+    padding: 20px 22px; margin: 22px 0;
+  }
+  .demo .controls {
+    display: flex; align-items: center; gap: 12px;
+    margin-top: 16px; padding-top: 14px;
+    border-top: 1px dashed var(--line);
+  }
+  .demo .controls button {
+    font: inherit; font-size: 14.5px; font-weight: 600;
+    background: var(--accent); color: var(--accent-ink);
+    border: none; border-radius: 8px;
+    padding: 7px 18px; cursor: pointer;
+  }
+  .demo .controls button.reset-btn { background: var(--surface); color: var(--muted); border: 1px solid var(--line); }
+  .demo .controls button:disabled { opacity: .35; cursor: default; }
+  .demo .controls .step-counter { margin-left: auto; color: var(--muted); font-variant-numeric: tabular-nums; font-size: 13.5px; }
+
+  .flujo { display: grid; gap: 10px; }
+  .paso-flujo {
+    display: flex; align-items: flex-start; gap: 14px;
+    border: 1.5px solid var(--line); border-radius: 10px;
+    padding: 12px 16px; opacity: .35; transform: translateX(-6px);
+    transition: opacity .35s ease, transform .35s ease, border-color .35s ease, background .35s ease;
+  }
+  .paso-flujo.shown { opacity: 1; transform: none; }
+  .paso-flujo.current { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 7%, transparent); }
+  .paso-flujo .quien {
+    flex: none; width: 78px; font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
+    color: var(--accent); padding-top: 2px;
+  }
+  .paso-flujo .num {
+    flex: none; width: 26px; height: 26px; border-radius: 50%;
+    background: var(--surface2); border: 1px solid var(--line);
+    display: flex; align-items: center; justify-content: center;
+    font-family: "Cascadia Code", Consolas, monospace; font-size: 13px; font-weight: 700;
+  }
+  .paso-flujo.current .num { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+  .paso-flujo .texto { flex: 1; }
+  .paso-flujo .texto code { font-size: .92em; }
+  .paso-flujo .texto p { margin: 4px 0 0; font-size: 14.5px; color: var(--muted); max-width: none; }
+</style>
+</head>
+<body>
+
+<div class="deck">
+  <div class="topbar">
+    <a class="brand" href="index.html" title="Volver al índice">Comp<em>Interpreter</em> · curso guiado</a>
+    <span class="chip">★ Arquitectura cliente-servidor REST</span>
+    <span class="counter"><span id="cur">1</span> / <span id="tot">?</span></span>
+    <button id="theme" type="button" title="Cambiar tema claro/oscuro" aria-label="Cambiar tema claro/oscuro">◐</button>
+  </div>
+  <div class="progress"><div id="bar"></div></div>
+
+  <div class="stage">
+
+    <!-- 1 · Intro -->
+    <section class="slide">
+      <div class="inner titleslide">
+        <p class="eyebrow">Profundización ★</p>
+        <h1>La diferencia arquitectónica que distingue a CompInterpreter</h1>
+        <p class="lead">DataForge, ConjAnalyzer y CompScript son los tres aplicaciones de escritorio: JavaFX corriendo en un único proceso, donde la interfaz llama directamente a los métodos del intérprete. CompInterpreter es el único de los cuatro proyectos del curso con una <strong>arquitectura cliente-servidor real</strong>, separada por una API REST sobre HTTP. Este módulo profundiza en esa diferencia.</p>
+      </div>
+    </section>
+
+    <!-- 2 · Monolito vs cliente-servidor -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">Dos formas de conectar interfaz y motor</p>
+        <h2>Llamada directa vs. petición HTTP</h2>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th></th><th>Monolito (DataForge, JavaFX)</th><th>Cliente-servidor (CompInterpreter)</th></tr></thead>
+            <tbody>
+              <tr><td>Proceso(s)</td><td>Uno solo: la GUI y el intérprete comparten memoria</td><td>Dos independientes: servidor Express (Node.js) y cliente Vite (navegador)</td></tr>
+              <tr><td>Cómo se invoca el análisis</td><td>Llamada de método Java directa: <code>new Interprete(codigo)</code></td><td>Petición HTTP: <code>fetch('/interpretar', { method: 'POST', body: JSON.stringify({codigo}) })</code></td></tr>
+              <tr><td>Formato de intercambio</td><td>Objetos Java en memoria compartida</td><td>JSON serializado sobre el cuerpo de la petición/respuesta</td></tr>
+              <tr><td>¿Puede la UI vivir en un dispositivo distinto al motor?</td><td>No — mismo proceso, misma máquina, obligatoriamente</td><td>Sí — el servidor podría correr en otra máquina sin cambiar el cliente</td></tr>
+              <tr><td>Costo</td><td>Sin latencia de red, sin serialización</td><td>Cada ejecución paga el costo de una petición HTTP + JSON.stringify/parse</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="callout"><p><strong>Por qué el enunciado lo exige así:</strong> uno de los objetivos específicos del Proyecto 2 pide explícitamente «Generar aplicaciones utilizando la arquitectura cliente-servidor», y la sección 9 (Restricciones) exige «Se debe visualizar todo desde el navegador». No es una elección de diseño libre — es un requisito que fuerza a separar el motor de análisis (que no puede vivir en el navegador: Jison corre sobre Node.js) de la interfaz (que sí debe vivir ahí).</p></div>
+      </div>
+    </section>
+
+    <!-- 3 · El contrato como frontera -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">El contrato es la única frontera que importa</p>
+        <h2>Todo lo que el cliente sabe del servidor es este JSON</h2>
+        <p>Una vez que existe una frontera HTTP, el contrato de la API se vuelve la única fuente de verdad compartida entre dos códigos que, en tiempo de ejecución, nunca comparten memoria. El cliente no sabe (ni necesita saber) que el análisis léxico corre con Jison, que el AST se recorre en dos pasadas, o cómo se implementan las señales de control — solo conoce la forma de la respuesta.</p>
+        <pre class="code">POST /interpretar { "codigo": "..." }
+  →
+{
+  "errores":        [...],
+  "consola":        "...",
+  "consolaLineas":  [...],
+  "simbolos":       [...],
+  "ast":             { nodes, edges },
+  "dot":            "..."
+}</pre>
+        <p class="muted">Esto es exactamente el mismo tipo de desacoplamiento que separa un compilador real de su IDE: el compilador no sabe cómo el editor va a mostrar sus diagnósticos, y el editor no necesita entender el algoritmo de análisis — ambos coordinan a través de un formato de mensaje acordado.</p>
+      </div>
+    </section>
+
+    <!-- 4 · Demo interactiva: el ciclo completo -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">Recorrido paso a paso</p>
+        <h2>De un clic en ▶ Ejecutar a los cuatro reportes en pantalla</h2>
+        <div class="demo">
+          <div class="flujo" id="flujo"></div>
+          <div class="controls">
+            <button id="btn-paso" type="button">▶ Paso</button>
+            <button id="btn-reset" class="reset-btn" type="button">↺ Reiniciar</button>
+            <span class="step-counter" id="contador">0 / 8</span>
+          </div>
+        </div>
+        <p class="muted">Cada paso corresponde a código real de las Etapas 3, 4, 5 y 6 — no es un diagrama genérico de "cliente-servidor" de manual.</p>
+      </div>
+    </section>
+
+    <!-- 5 · La consecuencia: entorno fresco -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">Una consecuencia directa de la arquitectura</p>
+        <h2>¿Por qué CADA petición necesita su propio intérprete?</h2>
+        <p>En un monolito de escritorio hay un único usuario y una única ejecución a la vez — no hace falta pensar en concurrencia. Un servidor Express, en cambio, puede recibir varias peticiones <code class="inline">POST /interpretar</code> superpuestas (dos pestañas del navegador, dos estudiantes probando al mismo tiempo si el servidor fuese compartido). Si el <code class="inline">Interprete</code> guardara estado entre peticiones, una ejecución podría leer variables o errores de otra que ni siquiera terminó.</p>
+        <pre class="code">function analizar(codigo) {
+  const errores = new ListaErrores();      // nuevo en CADA llamada
+  ...
+  const interprete = new Interprete(errores);   // nuevo Entorno global, cada vez
+  ...
+}</pre>
+        <div class="callout"><p><strong>El mismo principio, forzado por dos razones distintas.</strong> DataForge exige "entorno fresco por ejecución" porque el enunciado pide reportes solo del último análisis (una razón de correctitud de reportes). CompInterpreter necesita exactamente lo mismo, pero además por una razón de <strong>concurrencia</strong> que no existe en un monolito de un solo usuario: sin estado nuevo por petición, ejecuciones simultáneas se contaminarían entre sí.</p></div>
+      </div>
+    </section>
+
+    <!-- 6 · CORS como consecuencia -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">Otra consecuencia directa: el navegador desconfía por defecto</p>
+        <h2>CORS no existe en un monolito porque no hay "otro origen"</h2>
+        <p>En JavaFX, la ventana de la aplicación y el intérprete son el mismo programa — el concepto de "origen" (protocolo + dominio + puerto) ni siquiera aplica. En cliente-servidor, el navegador aplica la política de mismo origen a cualquier <code class="inline">fetch</code>: si el cliente (<code class="inline">http://localhost:5173</code>) y el servidor (<code class="inline">http://localhost:4000</code>) están en puertos distintos, son orígenes distintos, y el navegador bloquearía la respuesta sin el encabezado adecuado.</p>
+        <pre class="code">app.use(cors());   // server.js — sin esto, el fetch del cliente fallaría en desarrollo</pre>
+        <p class="muted">Es un ejemplo concreto de cómo una restricción de seguridad del navegador (irrelevante para una app de escritorio) se vuelve una pieza obligatoria del servidor en cuanto la arquitectura cambia a cliente-servidor.</p>
+      </div>
+    </section>
+
+    <!-- 7 · Quiz -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">Chequeo rápido</p>
+        <h2>Sobre la arquitectura REST</h2>
+        <div class="quiz">
+          <div class="q">
+            <p class="question">1 · Si un compañero preguntara "¿por qué no llamar directamente a las funciones del intérprete desde el cliente, como hace DataForge con JavaFX?", ¿cuál sería la respuesta correcta?</p>
+            <button type="button" onclick="this.parentElement.classList.add('revealed')">Revelar respuesta</button>
+            <div class="answer"><p>Porque el intérprete corre sobre Node.js (usa el parser generado por Jison, que es una librería de Node) y el cliente corre dentro del navegador, en un proceso completamente distinto y con un runtime distinto (el navegador no ejecuta módulos de Node directamente). Además, el enunciado exige explícitamente la arquitectura cliente-servidor como objetivo del proyecto, no como una opción entre varias igualmente válidas.</p></div>
+          </div>
+          <div class="q">
+            <p class="question">2 · ¿Qué pasaría si el servidor NO creara un <code class="inline">Interprete</code> nuevo en cada petición, en el contexto específico de una arquitectura cliente-servidor (a diferencia de un monolito)?</p>
+            <button type="button" onclick="this.parentElement.classList.add('revealed')">Revelar respuesta</button>
+            <div class="answer"><p>Dos peticiones concurrentes (dos pestañas, dos usuarios) podrían pisarse el estado mutuamente: variables globales, funciones registradas o errores acumulados de una ejecución aparecerían mezclados con los de otra que corrió al mismo tiempo. En un monolito de escritorio de un solo usuario este riesgo de concurrencia simplemente no existe.</p></div>
+          </div>
+          <div class="q">
+            <p class="question">3 · ¿En qué se parece el contrato REST de CompInterpreter a la relación entre un compilador real y el IDE que lo invoca?</p>
+            <button type="button" onclick="this.parentElement.classList.add('revealed')">Revelar respuesta</button>
+            <div class="answer"><p>En que ambos coordinan a través de un formato de mensaje acordado (en este caso, el JSON de <code class="inline">POST /interpretar</code>) sin que un lado necesite conocer los detalles internos del otro. El cliente no sabe que hay dos pasadas del AST ni cómo se implementan las señales de control; solo sabe interpretar <code class="inline">errores</code>, <code class="inline">consola</code>, <code class="inline">simbolos</code> y <code class="inline">ast</code>.</p></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 8 · Cierre -->
+    <section class="slide">
+      <div class="inner titleslide">
+        <p class="eyebrow">Profundización ★ · completa</p>
+        <h1>Una frontera HTTP, dos consecuencias de diseño</h1>
+        <p class="lead">El contrato REST no es solo "cómo se comunican las partes" — obliga a un entorno fresco por petición (razón de concurrencia, no solo de correctitud de reportes) y a habilitar CORS (una restricción de navegador que no existe en un monolito). Entender esta arquitectura es entender por qué CompInterpreter, aunque resuelve el mismo problema teórico que los otros tres proyectos del curso, se construye con decisiones de diseño que ellos no necesitan.</p>
+        <p class="kicker"><a class="btn" href="index.html" style="margin-top:14px">⌂ Volver al índice</a></p>
+      </div>
+    </section>
+
+  </div>
+
+  <div class="navbar">
+    <button id="prev" type="button">← Anterior</button>
+    <button id="next" type="button">Siguiente →</button>
+    <span class="hint">también se pueden usar las flechas del teclado</span>
+  </div>
+</div>
+
+<script src="assets/deck.js"></script>
+<script>
+(function () {
+  var pasos = [
+    { quien: 'Cliente', html: 'El estudiante escribe código <code class="inline">.ci</code> en <code class="inline">Editor.jsx</code> y hace clic en <strong>▶ Ejecutar</strong>.', detalle: 'App.jsx: manejarEjecutar()' },
+    { quien: 'Cliente', html: '<code class="inline">api.js</code> arma la petición: <code class="inline">fetch(\'/interpretar\', {method:\'POST\', body: JSON.stringify({codigo})})</code>.', detalle: 'Cruza la frontera HTTP — CORS debe estar habilitado' },
+    { quien: 'Servidor', html: '<code class="inline">server.js</code> recibe el POST y llama a <code class="inline">analizar(codigo)</code>, que crea una <code class="inline">ListaErrores</code> y un <code class="inline">Interprete</code> NUEVOS.', detalle: 'Entorno fresco por petición (Etapa 5)' },
+    { quien: 'Servidor', html: 'El parser de Jison analiza el código (léxico + sintáctico) y construye el AST con la fábrica <code class="inline">nodo()</code>.', detalle: 'Etapas 1 y 2' },
+    { quien: 'Servidor', html: '<code class="inline">Interprete.interpretar()</code> recorre el AST en dos pasadas: primero funciones/métodos, después variables globales y <code class="inline">ejecutar</code>.', detalle: 'Etapa 3' },
+    { quien: 'Servidor', html: 'Se arma el JSON de respuesta: <code class="inline">errores</code>, <code class="inline">consola</code>, <code class="inline">simbolos</code>, y el grafo del AST vía <code class="inline">construirGrafo()</code>.', detalle: 'Etapa 5 — el contrato completo' },
+    { quien: 'Servidor', html: 'Express responde <code class="inline">200 OK</code> con el JSON completo en el cuerpo de la respuesta.', detalle: '' },
+    { quien: 'Cliente', html: '<code class="inline">App.jsx</code> guarda el resultado, y cambia de pestaña automáticamente: "Errores" si hubo alguno, "Consola" si no.', detalle: 'Etapa 6 — verificado por Playwright (Etapa 7)' }
+  ];
+
+  var cont = document.getElementById('flujo');
+  pasos.forEach(function (p, i) {
+    var div = document.createElement('div');
+    div.className = 'paso-flujo';
+    div.id = 'paso-' + i;
+    div.innerHTML =
+      '<span class="num">' + (i + 1) + '</span>' +
+      '<span class="quien">' + p.quien + '</span>' +
+      '<span class="texto"><span>' + p.html + '</span>' +
+      (p.detalle ? '<p>' + p.detalle + '</p>' : '') + '</span>';
+    cont.appendChild(div);
+  });
+
+  var i = -1;
+  var btnPaso = document.getElementById('btn-paso');
+  var btnReset = document.getElementById('btn-reset');
+  var contador = document.getElementById('contador');
+  var nodos = pasos.map(function (_, k) { return document.getElementById('paso-' + k); });
+
+  function actualizar() {
+    nodos.forEach(function (n, k) {
+      n.classList.toggle('shown', k <= i);
+      n.classList.toggle('current', k === i);
+    });
+    contador.textContent = (i + 1) + ' / ' + pasos.length;
+    btnPaso.disabled = i >= pasos.length - 1;
+  }
+  btnPaso.addEventListener('click', function () {
+    if (i < pasos.length - 1) { i++; actualizar(); }
+  });
+  btnReset.addEventListener('click', function () {
+    i = -1; actualizar();
+  });
+  actualizar();
+})();
+</script>
+</body>
+</html>

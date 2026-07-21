@@ -1,0 +1,220 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>El AST real de CompScript — CompScript</title>
+<link rel="stylesheet" href="assets/estilo.css">
+<style>
+  .demo { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; box-shadow: var(--shadow); padding: 20px 22px; margin: 22px 0; }
+  .demo .controls { display: flex; align-items: center; gap: 12px; margin-top: 16px; padding-top: 14px; border-top: 1px dashed var(--line); }
+  .demo .controls button { font: inherit; font-size: 14.5px; font-weight: 600; background: var(--accent); color: var(--accent-ink); border: none; border-radius: 8px; padding: 7px 18px; cursor: pointer; }
+  .demo .controls button.reset-btn { background: var(--surface); color: var(--muted); border: 1px solid var(--line); }
+  .demo .controls button:disabled { opacity: .35; cursor: default; }
+  .demo .controls .step-counter { margin-left: auto; color: var(--muted); font-variant-numeric: tabular-nums; font-size: 13.5px; }
+  .demo .explica { font-size: 14px; color: var(--muted); margin: 4px 0 0; min-height: 3em; }
+  .demo tr[data-step] { opacity: 0; transition: opacity .45s ease; }
+  .demo tr[data-step].shown { opacity: 1; }
+  .demo tr[data-step].current td { background: color-mix(in srgb, var(--accent) 12%, transparent); }
+  .dos { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 14px; margin: 20px 0; }
+  @media (prefers-reduced-motion: reduce) { .demo tr[data-step] { transition: none; } }
+</style>
+</head>
+<body>
+
+<div class="deck">
+  <div class="topbar">
+    <a class="brand" href="index.html" title="Volver al índice">Comp<em>Script</em> · curso guiado</a>
+    <span class="chip">Especial · el AST real</span>
+    <span class="counter"><span id="cur">1</span> / <span id="tot">?</span></span>
+    <button id="theme" type="button" title="Cambiar tema claro/oscuro" aria-label="Cambiar tema claro/oscuro">◐</button>
+  </div>
+  <div class="progress"><div id="bar"></div></div>
+
+  <div class="stage">
+
+    <!-- 1 · Portada -->
+    <section class="slide">
+      <div class="inner titleslide">
+        <p class="eyebrow">Profundización ★ · Dragón §2.5.1, §5.3.1 y Apéndice A</p>
+        <h1>El AST real de CompScript — un programa entero, dibujado</h1>
+        <p class="lead">Las etapas anteriores mostraron las piezas por separado: las interfaces (Etapa 3), la pila de ámbitos (Etapa 4), el flujo de control (Etapa 5), las funciones (Etapa 6). Acá se arma todo junto sobre un único ejemplo real — <code class="inline">factorial</code> de <code class="inline">entradas/ejemplo5.cs</code> — y se compara, sin adornos, contra la evaluación directa de DataForge.</p>
+        <p class="kicker">Al final de esta presentación queda la posibilidad de defender la arquitectura del proyecto en la calificación.</p>
+      </div>
+    </section>
+
+    <!-- 2 · DEMO construcción -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">Cómo se arma el árbol, reducción a reducción</p>
+        <h2>El parser construye nodos, no valores</h2>
+        <p>Se toma la expresión <code class="inline">n * factorial(n = n - 1)</code> (dentro del <code class="inline">return</code> de <code class="inline">factorial</code>) y se sigue el pipeline completo — cada reducción del parser dispara su acción <code class="inline">{: ... :}</code>, en este orden:</p>
+        <div class="demo">
+          <div class="tablewrap">
+            <table style="font-family:'Cascadia Code',Consolas,monospace;font-size:12.5px">
+              <thead><tr><th>El parser reduce…</th><th>…y corre esta acción</th><th>Resultado</th></tr></thead>
+              <tbody>
+                <tr data-step="0"><td colspan="3">el lexer entrega: n * factorial ( n = n - 1 )</td></tr>
+                <tr data-step="1"><td>expr ::= ID (la primera <code>n</code>)</td><td>RESULT = new A.AccesoVariable("n", ...)</td><td>nodo AccesoVariable sube</td></tr>
+                <tr data-step="2"><td>expr ::= ID (la segunda <code>n</code>, dentro del argumento)</td><td>RESULT = new A.AccesoVariable("n", ...)</td><td>otro nodo AccesoVariable, independiente del primero</td></tr>
+                <tr data-step="3"><td>expr ::= ENTERO (el <code>1</code>)</td><td>RESULT = new A.Literal(Valor.vInt(1))</td><td>nodo Literal sube</td></tr>
+                <tr data-step="4"><td>expr ::= expr MENOS expr <span class="tk-sym">(n - 1)</span></td><td>RESULT = new A.Binaria("-", n, 1, ...)</td><td><strong>un nodo Binaria</strong> que envuelve a los dos anteriores — nada se calculó todavía</td></tr>
+                <tr data-step="5"><td>argumento ::= ID IGUAL expr <span class="tk-sym">(n = n-1)</span></td><td>RESULT = new A.Argumento("n", binaria, ...)</td><td>nodo Argumento envolviendo al Binaria</td></tr>
+                <tr data-step="6"><td>llamada ::= ID PAR_IZQ lista_arg PAR_DER</td><td>RESULT = new A.Llamada("factorial", [argumento], ...)</td><td>nodo Llamada — sigue sin ejecutarse nada</td></tr>
+                <tr data-step="7"><td>expr ::= expr POR expr <span class="tk-sym">(n * factorial(...))</span></td><td>RESULT = new A.Binaria("*", n, llamada, ...)</td><td>la RAÍZ de esta expresión: un árbol de 6 nodos, cero cálculos hechos</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="controls"><button type="button" class="step-btn">▶ Paso</button><button type="button" class="reset-btn">⟲ Reiniciar</button><span class="step-counter"></span></div>
+          <p class="explica" data-textos='["Los tokens ya clasificados esperan. El parser va a ir reduciendo segun la gramatica de expresion (Etapa 2: precedencia y asociatividad).","Primera reduccion con accion: el ID se convierte en un nodo AccesoVariable. Nada se evalua todavia — solo se recuerda el nombre.","Segunda variable, nodo distinto: cada aparicion de \"n\" en el texto fuente produce SU PROPIO nodo AccesoVariable, aunque semanticamente refieran a la misma variable en tiempo de ejecucion.","El literal 1 tambien se envuelve en un nodo, no en un valor Java suelto.","Reduccion importante: el Binaria de la resta ENVUELVE a sus dos hijos, no los reemplaza. El arbol crece hacia arriba conservando toda su estructura interna.","El argumento nombrado envuelve al Binaria completo — la resta no se calculo, solo quedo empaquetada.","La llamada envuelve la lista de argumentos. Sigue sin haber ni una sola operacion aritmetica ejecutada.","Reduccion final de esta expresion: el Binaria de la multiplicacion es la raiz. TODO este arbol de 6 nodos se construyo sin calcular nada — el calculo va a ocurrir recien cuando alguien llame a raiz.evaluar(entorno), en la Etapa de ejecucion."]'></p>
+        </div>
+        <div class="callout"><p><strong>El contraste con la Etapa 2 de la traza de DataForge:</strong> ahí, la reducción de <code class="inline">aritmetica ::= op PAR_IZQ expr COMA expr PAR_DER</code> llamaba a <code class="inline">Operaciones.aritmetica(...)</code> y calculaba <code class="inline">5.0</code> en el acto. Acá, la reducción equivalente construye <code class="inline">new A.Binaria(...)</code> y NO calcula nada — el cálculo queda pendiente hasta la fase de ejecución.</p></div>
+      </div>
+    </section>
+
+    <!-- 3 · El árbol completo de factorial -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">El árbol completo de una función real</p>
+        <h2><code class="inline">factorial</code>, dibujado con <code class="inline">etiquetaAst()</code> / <code class="inline">hijosAst()</code></h2>
+        <pre class="code" style="font-size:13px">function Entero factorial
+├── param n:Entero
+├── if
+│   ├── op &lt;=
+│   │   ├── id: n
+│   │   └── Entero: 1
+│   └── return
+│        └── Entero: 1
+└── return
+     └── op *
+          ├── id: n
+          └── llamada factorial()
+               └── arg n
+                    └── op -
+                         ├── id: n
+                         └── Entero: 1</pre>
+        <pre class="code"><span class="tk-sym">// entradas/ejemplo5.cs — el codigo fuente exacto de este arbol:</span>
+<span class="tk-res">int</span> factorial(n: <span class="tk-res">int</span>) {
+    <span class="tk-res">if</span> (n &lt;= 1) { <span class="tk-res">return</span> 1; }
+    <span class="tk-res">return</span> n * factorial(n = n - 1);
+}</pre>
+        <p>Este texto es exactamente lo que produce <code class="inline">Reportes.astHtmlNodo(...)</code> al recorrer <code class="inline">hijosAst()</code> recursivamente — la misma estructura que se ve en <code class="inline">ast.html</code> del reporte real, o en el <code class="inline">TreeView</code> de la GUI (Etapa 7). Nótese que las llaves <code class="inline">{ }</code>, los paréntesis y el punto y coma NO aparecen en ningún lado: ya cumplieron su función guiando al parser (Etapa 2) y no forman parte del árbol <em>abstracto</em>.</p>
+      </div>
+    </section>
+
+    <!-- 4 · Ejecutar el árbol: recorrido recursivo -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">De la estructura al cálculo</p>
+        <h2>Ejecutar es recorrer — y factorial se recorre a SÍ MISMO</h2>
+        <p>Cuando <code class="inline">console.log(factorial(n = 5))</code> corre, <code class="inline">A.invocar("factorial", ...)</code> ejecuta el cuerpo del árbol de arriba con <code class="inline">n=5</code>. La rama <code class="inline">return n * factorial(n = n - 1)</code> vuelve a llamar a <code class="inline">invocar(...)</code> — que vuelve a recorrer el MISMO árbol (la misma instancia de <code class="inline">A.DeclaracionFuncion</code> en memoria), pero con un <code class="inline">Entorno</code> nuevo y <code class="inline">n=4</code>:</p>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>Llamada</th><th><code>n</code> en su propio Entorno</th><th>Qué rama del árbol ejecuta</th></tr></thead>
+            <tbody>
+              <tr><td><code>factorial(n=5)</code></td><td>5</td><td><code>n &lt;= 1</code> falso → <code>return n * factorial(n=4)</code></td></tr>
+              <tr><td><code>factorial(n=4)</code></td><td>4</td><td><code>n &lt;= 1</code> falso → <code>return n * factorial(n=3)</code></td></tr>
+              <tr><td><code>factorial(n=1)</code></td><td>1</td><td><code>n &lt;= 1</code> verdadero → <code>return 1</code> (caso base)</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p><strong>El árbol de sintaxis existe UNA sola vez en memoria</strong> (se construyó una vez, durante el análisis sintáctico) — pero se recorre 5 veces, cada una con su propio <code class="inline">Entorno</code> (Etapa 4) colgado del global. Es exactamente lo que la evaluación directa de DataForge no puede reproducir: ahí, cada acción de CUP corrió una única vez, en el momento de su reducción, y ya no existe.</p>
+      </div>
+    </section>
+
+    <!-- 5 · Comparación honesta -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">La comparación entre los dos proyectos hermanos</p>
+        <h2>Evaluación directa vs. recorrido de árbol</h2>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th></th><th>DataForge (evaluación directa)</th><th>CompScript (AST)</th></tr></thead>
+            <tbody>
+              <tr><td>La acción del <code>.cup</code></td><td>calcula el resultado final</td><td>construye un nodo (<code>RESULT = new A....</code>)</td></tr>
+              <tr><td>¿Cuándo se calcula?</td><td>en el instante de la reducción</td><td>después, cuando alguien llama a <code>evaluar()</code>/<code>ejecutar()</code></td></tr>
+              <tr><td>Cada instrucción corre</td><td>exactamente 1 vez, en orden textual</td><td>0, 1 o N veces — lo decide el árbol al recorrerse</td></tr>
+              <tr><td>¿Se puede recorrer 2 veces?</td><td>no — la acción ya se ejecutó y se olvidó de sí misma</td><td>sí — es la base de <code>while</code>/<code>for</code> y de la recursión</td></tr>
+              <tr><td>Costo de implementación</td><td>mínimo, sin clases extra</td><td>~25 clases de nodo, una por construcción</td></tr>
+              <tr><td>Necesario cuando…</td><td>el lenguaje NO tiene control de flujo</td><td>hay <code>if</code>/ciclos/funciones/recursión</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="callout"><p><strong>La defensa del proyecto en una frase:</strong> «CompScript tiene control de flujo real —<code class="inline">if</code>, ciclos, funciones con recursión— por lo que cada instrucción puede necesitar ejecutarse cero, una o N veces. Eso es imposible con evaluación directa en las acciones de un parser LALR, que reduce cada producción una única vez. Por eso el análisis sintáctico construye un AST (<code class="inline">ast.A</code>) y la ejecución es una fase separada que recorre ese árbol tantas veces como el propio programa lo exija.»</p></div>
+      </div>
+    </section>
+
+    <!-- 6 · Quiz -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">Chequeo rápido</p>
+        <h2>¿Se puede defender la arquitectura?</h2>
+        <div class="quiz">
+          <div class="q">
+            <p class="question">1 · En el árbol de <code class="inline">factorial</code>, ¿por qué hay DOS nodos <code class="inline">AccesoVariable</code> distintos con el mismo nombre <code class="inline">n</code> dentro de <code class="inline">return n * factorial(n = n - 1)</code>?</p>
+            <button type="button" onclick="this.parentElement.classList.add('revealed')">Revelar respuesta</button>
+            <div class="answer"><p>Porque cada aparición textual de <code class="inline">n</code> en el código fuente produce su propio nodo al reducirse — el árbol no "deduplica" identificadores. Ambos nodos, al evaluarse, consultarán el mismo <code class="inline">Entorno</code> (Etapa 4) y encontrarán el mismo valor, pero son dos objetos <code class="inline">A.AccesoVariable</code> diferentes en memoria.</p></div>
+          </div>
+          <div class="q">
+            <p class="question">2 · ¿Cuántas veces se construye el árbol de <code class="inline">factorial</code> durante <code class="inline">console.log(factorial(n = 5))</code>? ¿Y cuántas veces se recorre?</p>
+            <button type="button" onclick="this.parentElement.classList.add('revealed')">Revelar respuesta</button>
+            <div class="answer"><p>Se construye <strong>una sola vez</strong>, durante el análisis sintáctico (cuando CUP reduce la producción de <code class="inline">&lt;funcion&gt;</code>). Se recorre <strong>5 veces</strong> — una por cada llamada recursiva (<code class="inline">n=5,4,3,2,1</code>) — cada vez con un <code class="inline">Entorno</code> distinto.</p></div>
+          </div>
+          <div class="q">
+            <p class="question">3 · Si a DataForge le agregaran un <code class="inline">while</code> en la calificación, ¿qué tendría que cambiar en su arquitectura?</p>
+            <button type="button" onclick="this.parentElement.classList.add('revealed')">Revelar respuesta</button>
+            <div class="answer"><p>Migrar de evaluación directa a un AST: (1) crear interfaces <code class="inline">Instruccion</code>/<code class="inline">Expresion</code> y una clase por construcción, siguiendo literalmente el patrón de <code class="inline">ast.A</code> de CompScript; (2) cambiar cada acción de CUP de "calcular" a "construir nodo" (<code class="inline">RESULT = new ...</code>); (3) tras el parse, recorrer el programa llamando a <code class="inline">ejecutar(entorno)</code> sobre cada instrucción de la raíz. El lexer y la gramática de operadores quedarían intactos — solo cambia QUIÉN ejecuta y CUÁNDO.</p></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 7 · Cierre -->
+    <section class="slide">
+      <div class="inner titleslide">
+        <p class="eyebrow">Resumen en una pantalla</p>
+        <h1>Construir una vez · recorrer las veces que haga falta</h1>
+        <p class="lead">DataForge: las acciones CUP calculan al reducir, una vez, en orden — perfecto sin control de flujo. CompScript: las acciones construyen objetos (<code class="inline">ast.A</code>) y ejecutar es recorrer ese árbol — obligatorio con <code class="inline">if</code>/<code class="inline">while</code>/funciones/recursión. Los dos proyectos eligieron bien, cada uno para su propio lenguaje.</p>
+        <p class="kicker"><a class="btn primary" href="etapa3.html">Revisitar la Etapa 3 con estos ojos →</a>&nbsp;&nbsp;<a class="btn" href="index.html">⌂ Volver al índice</a></p>
+      </div>
+    </section>
+
+  </div>
+
+  <div class="navbar">
+    <button id="prev" type="button">← Anterior</button>
+    <button id="next" type="button">Siguiente →</button>
+    <span class="hint">flechas ← → para las diapositivas · «▶ Paso» para la demo</span>
+  </div>
+</div>
+
+<script src="assets/deck.js"></script>
+<script>
+document.querySelectorAll('.demo').forEach((demo) => {
+  const pasos = Array.from(demo.querySelectorAll('[data-step]'));
+  if (!pasos.length) return;
+  const max = Math.max(...pasos.map(e => +e.dataset.step));
+  const btn = demo.querySelector('.step-btn');
+  const reset = demo.querySelector('.reset-btn');
+  const counter = demo.querySelector('.step-counter');
+  const explica = demo.querySelector('.explica');
+  const textos = explica ? JSON.parse(explica.dataset.textos || '[]') : [];
+  let cur = 0;
+  function render() {
+    pasos.forEach(e => {
+      const n = +e.dataset.step;
+      e.classList.toggle('shown', n <= cur);
+      e.classList.toggle('current', n === cur);
+    });
+    if (counter) counter.textContent = 'paso ' + cur + ' de ' + max;
+    if (explica) explica.textContent = textos[cur] || '';
+    btn.disabled = cur >= max;
+    reset.disabled = cur === 0;
+  }
+  btn.addEventListener('click', () => { if (cur < max) { cur++; render(); } });
+  reset.addEventListener('click', () => { cur = 0; render(); });
+  render();
+});
+</script>
+</body>
+</html>

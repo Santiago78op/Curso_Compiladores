@@ -1,0 +1,252 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Etapa 2 · Análisis sintáctico — DataForge</title>
+<link rel="stylesheet" href="assets/estilo.css">
+</head>
+<body>
+
+<div class="deck">
+  <div class="topbar">
+    <a class="brand" href="index.html" title="Volver al índice">Data<em>Forge</em> · curso guiado</a>
+    <span class="chip">Etapa 2 · Análisis sintáctico</span>
+    <span class="counter"><span id="cur">1</span> / <span id="tot">?</span></span>
+    <button id="theme" type="button" title="Cambiar tema claro/oscuro" aria-label="Cambiar tema claro/oscuro">◐</button>
+  </div>
+  <div class="progress"><div id="bar"></div></div>
+
+  <div class="stage">
+
+    <!-- 1 · Portada -->
+    <section class="slide">
+      <div class="inner titleslide">
+        <p class="eyebrow">Etapa 2 · La capa que valida el orden</p>
+        <h1>La gramática y el parser</h1>
+        <p class="lead">El lexer ya corta y clasifica las palabras. Ahora se construye la capa que decide si esas palabras forman <strong>frases válidas</strong>: la gramática BNF y el analizador sintáctico con CUP.</p>
+        <p class="kicker">Es el corazón teórico del curso (Cap. 4 del Dragón — el más preguntado en parciales).</p>
+      </div>
+    </section>
+
+    <!-- 2 · Por qué regex no alcanza -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">La pregunta que abre el capítulo 4</p>
+        <h2>¿Por qué no se sigue con expresiones regulares?</h2>
+        <p>Las regex fueron perfectas para los tokens. Pero hay que observar esta expresión válida de DataForge:</p>
+        <pre class="code">DIV( SUM( Max(@notas), Min(@notas) ), 2 )</pre>
+        <p>Para validarla hay que comprobar que <strong>cada <code class="inline">(</code> cierra con su <code class="inline">)</code></strong> — a cualquier profundidad de anidación. Y ahí las expresiones regulares tienen un límite matemático:</p>
+        <div class="callout"><p>Una expresión regular <strong>no puede contar</strong>. Su autómata tiene memoria finita: para «llevo 3 paréntesis abiertos, me faltan 3» a profundidad arbitraria se necesita una <strong>pila</strong>. El formalismo que la tiene es la <strong>gramática libre de contexto</strong> (Dragón §4.1: los lenguajes regulares son un subconjunto de los libres de contexto).</p></div>
+        <p>Por eso el pipeline tiene dos capas distintas: <strong>regex para las palabras</strong> (JFlex), <strong>gramática para la estructura</strong> (CUP). Cada herramienta en su nivel de poder justo.</p>
+      </div>
+    </section>
+
+    <!-- 3 · Qué es una gramática -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">Concepto nº 1</p>
+        <h2>¿Qué es una gramática libre de contexto?</h2>
+        <p class="lead">Un conjunto de <strong>reglas de sustitución</strong> (producciones) que definen todas las frases válidas de un lenguaje.</p>
+        <p>Cada producción dice: <em>«este concepto se forma así»</em>. Como en español:</p>
+        <pre class="code">&lt;oración&gt;   → &lt;sujeto&gt; &lt;predicado&gt;
+&lt;sujeto&gt;    → "El" &lt;sustantivo&gt;
+&lt;sustantivo&gt;→ "gato" | "perro"
+&lt;predicado&gt; → "duerme" | "corre"</pre>
+        <p>Con 4 reglas quedan definidas todas las oraciones válidas («El gato duerme», «El perro corre»…) y excluidas las inválidas («gato El duerme»). Los ingredientes tienen nombre:</p>
+        <div class="cards three">
+          <div class="card">
+            <h3>Terminales</h3>
+            <p>Las piezas que NO se sustituyen más: <strong>los tokens del lexer</strong> (<code>VAR</code>, <code>ID</code>, <code>NUMERO</code>…). Donde termina la sustitución.</p>
+          </div>
+          <div class="card">
+            <h3>No terminales</h3>
+            <p>Los <strong>conceptos</strong> intermedios (<code>&lt;expresión&gt;</code>, <code>&lt;instrucción&gt;</code>). No existen en el código fuente: los construye el parser al agrupar.</p>
+          </div>
+          <div class="card">
+            <h3>Símbolo inicial</h3>
+            <p>El concepto raíz del que se deriva todo. En DataForge: <code>&lt;inicio&gt;</code> (el programa completo).</p>
+          </div>
+        </div>
+        <p class="muted">Fuente: Dragón §4.2 · nota del vault: Gramática libre de contexto (BNF).</p>
+      </div>
+    </section>
+
+    <!-- 4 · Derivación -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">Concepto nº 2</p>
+        <h2>Derivar: de la regla a la frase</h2>
+        <p>Validar una frase = demostrar que se puede <strong>llegar a ella</strong> desde el símbolo inicial aplicando producciones. A continuación se deriva <code class="inline">var:double:: numero &lt;- 2.5 end;</code>:</p>
+        <pre class="code">&lt;instruccion&gt;
+  → &lt;declaracion-var&gt;                          <span class="tk-sym">(elijo esa alternativa)</span>
+  → "var" ":" &lt;tipo&gt; "::" ID "&lt;-" &lt;expresion&gt; "end" ";"
+  → "var" ":" <span class="tk-res">"double"</span> "::" ID "&lt;-" &lt;expresion&gt; "end" ";"
+  → "var" ":" "double" "::" <span class="tk-id">numero</span> "&lt;-" &lt;expresion&gt; "end" ";"
+  → "var" ":" "double" "::" numero "&lt;-" <span class="tk-num">2.5</span> "end" ";"   ✓</pre>
+        <p>Cada paso sustituye UN no terminal por una de sus alternativas. Si existe una derivación que produce exactamente los tokens del programa → <strong>es válido</strong>. Si ningún camino llega → <strong>error sintáctico</strong>.</p>
+        <div class="callout"><p>El árbol que dibuja esta derivación es el <strong>árbol de análisis sintáctico</strong> — en la Etapa 3 se usa para ejecutar. CUP hace las derivaciones automáticamente (método LALR, ascendente), pero entender esto a mano es LO que preguntan en el parcial.</p></div>
+      </div>
+    </section>
+
+    <!-- 5 · BNF núcleo -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">La gramática de DataForge · 1 de 2</p>
+        <h2>El núcleo: programa, declaraciones, consola</h2>
+        <pre class="code">&lt;inicio&gt;        ::= "PROGRAM" &lt;instrucciones&gt; "END" "PROGRAM"
+
+&lt;instrucciones&gt; ::= &lt;instrucciones&gt; &lt;instruccion&gt;
+                  | &lt;instruccion&gt;
+
+&lt;instruccion&gt;   ::= &lt;declaracion-var&gt; | &lt;declaracion-arr&gt;
+                  | &lt;imprimir&gt; | &lt;imprimir-columna&gt; | &lt;grafica&gt;
+
+&lt;tipo&gt;          ::= "double" | "char" "[" "]"
+
+&lt;declaracion-var&gt; ::= "var" ":" &lt;tipo&gt; "::" ID "&lt;-" &lt;expresion&gt; "end" ";"
+&lt;declaracion-arr&gt; ::= "arr" ":" &lt;tipo&gt; "::" ID_ARREGLO "&lt;-" &lt;lista-valores&gt; "end" ";"
+
+&lt;imprimir&gt;        ::= "console" "::" "print" "=" &lt;lista-expresiones&gt; "end" ";"
+&lt;imprimir-columna&gt;::= "console" "::" "column" "=" &lt;expresion&gt; "-&gt;" &lt;arreglo&gt; "end" ";"</pre>
+        <p>Dos patrones para leer: la <strong>recursión de <code class="inline">&lt;instrucciones&gt;</code></strong> («una lista es una lista más una instrucción») expresa <em>"una o más"</em>; y <code class="inline">&lt;instruccion&gt;</code> con <code class="inline">|</code> es un <strong>menú de alternativas</strong>.</p>
+        <div class="callout"><p>Tal como quedó prometido en la Etapa 1, acá el token <code class="inline">END</code> se desambigua: en <code class="inline">&lt;inicio&gt;</code> va seguido de <code class="inline">PROGRAM</code>; dentro de una instrucción, de <code class="inline">;</code>. <strong>El contexto lo da la gramática, no el lexer.</strong></p></div>
+      </div>
+    </section>
+
+    <!-- 6 · BNF expresiones y gráficas -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">La gramática de DataForge · 2 de 2</p>
+        <h2>Expresiones (recursivas) y gráficas</h2>
+        <pre class="code">&lt;expresion&gt;   ::= NUMERO | CADENA | ID
+                | &lt;aritmetica&gt; | &lt;estadistica&gt;
+
+&lt;aritmetica&gt;  ::= &lt;operacion&gt; "(" &lt;expresion&gt; "," &lt;expresion&gt; ")"
+&lt;operacion&gt;   ::= "SUM" | "RES" | "MUL" | "DIV" | "MOD"
+
+&lt;estadistica&gt; ::= &lt;funcion-est&gt; "(" &lt;arreglo&gt; ")"
+&lt;arreglo&gt;     ::= ID_ARREGLO | &lt;lista-valores&gt;
+
+&lt;grafica&gt;     ::= &lt;tipo-grafica&gt; "(" &lt;atributos&gt; ")" "end" ";"
+&lt;atributo&gt;    ::= ID "::" &lt;tipo&gt; "=" &lt;valor-atributo&gt; "end" ";"
+                | "EXEC" &lt;tipo-grafica&gt; "end" ";"</pre>
+        <p>La joya está en <code class="inline">&lt;aritmetica&gt;</code>: dentro lleva <code class="inline">&lt;expresion&gt;</code>, y <code class="inline">&lt;expresion&gt;</code> puede ser <code class="inline">&lt;aritmetica&gt;</code> — esa <strong>recursión mutua</strong> es lo que permite anidar a cualquier profundidad. Los paréntesis balanceados salen gratis de la estructura.</p>
+        <div class="callout"><p><strong>Bonus del diseño del lenguaje:</strong> como las operaciones son funciones con paréntesis (<code class="inline">SUM(a,b)</code>) y no operadores infijos (<code class="inline">a+b</code>), casi no hay ambigüedad ni hace falta tabla de precedencia. La BNF completa está en <code class="inline">docs/gramatica.txt</code> — que además es un <strong>entregable</strong> del proyecto (§8).</p></div>
+      </div>
+    </section>
+
+    <!-- 7 · De BNF a CUP -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">De la teoría a la herramienta</p>
+        <h2>El archivo <code class="inline">.cup</code>: la BNF ejecutable</h2>
+        <p>Igual que el <code class="inline">.flex</code> era la tabla de tokens hecha receta, el <code class="inline">.cup</code> es la BNF hecha receta. CUP genera de él <strong>dos clases</strong>: <code class="inline">Parser</code> (el analizador LALR) y <code class="inline">sym</code> (¡la que veníamos escribiendo a mano!).</p>
+        <pre class="code"><span class="tk-sym">/* 1. declarar los TERMINALES = los tokens del lexer */</span>
+terminal PROGRAM, END, VAR, ARR, DOUBLE, CHAR;
+terminal Double NUMERO;
+terminal String CADENA, ID, ID_ARREGLO;
+
+<span class="tk-sym">/* 2. declarar los NO TERMINALES = los conceptos */</span>
+non terminal inicio, lista_instr, instruccion, expr;
+
+<span class="tk-sym">/* 3. el símbolo inicial */</span>
+start with inicio;
+
+<span class="tk-sym">/* 4. las producciones: BNF con ::= y ; */</span>
+inicio      ::= PROGRAM lista_instr END PROGRAM ;
+
+lista_instr ::= lista_instr instruccion
+              | instruccion ;</pre>
+        <div class="callout"><p><strong>El círculo se cierra:</strong> la lista de <code class="inline">terminal</code> genera la clase <code class="inline">sym</code> real. Por eso ahora <strong>se borra el <code class="inline">sym.java</code> temporal</strong> de la Etapa 1 — el lexer, sin cambiar una letra, pasa a usar las constantes generadas por CUP. Lexer y parser quedan hablando el mismo idioma por construcción.</p></div>
+      </div>
+    </section>
+
+    <!-- 8 · Errores sintácticos -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">Manejo de errores</p>
+        <h2>Cuando el programa está mal escrito</h2>
+        <p>Si al parser le llega un token que <strong>no puede seguir</strong> a lo ya leído según la gramática, CUP llama a <code class="inline">syntax_error</code>. Lo personalizamos en el bloque <code class="inline">parser code</code>:</p>
+        <pre class="code">parser code {:
+    public void syntax_error(Symbol s) {
+        System.err.printf(
+            "Error sintáctico: no se esperaba '%s' (línea %d, columna %d)%n",
+            s.value, s.left + 1, s.right + 1);
+    }
+:};</pre>
+        <p>Prueba mental: <code class="inline">var:double:: numero 2.5 end;</code> (sin el <code class="inline">&lt;-</code>). El lexer NO se queja — todos los tokens existen. El que se queja es el <strong>parser</strong>: después de <code class="inline">ID</code> esperaba <code class="inline">ASIGNACION</code> y llegó <code class="inline">NUMERO</code>. Error <em>sintáctico</em>, no léxico — la diferencia exacta que pide la tabla de errores del enunciado (§6.2).</p>
+        <div class="callout"><p>Línea y columna salen de los <code class="inline">Symbol</code> que fabrica el lexer (<code class="inline">yyline</code>/<code class="inline">yycolumn</code>) — la Etapa 1 ya venía preparada para esto.</p></div>
+      </div>
+    </section>
+
+    <!-- 9 · Cambios en el proyecto -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">Manos al proyecto</p>
+        <h2>Qué cambió en <code class="inline">DataForge/</code></h2>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>Archivo</th><th>Cambio</th></tr></thead>
+            <tbody>
+              <tr><td><code>src/main/cup/parser.cup</code></td><td><strong>NUEVO</strong> ★ — la gramática completa comentada</td></tr>
+              <tr><td><code>src/main/java/…/analisis/sym.java</code></td><td><strong>BORRADO</strong> — ahora la genera CUP</td></tr>
+              <tr><td><code>src/main/java/dataforge/TestParser.java</code></td><td><strong>NUEVO</strong> — valida un .df: «✓ válido» o error con línea/columna</td></tr>
+              <tr><td><code>pom.xml</code></td><td>+ <code>cup-maven-plugin</code> (genera Parser y sym en <code>generate-sources</code>)</td></tr>
+              <tr><td><code>entradas/ejemplo2.df</code></td><td><strong>NUEVO</strong> — gráficas + anidación profunda</td></tr>
+              <tr><td><code>docs/gramatica.txt</code></td><td><strong>NUEVO</strong> — la BNF limpia (entregable §8)</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p><strong>En IDEA:</strong> 🔄 <em>Reload All Maven Projects</em> (para que tome el plugin nuevo) → Maven → <code class="inline">compile</code> → abrir <code class="inline">TestParser</code> → ▶ Run. Conviene probar los dos ejemplos y después <strong>romper uno a propósito</strong> (quitando un <code class="inline">;</code>, un <code class="inline">&lt;-</code>, un <code class="inline">)</code>) para ver el error sintáctico con su línea y columna.</p>
+        <div class="callout"><p>Si IDEA subraya <code class="inline">Parser</code> o <code class="inline">sym</code> en rojo: aún no se generaron — hay que correr <code class="inline">compile</code> y recargar Maven (mismo remedio que en la Etapa 1).</p></div>
+      </div>
+    </section>
+
+    <!-- 10 · Quiz -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">Chequeo rápido · Etapa 2</p>
+        <h2>¿Cómo piensa un parser?</h2>
+        <div class="quiz">
+          <div class="q">
+            <p class="question">1 · <code class="inline">console::print = "hola" 15 end;</code> (falta la coma). ¿Quién detecta el problema: lexer o parser? ¿Por qué?</p>
+            <button type="button" onclick="this.parentElement.classList.add('revealed')">Revelar respuesta</button>
+            <div class="answer"><p><strong>El parser.</strong> <code class="inline">"hola"</code> y <code class="inline">15</code> son tokens perfectamente válidos (CADENA, NUMERO) — el lexer los entrega sin quejarse. Es la gramática la que dice que entre expresiones de un print debe venir COMA. Error sintáctico.</p></div>
+          </div>
+          <div class="q">
+            <p class="question">2 · ¿Qué producción hace posible <code class="inline">SUM(SUM(SUM(1,2),3),4)</code> a cualquier profundidad?</p>
+            <button type="button" onclick="this.parentElement.classList.add('revealed')">Revelar respuesta</button>
+            <div class="answer"><p>La <strong>recursión mutua</strong>: <code class="inline">&lt;aritmetica&gt; ::= &lt;operacion&gt; "(" &lt;expresion&gt; "," &lt;expresion&gt; ")"</code> y <code class="inline">&lt;expresion&gt; ::= … | &lt;aritmetica&gt;</code>. Cada nivel de anidación es una vuelta más por ese ciclo — y la pila del parser lleva la cuenta de los paréntesis.</p></div>
+          </div>
+          <div class="q">
+            <p class="question">3 · ¿Por qué pudimos borrar el <code class="inline">sym.java</code> temporal sin tocar el <code class="inline">Lexer.flex</code>?</p>
+            <button type="button" onclick="this.parentElement.classList.add('revealed')">Revelar respuesta</button>
+            <div class="answer"><p>Porque el <code class="inline">.flex</code> solo referencia constantes <em>por nombre</em> (<code class="inline">sym.VAR</code>…), y las declaraciones <code class="inline">terminal</code> del <code class="inline">.cup</code> generan una clase <code class="inline">sym</code> con <strong>esos mismos nombres</strong>. Mientras coincidan, quién la genera es indiferente. Diseñamos la Etapa 1 sabiendo esto.</p></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 11 · Cierre -->
+    <section class="slide">
+      <div class="inner titleslide">
+        <p class="eyebrow">Etapa 2 · lista para probar</p>
+        <h1>El intérprete ya valida programas</h1>
+        <p class="lead">Gramática BNF (entregable incluido) + parser CUP conectado al lexer. Falta lo más satisfactorio: que el programa <strong>haga</strong> cosas — la Etapa 3 le pone la ejecución.</p>
+        <p class="kicker"><a class="btn" href="index.html">⌂ Volver al índice</a></p>
+      </div>
+    </section>
+
+  </div>
+
+  <div class="navbar">
+    <button id="prev" type="button">← Anterior</button>
+    <button id="next" type="button">Siguiente →</button>
+    <span class="hint">también se pueden usar las flechas del teclado</span>
+  </div>
+</div>
+
+<script src="assets/deck.js"></script>
+</body>
+</html>

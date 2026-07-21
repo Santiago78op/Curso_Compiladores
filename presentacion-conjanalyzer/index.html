@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ConjAnalyzer — Curso guiado</title>
+<link rel="stylesheet" href="assets/estilo.css">
+</head>
+<body>
+
+<div class="hub">
+  <div class="topbar">
+    <a class="brand" href="index.html">Conj<em>Analyzer</em> · curso guiado</a>
+    <span class="chip">Índice</span>
+    <span class="counter">OLC1 · USAC</span>
+    <button id="theme" type="button" title="Cambiar tema claro/oscuro" aria-label="Cambiar tema claro/oscuro">◐</button>
+  </div>
+
+  <main class="hub-main">
+    <p class="eyebrow">Proyecto 1 · Organización de Lenguajes y Compiladores 1</p>
+    <h1>Un intérprete para la teoría de conjuntos, etapa por etapa</h1>
+    <p class="lead">ConjAnalyzer lee conjuntos y operaciones escritos en notación prefija, los evalúa, los simplifica con las propiedades de la teoría de conjuntos y los dibuja como diagrama de Venn. Cada etapa es una presentación con sus diapositivas, ejemplos reales y quiz. <strong>Las 6 etapas están completas: el intérprete funciona, y ya pasó una auditoría de calidad.</strong></p>
+
+    <ol class="roadmap">
+      <li class="linked"><a href="etapa0.html"><span class="num">Etapa 0</span> Conceptos base: los conjuntos como lenguaje <span class="state">✓ completada</span></a></li>
+      <li class="linked"><a href="etapa1.html"><span class="num">Etapa 1</span> Tabla de tokens + analizador léxico con JFlex <span class="state">✓ completada</span></a></li>
+      <li class="linked"><a href="etapa2.html"><span class="num">Etapa 2</span> Gramática BNF + analizador sintáctico con CUP <span class="state">✓ completada</span></a></li>
+      <li class="linked"><a href="etapa3.html"><span class="num">Etapa 3</span> Ejecución: conjuntos, operaciones y el árbol acotado <code class="inline">NodoOperacion</code> <span class="state">✓ completada</span></a></li>
+      <li class="linked"><a href="etapa4.html"><span class="num">Etapa 4</span> El Simplificador: las 5 leyes algebraicas (sección 7) <span class="state">✓ completada</span></a></li>
+      <li class="linked"><a href="etapa5.html"><span class="num">Etapa 5</span> Diagrama de Venn exacto, con Canvas <span class="state">✓ completada</span></a></li>
+      <li class="linked"><a href="etapa6.html"><span class="num">Etapa 6</span> Reportes HTML + JSON de simplificación con Gson <span class="state">✓ completada</span></a></li>
+    </ol>
+
+    <p class="eyebrow" style="margin-top:36px">Profundizaciones</p>
+    <ol class="roadmap">
+      <li class="linked"><a href="simplificador.html"><span class="num">★</span> El Simplificador, en movimiento — reescritura paso a paso de dos simplificaciones reales, incluida la ley distributiva de la auditoría <span class="state">nuevo</span></a></li>
+    </ol>
+
+    <div class="callout"><p><strong>Cómo se trabajó este proyecto:</strong> a diferencia de DataForge (construido con demostración guiada), en ConjAnalyzer los roles se invirtieron: el estudiante escribió el código y el instructor revisó. El código de referencia vive en la carpeta <code class="inline">ConjAnalyzer/</code> del workspace, y el 21 de julio de 2026 pasó una auditoría de calidad que completó la ley distributiva (faltaba de las 5 de la sección 7) y eliminó código muerto.</p></div>
+
+    <p class="eyebrow" style="margin-top:36px">Otros proyectos del curso</p>
+    <ol class="roadmap">
+      <li class="linked"><a href="../presentacion-dataforge/index.html"><span class="num">↔</span> DataForge — el primer proyecto, construido con demostración guiada</a></li>
+      <li class="linked"><a href="../presentacion-compscript/index.html"><span class="num">↔</span> CompScript — el hermano con AST real: if/while/for, funciones y recursión</a></li>
+      <li class="linked"><a href="../presentacion-compinterpreter/index.html"><span class="num">↔</span> CompInterpreter — el mismo curso en JS/Jison/Express/React</a></li>
+      <li class="linked"><a href="../presentacion-libro-dragon/index.html"><span class="num">📖</span> El Libro del Dragón, capítulo a capítulo — la teoría detrás de los 4 proyectos de OLC1</a></li>
+    </ol>
+  </main>
+</div>
+
+<script src="assets/deck.js"></script>
+</body>
+</html>

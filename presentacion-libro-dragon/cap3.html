@@ -1,0 +1,429 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cap. 3 · Análisis léxico — Libro del Dragón</title>
+<link rel="stylesheet" href="assets/estilo.css">
+<style>
+  /* ---------- estilos exclusivos de las demos animadas ---------- */
+  .demo {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    box-shadow: var(--shadow);
+    padding: 20px 22px;
+    margin: 22px 0;
+  }
+  .demo .controls {
+    display: flex; align-items: center; gap: 12px;
+    margin-top: 16px; padding-top: 14px;
+    border-top: 1px dashed var(--line);
+  }
+  .demo .controls button {
+    font: inherit; font-size: 14.5px; font-weight: 600;
+    background: var(--accent); color: var(--accent-ink);
+    border: none; border-radius: 8px;
+    padding: 7px 18px; cursor: pointer;
+  }
+  .demo .controls button.reset-btn {
+    background: var(--surface); color: var(--muted);
+    border: 1px solid var(--line);
+  }
+  .demo .controls button:disabled { opacity: .35; cursor: default; }
+  .demo .controls .step-counter {
+    margin-left: auto; color: var(--muted);
+    font-variant-numeric: tabular-nums; font-size: 13.5px;
+  }
+  .demo .explica { font-size: 14px; color: var(--muted); margin: 4px 0 0; min-height: 3em; }
+
+  .t {
+    display: inline-block;
+    font-family: "Cascadia Code", Consolas, monospace;
+    background: var(--surface2);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 0 7px;
+    margin: 0 2px;
+    white-space: nowrap;
+  }
+  .derivacion { display: grid; gap: 9px; font-size: 16px; line-height: 2; }
+  .derivacion .paso {
+    display: flex; align-items: baseline; gap: 10px;
+    opacity: 0; transform: translateY(8px);
+    transition: opacity .4s ease, transform .4s ease;
+  }
+  .derivacion .paso.shown { opacity: 1; transform: none; }
+  .derivacion .paso .flecha { color: var(--muted); flex: none; width: 18px; }
+  .paso .nuevo { position: relative; }
+  .paso.current .nuevo { background: color-mix(in srgb, var(--accent) 14%, transparent); border-radius: 8px; }
+  .paso.current .nuevo > .t { animation: brillo 1s ease 1; }
+  @keyframes brillo {
+    0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 55%, transparent); }
+    100% { box-shadow: 0 0 0 9px transparent; }
+  }
+  .paso .veredicto-ok { color: var(--tk-str); font-weight: 700; }
+
+  /* token emitido por el lexer */
+  .tokchip {
+    display: inline-block;
+    font-family: "Cascadia Code", Consolas, monospace;
+    font-size: .82em; font-weight: 700;
+    color: var(--accent);
+    border: 1.5px solid var(--accent);
+    border-radius: 999px;
+    padding: 0 9px; margin: 0 2px;
+    white-space: nowrap;
+  }
+  /* regla candidata perdedora */
+  .pierde { text-decoration: line-through; opacity: .55; }
+</style>
+</head>
+<body>
+
+<div class="deck">
+  <div class="topbar">
+    <a class="brand" href="index.html" title="Volver al índice">Libro del <em>Dragón</em> · capítulo a capítulo</a>
+    <span class="chip">Cap. 3 · Análisis léxico</span>
+    <span class="counter"><span id="cur">1</span> / <span id="tot">?</span></span>
+    <button id="theme" type="button" title="Cambiar tema claro/oscuro" aria-label="Cambiar tema claro/oscuro">◐</button>
+  </div>
+  <div class="progress"><div id="bar"></div></div>
+
+  <div class="stage">
+
+    <!-- 1 · Portada -->
+    <section class="slide">
+      <div class="inner titleslide">
+        <p class="eyebrow">Capítulo 3 · Análisis léxico</p>
+        <h1>El capítulo que vive dentro de JFlex</h1>
+        <p class="lead">Cada vez que se corre <code class="inline">mvn compile</code> y JFlex convierte el <code class="inline">.flex</code> en un <code class="inline">Lexer.java</code>, se está ejecutando este capítulo completo: expresiones regulares → autómatas → una tabla que reconoce tokens a velocidad constante por carácter.</p>
+        <p class="kicker">Objetivo: escribir cualquier <code class="inline">.flex</code> entendiendo qué hace la herramienta con él, y responder la parte de autómatas del parcial.<br>Se navega con las flechas ← → o con los botones de abajo.</p>
+      </div>
+    </section>
+
+    <!-- 2 · §3.1 rol del lexer -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">Dragón §3.1</p>
+        <h2>El lexer es el empleado del parser</h2>
+        <p>En la arquitectura del libro, el léxico no corre «primero y aparte»: el <strong>parser manda</strong>. Cada vez que necesita un token, le pide el siguiente al lexer:</p>
+        <pre class="code">        pedime el siguiente token (next_token)
+PARSER ────────────────────────────────────▶ LEXER ──▶ lee caracteres
+       ◀────────────────────────────────────        del programa fuente
+        queda: ⟨ID, "numero", línea 3, col 15⟩</pre>
+        <p>¿Y por qué separar léxico de sintáctico, si ambos «leen» el fuente? El libro da tres razones:</p>
+        <div class="cards three">
+          <div class="card">
+            <div class="step">1</div>
+            <h3>Simplicidad</h3>
+            <p>La gramática no se contamina con detalles de caracteres: piensa en <code class="inline">ID</code> y <code class="inline">NUMERO</code>, no en «letra seguida de letras o dígitos». Cada capa, su problema.</p>
+          </div>
+          <div class="card">
+            <div class="step">2</div>
+            <h3>Eficiencia</h3>
+            <p>El lexer es la única parte que toca <em>cada carácter</em> del fuente. Especializarla (búferes, autómatas tabulares) hace rápido todo el pipeline.</p>
+          </div>
+          <div class="card">
+            <div class="step">3</div>
+            <h3>Portabilidad</h3>
+            <p>Rarezas del alfabeto y la codificación quedan encapsuladas en una sola pieza.</p>
+          </div>
+        </div>
+        <p class="muted">En CUP esto es literal: <code class="inline">Parser</code> llama a <code class="inline">next_token()</code> del <code class="inline">Lexer</code> que generó JFlex. Fuente: Dragón §3.1, fig. 3.1.</p>
+      </div>
+    </section>
+
+    <!-- 3 · §3.1.3 errores léxicos -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">Dragón §3.1.3</p>
+        <h2>¿Qué es (y qué no es) un error léxico?</h2>
+        <p>Un error es léxico solo cuando <strong>ningún patrón del lenguaje puede empezar con lo que sigue</strong> en la entrada. Es la categoría de error más local que existe: un carácter que no pertenece al vocabulario.</p>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>Entrada</th><th>¿Error léxico?</th><th>Por qué</th></tr></thead>
+            <tbody>
+              <tr><td><code class="inline">var:double:: ñum &lt;- 2.5 end;</code></td><td><strong>Sí</strong> (la <code class="inline">ñ</code>)</td><td>Ese carácter no arranca ningún patrón del lenguaje</td></tr>
+              <tr><td><code class="inline">fi (x == 1)</code> en C</td><td><strong>No</strong></td><td><code class="inline">fi</code> es un identificador perfectamente válido — el error aparecerá después, como sintáctico</td></tr>
+              <tr><td><code class="inline">var double:: x</code> (falta un <code class="inline">:</code>)</td><td><strong>No</strong></td><td>Todos los tokens son válidos; el <em>orden</em> está mal → sintáctico</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p><strong>Recuperación en «modo pánico» léxico:</strong> la estrategia más simple del libro y la que usa el proyecto — <strong>descartar el carácter ofensivo, registrar el error y seguir</strong> desde el siguiente. El análisis nunca se detiene: el enunciado pide reportar <em>todos</em> los errores, no rendirse en el primero.</p>
+        <p class="muted">Fuente: Dragón §3.1.3 · en DataForge: la regla comodín final del <code class="inline">.flex</code> registra el error en el <code class="inline">Entorno</code> y no devuelve token.</p>
+      </div>
+    </section>
+
+    <!-- 4 · §3.3 lenguajes formales -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">Dragón §3.3 — el vocabulario formal</p>
+        <h2>Alfabeto, cadena, lenguaje — y tres operaciones</h2>
+        <p>Antes de las expresiones regulares, tres definiciones (van a caer en el parcial tal cual):</p>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>Término</th><th>Definición</th><th>Ejemplo</th></tr></thead>
+            <tbody>
+              <tr><td><strong>Alfabeto</strong> Σ</td><td>Conjunto finito de símbolos</td><td>Σ = {0,1}, el ASCII, el Unicode</td></tr>
+              <tr><td><strong>Cadena</strong></td><td>Secuencia finita de símbolos de Σ (ε = la vacía)</td><td><code class="inline">2.5</code>, <code class="inline">var</code>, ε</td></tr>
+              <tr><td><strong>Lenguaje</strong></td><td>Cualquier conjunto de cadenas sobre Σ</td><td>«todos los identificadores válidos»</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p>Y sobre lenguajes se definen las tres operaciones que generan todo lo demás:</p>
+        <div class="cards three">
+          <div class="card">
+            <h3>Unión L ∪ M</h3>
+            <p>Cadenas de uno <strong>o</strong> del otro. En ER: la barra <code class="inline">|</code>.</p>
+          </div>
+          <div class="card">
+            <h3>Concatenación LM</h3>
+            <p>Una cadena de L <strong>seguida de</strong> una de M. En ER: escribir una pieza tras otra.</p>
+          </div>
+          <div class="card">
+            <h3>Cerradura de Kleene L*</h3>
+            <p><strong>Cero o más</strong> repeticiones. La estrella que hace infinito a un patrón finito.</p>
+          </div>
+        </div>
+        <p class="muted">Fuente: Dragón §3.3.1–3.3.2. Con esto, «identificador» deja de ser una idea y pasa a ser un conjunto definido con precisión matemática.</p>
+      </div>
+    </section>
+
+    <!-- 5 · §3.3 ER y definiciones regulares -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">Dragón §3.3.3–3.3.5</p>
+        <h2>Expresiones regulares: el idioma de los patrones</h2>
+        <p>Una ER es una fórmula que <em>denota</em> un lenguaje usando solo símbolos, <code class="inline">|</code>, concatenación y <code class="inline">*</code> (más paréntesis). Todo lo demás es azúcar sintáctica — así se traduce la teoría al <code class="inline">.flex</code>:</p>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>Teoría (libro)</th><th>JFlex</th><th>Significa</th></tr></thead>
+            <tbody>
+              <tr><td><code class="inline">a | b</code></td><td><code class="inline">a|b</code></td><td>a o b</td></tr>
+              <tr><td><code class="inline">ab</code></td><td><code class="inline">ab</code></td><td>a seguida de b</td></tr>
+              <tr><td><code class="inline">a*</code></td><td><code class="inline">a*</code></td><td>cero o más a</td></tr>
+              <tr><td><code class="inline">a⁺ = aa*</code></td><td><code class="inline">a+</code></td><td>una o más a</td></tr>
+              <tr><td><code class="inline">a | ε</code></td><td><code class="inline">a?</code></td><td>a opcional</td></tr>
+              <tr><td><code class="inline">a|b|…|z</code></td><td><code class="inline">[a-z]</code></td><td>clase de caracteres</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p>Y las <strong>definiciones regulares</strong> (§3.3.4) son nombres para ER, que se usan en otras ER — exactamente la primera sección del <code class="inline">.flex</code>:</p>
+        <pre class="code"><span class="tk-sym">// teoría              // JFlex</span>
+letra  → [A-Za-z]       Letra  = [a-zA-Z]
+digito → [0-9]          Digito = [0-9]
+id     → letra (letra|digito)*     Id = {Letra}({Letra}|{Digito})*
+num    → digito⁺ (. digito⁺)?      Num = {Digito}+ ("." {Digito}+)?</pre>
+        <p class="muted">Fuente: Dragón §3.3.3 (ER), §3.3.4 (definiciones regulares), §3.3.5 (extensiones + ? […]).</p>
+      </div>
+    </section>
+
+    <!-- 6 · Demo: longest match + primera regla -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">Dragón §3.5 en movimiento — las dos reglas de oro de Lex</p>
+        <h2>Cómo decide el lexer: match más largo, primera regla</h2>
+        <p>Con varios patrones compitiendo, Lex/JFlex decide siempre igual: <strong>① gana el match más largo</strong>; <strong>② a igual largo, gana la regla escrita primero</strong>. A continuación, la línea de DataForge tokenizándose (nombres de token ilustrativos):</p>
+        <div class="demo">
+          <div class="derivacion">
+            <div class="paso" data-step="0"><span class="flecha"></span><span>entrada: <span class="t">var:double::numero &lt;- 2.5</span></span></div>
+            <div class="paso" data-step="1"><span class="flecha">→</span><span><span class="nuevo"><span class="t">var</span></span> matchean la reservada <code>"var"</code> y <code>{Id}</code> — mismo largo → regla ② → <span class="tokchip">VAR</span></span></div>
+            <div class="paso" data-step="2"><span class="flecha">→</span><span><span class="nuevo"><span class="t">:</span></span> ¿<span class="t">:</span> o <span class="t">::</span>? lo que sigue es <code>d</code>, así que solo alcanza para <span class="t">:</span> → <span class="tokchip">DOS_PUNTOS</span></span></div>
+            <div class="paso" data-step="3"><span class="flecha">→</span><span><span class="nuevo"><span class="t">double</span></span> reservada le gana a <code>{Id}</code> por regla ② → <span class="tokchip">DOUBLE</span></span></div>
+            <div class="paso" data-step="4"><span class="flecha">→</span><span><span class="nuevo"><span class="t">::</span></span> matchean <span class="t">:</span> <span class="pierde">(1 carácter)</span> y <span class="t">::</span> (2) — regla ① → <span class="tokchip">DOBLE_DOS_PUNTOS</span></span></div>
+            <div class="paso" data-step="5"><span class="flecha">→</span><span><span class="nuevo"><span class="t">numero</span></span> ninguna reservada matchea, solo <code>{Id}</code> → <span class="tokchip">ID</span>, lexema <code>"numero"</code></span></div>
+            <div class="paso" data-step="6"><span class="flecha">→</span><span><span class="nuevo"><span class="t">&lt;-</span></span> matchean <span class="t">&lt;</span> <span class="pierde">(menor)</span> y <span class="t">&lt;-</span> — regla ① → <span class="tokchip">ASIGNACION</span></span></div>
+            <div class="paso" data-step="7"><span class="flecha">→</span><span><span class="nuevo"><span class="t">2.5</span></span> matchean <span class="t">2</span> <span class="pierde">(entero, corto)</span> y <span class="t">2.5</span> — regla ① → <span class="tokchip">NUM_DOUBLE</span> <span class="veredicto-ok">✓ 7 tokens</span></span></div>
+          </div>
+          <div class="controls">
+            <button type="button" class="step-btn">▶ Paso</button>
+            <button type="button" class="reset-btn">⟲ Reiniciar</button>
+            <span class="step-counter"></span>
+          </div>
+          <p class="explica" data-textos='["El lexer avanza de izquierda a derecha. En cada posición prueba TODOS los patrones y se queda con el mejor según las dos reglas.","Empate de largo entre la reservada y el identificador: gana la que está escrita PRIMERO en el .flex. Por eso las reservadas van antes de {Id} — al revés, var sería un ID y la gramática nunca vería la palabra clave.","El lexer siempre intenta estirar el match. Acá no puede: después del primer : viene una d, y :d no es ningún patrón. Se queda con : solo.","Otra vez el empate reservada/identificador, otra vez el orden decide.","Ahora sí hay dos : seguidos: el match más largo (2 caracteres) le gana al corto. Sin esta regla, :: sería imposible de tokenizar.","Ninguna reservada coincide con numero, así que gana {Id}. El token viaja con su lexema, línea y columna — de ahí salen los reportes.","El < solo también es token válido en muchos lenguajes… pero <- es más largo. Regla ①.","2 solo matchea como entero, pero 2.5 es más largo. El punto NO parte el número gracias al match más largo. Fin: 7 tokens para el parser."]'></p>
+        </div>
+      </div>
+    </section>
+
+    <!-- 7 · §3.5 anatomía del .flex -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">Dragón §3.5 — de Lex a JFlex</p>
+        <h2>Anatomía de un archivo <code class="inline">.flex</code></h2>
+        <p>El libro presenta <strong>Lex</strong> (1975); JFlex es su descendiente para Java. La estructura de tres secciones separadas por <code class="inline">%%</code> es la misma desde entonces:</p>
+        <pre class="code"><span class="tk-sym">// ① código de usuario: package, imports (va tal cual al Lexer.java)</span>
+package dataforge.analisis;
+%%
+<span class="tk-sym">// ② directivas y definiciones regulares</span>
+%public  %class Lexer  %cup  %line  %column
+Letra  = [a-zA-Z]
+Digito = [0-9]
+Id     = {Letra}({Letra}|{Digito})*
+%%
+<span class="tk-sym">// ③ reglas: patrón → acción (el orden ES semántica: regla ②)</span>
+"var"        { return simbolo(sym.VAR); }        <span class="tk-sym">// reservadas PRIMERO</span>
+{Id}         { return simbolo(sym.ID, yytext()); }
+[^]          { registrarErrorLexico(); }          <span class="tk-sym">// comodín al FINAL</span></pre>
+        <div class="callout"><p>Dos gotchas ya vistas en DataForge y que ahora tienen nombre teórico: <strong><code class="inline">%public</code> es obligatorio</strong> (sin él la clase queda package-private y CUP no la ve), y <strong>las reservadas van antes de <code class="inline">{Id}</code></strong> — es la regla de prioridad de §3.5.3 aplicada.</p></div>
+        <p class="muted">Fuente: Dragón §3.5 (estructura de un programa Lex, resolución de conflictos) · nota del vault: JFlex.</p>
+      </div>
+    </section>
+
+    <!-- 8 · §3.6-3.9 autómatas: el motor -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">Dragón §3.6–3.9 — el motor bajo el capó</p>
+        <h2>¿Y cómo reconoce JFlex los patrones? Autómatas</h2>
+        <p>JFlex no «prueba» las regex una por una: las compila a una máquina. El pipeline del libro:</p>
+        <pre class="code">las ER del .flex
+   │  construcción de Thompson (§3.7.4): piezas de LEGO con transiciones ε
+   ▼
+  AFN   autómata no determinista: varios caminos posibles a la vez
+   │  construcción de subconjuntos (§3.7.1): perseguir todos los caminos
+   ▼
+  AFD   autómata determinista: UN estado, UNA transición por carácter
+   │  minimización (§3.9.6): fusionar estados equivalentes
+   ▼
+  AFD mínimo  →  una tabla int[estado][carácter] dentro de Lexer.java</pre>
+        <div class="cards three">
+          <div class="card">
+            <h3>AFN</h3>
+            <p>Fácil de <strong>construir</strong> desde la ER, caro de ejecutar (hay que rastrear muchos estados a la vez).</p>
+          </div>
+          <div class="card">
+            <h3>AFD</h3>
+            <p>Caro de construir, pero <strong>rapidísimo</strong> de ejecutar: un lookup de tabla por carácter, O(n) total.</p>
+          </div>
+          <div class="card">
+            <h3>La compra</h3>
+            <p>Se paga la conversión <strong>una vez</strong> (al compilar el .flex) y se ejecuta barato <strong>siempre</strong>. La misma compra de todo generador.</p>
+          </div>
+        </div>
+        <div class="callout"><p><strong>Las demos animadas de este pipeline ya existen</strong> en el curso de DataForge: la profundización <em>Autómatas, en movimiento</em> construye Thompson pieza por pieza, corre la construcción de subconjuntos y simula el AFD resultante con <code class="inline">ababb</code>. Este deck no lo repite: conviene visitarla, jugarla y volver.</p></div>
+        <p class="muted">Fuente: Dragón §3.6 (AF), §3.7 (algoritmos), §3.9 (optimización) · nota del vault: Autómata finito (AFN y AFD).</p>
+      </div>
+    </section>
+
+    <!-- 9 · Por qué importa: parcial y debugging -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">¿Para qué sirve la teoría si JFlex la hace sola?</p>
+        <h2>Dos razones concretas: el parcial y el debugging</h2>
+        <p><strong>1 · El parcial de OLC1 pregunta esto.</strong> Los ejercicios clásicos del capítulo son mecánicos si se conocen los algoritmos:</p>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>Ejercicio típico</th><th>Algoritmo que lo resuelve</th></tr></thead>
+            <tbody>
+              <tr><td>«Construya el AFN de <code class="inline">(a|b)*abb</code>»</td><td>Thompson: una pieza por operador, cablear con ε</td></tr>
+              <tr><td>«Convierta ese AFN a AFD»</td><td>Subconjuntos: cerradura-ε + mover, estado = conjunto</td></tr>
+              <tr><td>«Minimice el AFD»</td><td>Particiones: separar estados distinguibles</td></tr>
+              <tr><td>«¿Acepta la cadena <code class="inline">ababb</code>?»</td><td>Simular la tabla, carácter por carácter</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p><strong>2 · Debugging del <code class="inline">.flex</code>.</strong> Cuando un token «se come» de más (una cadena sin comilla de cierre que devora el archivo), cuando una reservada sale como ID, cuando <code class="inline">2.5.3</code> tokeniza raro — la causa es siempre una de las dos reglas de oro o un patrón cuya ER no dice lo que parecía. Sabiendo la teoría, el bug se <em>lee</em> en el patrón; sin ella, solo se sufre.</p>
+      </div>
+    </section>
+
+    <!-- 10 · Conexión con proyectos -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">El mapa aterrizado</p>
+        <h2>Checklist léxico para los proyectos del curso</h2>
+        <p>Todo el capítulo, condensado en las decisiones que se toman al escribir cada <code class="inline">.flex</code> (o el <code class="inline">%lex</code> de Jison en CompInterpreter):</p>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>Decisión</th><th>Teoría detrás</th><th>Regla práctica</th></tr></thead>
+            <tbody>
+              <tr><td>Orden de las reglas</td><td>Prioridad de primera regla (§3.5.3)</td><td>Reservadas <strong>antes</strong> de <code class="inline">{Id}</code>; comodín de error <strong>al final</strong></td></tr>
+              <tr><td>Operadores de 2 caracteres (<code class="inline">::</code>, <code class="inline">&lt;-</code>, <code class="inline">==</code>)</td><td>Match más largo</td><td>Basta declararlos: el match largo les da prioridad sobre los de 1 carácter</td></tr>
+              <tr><td>Case-insensitive</td><td>La ER define el lenguaje exacto</td><td>Patrones que acepten ambas cajas — decisión léxica, no sintáctica</td></tr>
+              <tr><td>Línea y columna en cada token</td><td>El token viaja con atributos (§3.1)</td><td><code class="inline">%line %column</code> + pasarlos al <code class="inline">Symbol</code> — los reportes §6 dependen de esto</td></tr>
+              <tr><td>Carácter desconocido</td><td>Recuperación pánico (§3.1.3)</td><td>Registrar error léxico con posición, descartar, <strong>seguir</strong></td></tr>
+              <tr><td>Cadenas y comentarios</td><td>Patrones no triviales</td><td>Cuidado con la voracidad: <code class="inline">".*"</code> come de más; conviene usar clases negadas <code class="inline">[^"]</code></td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="muted">Este checklist es la tabla de tokens de ConjAnalyzer hecha método: se recorre el enunciado, se extrae vocabulario, se clasifica, se escriben patrones y se ordenan.</p>
+      </div>
+    </section>
+
+    <!-- 11 · Quiz -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">Chequeo rápido</p>
+        <h2>¿Quedó claro? Un repaso rápido</h2>
+        <p class="muted">Conviene pensar la respuesta antes de revelar. Si alguna falla, conviene volver unas diapositivas.</p>
+        <div class="quiz">
+          <div class="q">
+            <p class="question">1 · En un <code class="inline">.flex</code> alguien mueve la regla <code class="inline">{Id}</code> arriba de las reservadas. El archivo compila perfecto. ¿Qué se rompe, y en qué capa aparece el error?</p>
+            <button type="button" onclick="this.parentElement.classList.add('revealed')">Revelar respuesta</button>
+            <div class="answer"><p>Toda reservada empata en largo con <code class="inline">{Id}</code>, y ahora <code class="inline">{Id}</code> está primero: <code class="inline">var</code>, <code class="inline">double</code>, <code class="inline">end</code>… salen todos como token <strong>ID</strong>. El lexer no falla nunca — el error explota en el <strong>parser</strong> como error sintáctico («se esperaba VAR»), lejos de su causa real. Moraleja: los bugs léxicos suelen disfrazarse de sintácticos.</p></div>
+          </div>
+          <div class="q">
+            <p class="question">2 · ¿Por qué JFlex se toma el trabajo de convertir AFN → AFD si el AFN ya reconoce el lenguaje correctamente?</p>
+            <button type="button" onclick="this.parentElement.classList.add('revealed')">Revelar respuesta</button>
+            <div class="answer"><p>Por <strong>costo de ejecución</strong>. Simular un AFN exige rastrear un <em>conjunto</em> de estados por cada carácter (con cerraduras ε incluidas). El AFD tiene exactamente un estado activo y una transición por carácter: un acceso a tabla, O(1) por carácter, O(n) por archivo. La conversión se paga una sola vez al compilar el <code class="inline">.flex</code>; la velocidad se cobra en cada ejecución.</p></div>
+          </div>
+          <div class="q">
+            <p class="question">3 · Un compañero define <code class="inline">Cadena = \".*\"</code> y con la entrada <code class="inline">"hola" + "mundo"</code> su lexer devuelve UNA sola cadena gigante. ¿Qué regla de oro lo traicionó y cómo se arregla?</p>
+            <button type="button" onclick="this.parentElement.classList.add('revealed')">Revelar respuesta</button>
+            <div class="answer"><p><strong>El match más largo.</strong> <code class="inline">.*</code> puede abarcar <code class="inline">hola" + "mundo</code> completo y cerrar con la última comilla — y como ese match es más largo, gana. Arreglo: prohibir comillas <em>dentro</em> del patrón con una clase negada: <code class="inline">\"[^\"\n]*\"</code>. Ahora el match más largo posible termina en la primera comilla de cierre. La regla no era el enemigo; el patrón decía otra cosa.</p></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 12 · Cierre -->
+    <section class="slide">
+      <div class="inner titleslide">
+        <p class="eyebrow">Capítulo 3 completado</p>
+        <h1>Queda claro qué genera JFlex</h1>
+        <p class="lead">Rol del lexer · errores léxicos y pánico · alfabeto, cadena, lenguaje · ER y definiciones regulares · match más largo + primera regla · anatomía del .flex · ER → AFN → AFD → tabla.</p>
+        <p style="margin-top:28px"><a class="btn primary" href="cap4.html">Continuar con el Cap. 4: análisis sintáctico →</a></p>
+        <p class="kicker"><a class="btn" href="cap2.html">← Cap. 2</a> &nbsp; <a class="btn" href="index.html">⌂ Volver al índice</a></p>
+      </div>
+    </section>
+
+  </div>
+
+  <div class="navbar">
+    <button id="prev" type="button">← Anterior</button>
+    <button id="next" type="button">Siguiente →</button>
+    <span class="hint">también se pueden usar las flechas del teclado</span>
+  </div>
+</div>
+
+<script src="assets/deck.js"></script>
+<script>
+/* ---- steppers de las demos: cada clic revela el siguiente paso ---- */
+document.querySelectorAll('.demo').forEach((demo) => {
+  const pasos = Array.from(demo.querySelectorAll('[data-step]'));
+  if (!pasos.length) return;
+  const max = Math.max(...pasos.map(e => +e.dataset.step));
+  const btn = demo.querySelector('.step-btn');
+  const reset = demo.querySelector('.reset-btn');
+  const counter = demo.querySelector('.step-counter');
+  const explica = demo.querySelector('.explica');
+  const textos = explica ? JSON.parse(explica.dataset.textos || '[]') : [];
+  let cur = 0;
+
+  function render() {
+    pasos.forEach(e => {
+      const n = +e.dataset.step;
+      e.classList.toggle('shown', n <= cur);
+      e.classList.toggle('current', n === cur);
+    });
+    if (counter) counter.textContent = 'paso ' + cur + ' de ' + max;
+    if (explica) explica.textContent = textos[cur] || '';
+    btn.disabled = cur >= max;
+    reset.disabled = cur === 0;
+  }
+  btn.addEventListener('click', () => { if (cur < max) { cur++; render(); } });
+  reset.addEventListener('click', () => { cur = 0; render(); });
+  render();
+});
+</script>
+</body>
+</html>

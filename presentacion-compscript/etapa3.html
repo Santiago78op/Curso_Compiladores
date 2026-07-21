@@ -1,0 +1,189 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Etapa 3 · El árbol de sintaxis abstracta — CompScript</title>
+<link rel="stylesheet" href="assets/estilo.css">
+</head>
+<body>
+
+<div class="deck">
+  <div class="topbar">
+    <a class="brand" href="index.html" title="Volver al índice">Comp<em>Script</em> · curso guiado</a>
+    <span class="chip">Etapa 3 · El AST</span>
+    <span class="counter"><span id="cur">1</span> / <span id="tot">?</span></span>
+    <button id="theme" type="button" title="Cambiar tema claro/oscuro" aria-label="Cambiar tema claro/oscuro">◐</button>
+  </div>
+  <div class="progress"><div id="bar"></div></div>
+
+  <div class="stage">
+
+    <!-- 1 · Intro -->
+    <section class="slide">
+      <div class="inner titleslide">
+        <p class="eyebrow">Etapa 3 · la pieza central del proyecto</p>
+        <h1><code class="inline" style="font-size:.7em">ast/A.java</code>: el árbol hecho código</h1>
+        <p class="lead">Una sola clase contenedora <code class="inline">A</code>, dos interfaces, y unas 25 clases anidadas — cada una representando exactamente una construcción del lenguaje. Esta es la pieza que DataForge y ConjAnalyzer no necesitan.</p>
+        <p class="kicker">Fuente: <code class="inline">src/main/java/compscript/ast/A.java</code>, verificado 2026-07-20.</p>
+      </div>
+    </section>
+
+    <!-- 2 · Las dos interfaces -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">El diseño en dos interfaces</p>
+        <h2>Nodo, Instrucción y Expresión</h2>
+        <pre class="code"><span class="tk-res">public interface</span> Nodo {
+    String etiquetaAst();
+    <span class="tk-res">default</span> List&lt;Nodo&gt; hijosAst() { <span class="tk-res">return new</span> ArrayList&lt;&gt;(); }
+}
+<span class="tk-res">public interface</span> Instruccion <span class="tk-res">extends</span> Nodo { <span class="tk-res">void</span> ejecutar(Entorno e); }
+<span class="tk-res">public interface</span> Expresion  <span class="tk-res">extends</span> Nodo { Valor evaluar(Entorno e); }</pre>
+        <p>Todo lo que <em>produce un valor</em> (una suma, un acceso a variable, una llamada) implementa <code class="inline">Expresion</code>; todo lo que <em>hace algo</em> (un <code class="inline">if</code>, un <code class="inline">while</code>, una declaración) implementa <code class="inline">Instruccion</code>. Cada nodo sabe ejecutarse o evaluarse <strong>a sí mismo</strong> — el patrón <em>tree-walking interpreter</em>, una variante del Visitor sin doble despacho.</p>
+        <div class="callout"><p><strong>Un tercer propósito, gratis:</strong> <code class="inline">etiquetaAst()</code> + <code class="inline">hijosAst()</code> alimentan el reporte de AST (Etapa 7) sin necesitar una clase visitante aparte — <code class="inline">Reportes.astHtmlNodo()</code> simplemente recorre <code class="inline">hijosAst()</code> de forma recursiva.</p></div>
+      </div>
+    </section>
+
+    <!-- 3 · Una clase por construcción -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">~25 clases, un catálogo del lenguaje</p>
+        <h2>Cada construcción, su propia clase</h2>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>Categoría</th><th>Clases (dentro de <code>A</code>)</th></tr></thead>
+            <tbody>
+              <tr><td>Expresiones</td><td><code>Literal</code> · <code>AccesoVariable</code> · <code>Binaria</code> · <code>Unaria</code> · <code>Cast</code> · <code>AccesoVector</code> · <code>LiteralVector</code> · <code>LiteralStruct</code> · <code>AccesoCampo</code> · <code>Nativa</code> · <code>Llamada</code> · <code>OperacionLista</code></td></tr>
+              <tr><td>Declaración / asignación</td><td><code>Declaracion</code> · <code>AsignacionVariable</code> · <code>AsignacionVector</code> · <code>AsignacionCampo</code> · <code>IncDec</code></td></tr>
+              <tr><td>Control de flujo</td><td><code>If</code> · <code>Match</code> · <code>While</code> · <code>For</code> · <code>DoWhile</code> · <code>Break</code> · <code>Continue</code> · <code>Return</code></td></tr>
+              <tr><td>Funciones y structs</td><td><code>DeclaracionFuncion</code> · <code>DeclaracionStruct</code> · <code>RunMain</code></td></tr>
+              <tr><td>Raíz</td><td><code>Programa</code> (envuelve la lista de instrucciones de nivel superior, sirve de raíz para el reporte 6.3)</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- 4 · Constructores con Object -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">Un detalle no obvio del diseño</p>
+        <h2>¿Por qué los constructores reciben <code class="inline">Object</code>?</h2>
+        <pre class="code"><span class="tk-res">public</span> Binaria(String op, Object izq, Object der, <span class="tk-res">int</span> l, <span class="tk-res">int</span> c) {
+    <span class="tk-res">this</span>.op = op;
+    <span class="tk-res">this</span>.izq = (Expresion) izq;
+    <span class="tk-res">this</span>.der = (Expresion) der;
+    linea = l; columna = c;
+}</pre>
+        <p>Las acciones del <code class="inline">.cup</code> no pueden usar genéricos con seguridad — los no-terminales de CUP son tipos <em>raw</em>, igual que en DataForge y ConjAnalyzer. Recibir <code class="inline">Object</code> en el constructor y castear <strong>adentro</strong> mantiene cada acción del <code class="inline">.cup</code> en una sola línea limpia, sin repetir el cast ahí:</p>
+        <pre class="code">expr ::= expr:a MAS expr:b  {: RESULT = <span class="tk-res">new</span> A.Binaria("+", a, b, aleft, aright); :}</pre>
+      </div>
+    </section>
+
+    <!-- 5 · Evaluar un nodo compuesto -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">Un nodo evaluándose a sí mismo</p>
+        <h2><code class="inline">Binaria.evaluar()</code>, tal cual en el código</h2>
+        <pre class="code"><span class="tk-res">public</span> Valor evaluar(Entorno e) {
+    Valor a = izq.evaluar(e), b = der.evaluar(e);   <span class="tk-sym">// recursion: cada hijo se evalua solo</span>
+    <span class="tk-res">switch</span> (op) {
+        <span class="tk-res">case</span> "+": <span class="tk-res">case</span> "-": <span class="tk-res">case</span> "*": <span class="tk-res">case</span> "/":
+        <span class="tk-res">case</span> "^": <span class="tk-res">case</span> "$": <span class="tk-res">case</span> "%":
+            <span class="tk-res">return</span> Operaciones.aritmetica(op, a, b, e, linea, columna);
+        <span class="tk-res">case</span> "==": <span class="tk-res">case</span> "!=": <span class="tk-res">case</span> "&lt;": <span class="tk-res">case</span> "&lt;=": <span class="tk-res">case</span> "&gt;": <span class="tk-res">case</span> "&gt;=":
+            <span class="tk-res">return</span> Operaciones.relacional(op, a, b, e, linea, columna);
+        <span class="tk-res">case</span> "&amp;&amp;": <span class="tk-res">case</span> "||":
+            <span class="tk-res">return</span> Operaciones.logica(op, a, b, e, linea, columna);
+        <span class="tk-res">default</span>: <span class="tk-res">return null</span>;
+    }
+}</pre>
+        <p>Nótese que <code class="inline">izq</code> y <code class="inline">der</code> son a su vez <code class="inline">Expresion</code>: podrían ser otro <code class="inline">A.Binaria</code>, un <code class="inline">A.Literal</code>, una <code class="inline">A.Llamada</code>… El árbol se recorre solo, por recursión — nadie tiene que escribir un recorrido manual nodo por nodo.</p>
+      </div>
+    </section>
+
+    <!-- 6 · Bug real corregido -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">Auditoría de código, 2026-07-21 — un bug real corregido</p>
+        <h2>Cuando el árbol no valida lo que asume</h2>
+        <p><code class="inline">A.Declaracion.validarVector(...)</code> recibe el resultado de evaluar la expresión inicializadora de un vector. Antes de la corrección, el código asumía sin comprobar que ese valor ya era un vector:</p>
+        <pre class="code"><span class="tk-res">private</span> Valor validarVector(Valor crudo, Tipo declarado, Entorno e) {
+    <span class="tk-sym">// Guarda de tipo: init es un &lt;expresion&gt; general (no solo un literal de
+    // vector), asi que puede evaluar a un Entero/Cadena/etc. Sin esta
+    // comprobacion, crudo.lista() lanza ClassCastException sin control
+    // (bug real: revienta el interprete completo en vez de reportar un
+    // error semantico y terminar de forma ordenada, como exige 4.3).</span>
+    <span class="tk-res">if</span> (crudo == <span class="tk-res">null</span> || crudo.tipo.cat != Tipo.Cat.VECTOR)
+        e.errorSemantico("el vector '" + id + "' espera un literal de vector y recibio "
+                + Entorno.tipoDe(crudo), linea, columna);
+    List&lt;Valor&gt; vals = crudo.lista();
+    ...
+}</pre>
+        <p>Sin la guarda, un programa como <code class="inline">let v: int[] = 5;</code> (una expresión válida pero no-vectorial) provocaba un <code class="inline">ClassCastException</code> de Java no controlado, que tumbaba el intérprete entero — exactamente lo que el enunciado (§4.3) prohíbe. La corrección agrega la comprobación de tipo ANTES de castear, y reporta un error semántico ordenado en su lugar.</p>
+        <div class="callout"><p><strong>Por qué importa acá y no en DataForge:</strong> cada nodo del AST es responsable de validar sus propios supuestos sobre los valores que recibe — no hay una gramática externa que lo garantice. Con evaluación directa (DataForge) el chequeo de tipos ocurre en el mismo lugar donde se usa el valor; con AST, cada nodo repite esa responsabilidad en su propio <code class="inline">evaluar()</code>/<code class="inline">ejecutar()</code>.</p></div>
+      </div>
+    </section>
+
+    <!-- 7 · Cómo se ejecuta el programa completo -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">De la raíz al primer recorrido</p>
+        <h2>Ejecutar el árbol: un <code class="inline">for</code> sobre la raíz</h2>
+        <pre class="code"><span class="tk-sym">// el resultado del parse ya es una lista de instrucciones, en memoria:</span>
+ArrayList raiz = (ArrayList) parser.parse().value;
+
+<span class="tk-sym">// y "ejecutar el programa" es simplemente recorrerla:</span>
+<span class="tk-res">for</span> (A.Instruccion i : raiz) i.ejecutar(entornoGlobal);</pre>
+        <p>Cada instrucción de nivel superior delega en sus propios hijos. Un <code class="inline">A.If</code> llama a <code class="inline">cond.evaluar(e)</code> y después ejecuta su cuerpo o su rama <code class="inline">else</code>; un <code class="inline">A.While</code> vuelve a evaluar su condición en cada vuelta del bucle Java <code class="inline">while(true)</code>. El árbol convirtió al programa en <strong>datos que se pueden recorrer cuantas veces haga falta</strong> — la Etapa 5 muestra exactamente cómo.</p>
+      </div>
+    </section>
+
+    <!-- 8 · Quiz -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">Chequeo rápido</p>
+        <h2>Sobre el AST real</h2>
+        <div class="quiz">
+          <div class="q">
+            <p class="question">1 · ¿Qué interfaz implementa un nodo <code class="inline">A.If</code>: <code class="inline">Instruccion</code> o <code class="inline">Expresion</code>? ¿Y <code class="inline">A.Binaria</code>?</p>
+            <button type="button" onclick="this.parentElement.classList.add('revealed')">Revelar respuesta</button>
+            <div class="answer"><p><code class="inline">A.If</code> implementa <code class="inline">Instruccion</code> (no produce un valor, solo decide qué ejecutar). <code class="inline">A.Binaria</code> implementa <code class="inline">Expresion</code> (produce un <code class="inline">Valor</code> al evaluarse, como el resultado de una suma).</p></div>
+          </div>
+          <div class="q">
+            <p class="question">2 · ¿Cuál habría sido el síntoma del bug de <code class="inline">validarVector</code> ANTES de la corrección, al ejecutar <code class="inline">let v: int[] = 5;</code>?</p>
+            <button type="button" onclick="this.parentElement.classList.add('revealed')">Revelar respuesta</button>
+            <div class="answer"><p>Un <code class="inline">ClassCastException</code> de Java sin capturar, que interrumpía TODO el intérprete de forma abrupta — no solo el programa <code class="inline">.cs</code> que se estaba ejecutando. Después de la corrección, el mismo caso produce un error semántico ordenado, reportado en la tabla de errores, sin tumbar el proceso.</p></div>
+          </div>
+          <div class="q">
+            <p class="question">3 · ¿Por qué <code class="inline">etiquetaAst()</code> y <code class="inline">hijosAst()</code> no necesitan una clase "visitante" aparte para generar el reporte de AST?</p>
+            <button type="button" onclick="this.parentElement.classList.add('revealed')">Revelar respuesta</button>
+            <div class="answer"><p>Porque cada nodo ya sabe describirse (<code class="inline">etiquetaAst()</code>) y enumerar a sus propios hijos (<code class="inline">hijosAst()</code>) — <code class="inline">Reportes.astHtmlNodo()</code> solo necesita recorrer esa estructura recursivamente, sin conocer las ~25 clases concretas de antemano.</p></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 9 · Cierre -->
+    <section class="slide">
+      <div class="inner titleslide">
+        <p class="eyebrow">Etapa 3 · construida</p>
+        <h1>Queda construido el árbol de sintaxis abstracta</h1>
+        <p class="lead">Dos interfaces, ~25 clases, cada una sabiendo ejecutarse o evaluarse a sí misma. El programa dejó de ser «algo que se ejecuta mientras se analiza» para convertirse en una estructura de datos que se puede recorrer las veces que haga falta.</p>
+        <p class="kicker">Próxima: <strong>Etapa 4 — <code class="inline">Contexto</code> y <code class="inline">Entorno</code></strong>, la tabla de símbolos que hace posible los ámbitos anidados.<br><a class="btn" href="index.html" style="margin-top:14px">⌂ Volver al índice</a></p>
+      </div>
+    </section>
+
+  </div>
+
+  <div class="navbar">
+    <button id="prev" type="button">← Anterior</button>
+    <button id="next" type="button">Siguiente →</button>
+    <span class="hint">también se pueden usar las flechas del teclado</span>
+  </div>
+</div>
+
+<script src="assets/deck.js"></script>
+</body>
+</html>

@@ -1,0 +1,169 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Etapa 6 · Reportes y JSON — ConjAnalyzer</title>
+<link rel="stylesheet" href="assets/estilo.css">
+</head>
+<body>
+
+<div class="deck">
+  <div class="topbar">
+    <a class="brand" href="index.html" title="Volver al índice">Conj<em>Analyzer</em> · curso guiado</a>
+    <span class="chip">Etapa 6 · Reportes y JSON</span>
+    <span class="counter"><span id="cur">1</span> / <span id="tot">?</span></span>
+    <button id="theme" type="button" title="Cambiar tema claro/oscuro" aria-label="Cambiar tema claro/oscuro">◐</button>
+  </div>
+  <div class="progress"><div id="bar"></div></div>
+
+  <div class="stage">
+
+    <!-- 1 · Intro -->
+    <section class="slide">
+      <div class="inner titleslide">
+        <p class="eyebrow">Etapa 6 · Parte 1</p>
+        <h1>Reportes HTML + el JSON de simplificación</h1>
+        <p class="lead">El último eslabón del pipeline: transformar el <code class="inline">Entorno</code> de la última ejecución en los 4 archivos que exige el enunciado — 3 HTML autocontenidos y un JSON exacto.</p>
+        <p class="kicker">Paquete <code class="inline">conjanalyzer.reportes</code>: <code class="inline">Reportes</code> y <code class="inline">JsonSalida</code>.</p>
+      </div>
+    </section>
+
+    <!-- 2 · Los 3 HTML -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">Sección 5.2 y 5.3 del enunciado</p>
+        <h2>Tres reportes HTML, un solo método</h2>
+        <pre class="code">public static File[] generar(Entorno ent, File carpeta) throws Exception</pre>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>Archivo</th><th>Contenido</th><th>Sección</th></tr></thead>
+            <tbody>
+              <tr><td><code>tokens.html</code></td><td>lexema + nombre de token + línea/columna, para cada token reconocido</td><td>5.2</td></tr>
+              <tr><td><code>errores.html</code></td><td>tipo (Léxico/Sintáctico/Semántico) + descripción + línea/columna</td><td>5.3</td></tr>
+              <tr><td><code>operaciones.html</code></td><td>conjuntos y operaciones definidos, con su resultado o estado de simplificación (extra, no pedido explícitamente pero útil para revisar)</td><td>—</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p>Los 3 son autocontenidos (CSS embebido en cada página, sin dependencias externas) — se abren con doble clic, igual criterio que las presentaciones del curso.</p>
+      </div>
+    </section>
+
+    <!-- 3 · Reflexión sobre sym -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">Un truco que evita mantenimiento manual</p>
+        <h2>El nombre de cada token, por reflexión sobre <code class="inline">sym</code></h2>
+        <pre class="code"><span class="tk-sym">// nombresTokens() recorre los campos de la clase sym generada por CUP</span>
+Map&lt;Integer, String&gt; nombresTokens() {
+    Map&lt;Integer, String&gt; m = new HashMap&lt;&gt;();
+    for (Field f : sym.class.getFields()) {
+        m.put((Integer) f.get(null), f.getName());   <span class="tk-sym">// numero → "UNION", "CONJ", ...</span>
+    }
+    return m;
+}</pre>
+        <p>Sin esto, el reporte necesitaría un <code class="inline">switch</code> manual con los ~19 tokens del lenguaje — que se desincronizaría cada vez que alguien agregue o quite un terminal en el <code class="inline">.cup</code>. Con reflexión, el reporte siempre está al día automáticamente: mismo truco que usa DataForge.</p>
+        <div class="callout"><p>Todos los lexemas y descripciones se escapan (<code class="inline">esc(String s)</code>) antes de insertarse en la tabla HTML: lexemas legítimos del lenguaje como <code class="inline">&amp;</code> o <code class="inline">-&gt;</code> romperían el HTML si no se escaparan. Verificado en <code class="inline">tokens.html</code> real: el lexema <code class="inline">-&gt;</code> aparece como <code class="inline">-&amp;gt;</code>.</p></div>
+      </div>
+    </section>
+
+    <!-- 4 · El JSON -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">Sección 5.4 del enunciado — el formato exacto</p>
+        <h2>El JSON de simplificación, con Gson</h2>
+        <pre class="code">public static String construir(Entorno ent)
+public static File generar(Entorno ent, File carpeta) throws Exception</pre>
+        <pre class="code">{
+  "operacion1": {
+    "leyes": ["ley de doble complemento", "leyes de DeMorgan"],
+    "conjunto simplificado": "U & {A} {B} {C}"
+  },
+  "operacion2": "No se puede simplificar la operacion"
+}</pre>
+        <p>Por cada operación con <code class="inline">seSimplifico == true</code>, un objeto con <code class="inline">"leyes"</code> (arreglo) y <code class="inline">"conjunto simplificado"</code> (la expresión prefija ya simplificada, vía <code class="inline">toPrefijo()</code> de la Etapa 3). Para las que no simplificaron, el valor es directamente el <strong>string literal</strong> <code class="inline">"No se puede simplificar la operacion"</code> — no un objeto vacío.</p>
+        <pre class="code">new GsonBuilder().setPrettyPrinting().disableHtmlEscaping().create()</pre>
+        <div class="callout"><p><code class="inline">disableHtmlEscaping()</code> es necesario porque, sin esa opción, Gson escapa por defecto caracteres como <code class="inline">&amp;</code> — y la notación prefija de este lenguaje los usa constantemente (<code class="inline">U &amp; {A} {B} {C}</code>). Sin desactivarlo, el JSON de salida no coincidiría byte a byte con lo que pide el enunciado.</p></div>
+      </div>
+    </section>
+
+    <!-- 5 · Entorno fresco -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">Un requisito que atraviesa todo el proyecto</p>
+        <h2>Reportes solo del último análisis</h2>
+        <p>La sección 5 del enunciado es explícita: "no deberá mostrarse reportes de análisis anteriores". <code class="inline">Interprete.ejecutar(codigo)</code> crea un <code class="inline">Entorno</code> completamente nuevo en cada llamada — nunca reutiliza ni acumula estado de una ejecución a la siguiente.</p>
+        <pre class="code">public static Entorno ejecutar(String codigo) {
+    Lexer lexer = new Lexer(new StringReader(codigo));
+    Parser parser = new Parser(lexer);
+    lexer.entorno = parser.entorno;    <span class="tk-sym">// conectar lexer ↔ entorno del parser</span>
+    try { parser.parse(); } catch (Exception e) { /* no abortar la GUI */ }
+    return parser.entorno;
+}</pre>
+        <p><code class="inline">EditorApp</code> guarda ese <code class="inline">Entorno</code> devuelto en <code class="inline">ultimoEntorno</code>, y tanto <code class="inline">Reportes</code> como <code class="inline">DiagramaVenn</code> (Etapa 5) siempre leen de ahí — nunca de una ejecución vieja.</p>
+      </div>
+    </section>
+
+    <!-- 6 · Verificación -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">Verificación real</p>
+        <h2>Los 4 archivos, en cada corrida</h2>
+        <pre class="code">mvn compile exec:java -Dexec.mainClass=conjanalyzer.TestInterprete -Dexec.args="entradas/ejemplo3_simplificacion.ca"
+
+<span class="tk-sym"># genera en reportes/:</span>
+tokens.html
+errores.html
+operaciones.html
+simplificacion.json</pre>
+        <p>Verificado con los 4 archivos de <code class="inline">entradas/</code> — incluida la corrida posterior a la auditoría del 21 de julio, con el 5º caso de la ley distributiva — sin excepciones y con los 4 artefactos generados correctamente en cada ejecución.</p>
+      </div>
+    </section>
+
+    <!-- 7 · Quiz -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">Chequeo rápido</p>
+        <h2>¿Se entienden los reportes y el JSON?</h2>
+        <div class="quiz">
+          <div class="q">
+            <p class="question">1 · ¿Qué pasaría con el reporte de tokens si mañana se agrega un nuevo terminal al <code class="inline">.cup</code>, por ejemplo <code class="inline">XOR</code>?</p>
+            <button type="button" onclick="this.parentElement.classList.add('revealed')">Revelar respuesta</button>
+            <div class="answer"><p><strong>Nada que arreglar en <code class="inline">Reportes.java</code>.</strong> Como el nombre del token se obtiene por reflexión sobre los campos de la clase <code class="inline">sym</code> (generada automáticamente por CUP), el nuevo token <code class="inline">XOR</code> aparecería con su nombre correcto sin tocar el reporte.</p></div>
+          </div>
+          <div class="q">
+            <p class="question">2 · En el JSON, ¿por qué las operaciones que no simplifican no tienen un objeto <code class="inline">{"leyes": [], ...}</code> vacío?</p>
+            <button type="button" onclick="this.parentElement.classList.add('revealed')">Revelar respuesta</button>
+            <div class="answer"><p>Porque el formato del enunciado (5.4) pide específicamente el <strong>string literal</strong> <code class="inline">"No se puede simplificar la operacion"</code> como valor directo de la clave — no un objeto con arreglo vacío. <code class="inline">JsonSalida</code> respeta ese formato exacto revisando <code class="inline">seSimplifico</code>.</p></div>
+          </div>
+          <div class="q">
+            <p class="question">3 · ¿Qué garantiza que dos ejecuciones seguidas del mismo editor nunca mezclen sus reportes?</p>
+            <button type="button" onclick="this.parentElement.classList.add('revealed')">Revelar respuesta</button>
+            <div class="answer"><p>Que <code class="inline">Interprete.ejecutar(...)</code> crea un <code class="inline">Entorno</code> <strong>nuevo</strong> en cada llamada (nunca reutiliza el anterior), y que <code class="inline">Reportes</code>/<code class="inline">JsonSalida</code>/<code class="inline">DiagramaVenn</code> siempre reciben ese <code class="inline">Entorno</code> fresco como parámetro — nunca leen un estado global acumulado.</p></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 8 · Cierre del curso -->
+    <section class="slide">
+      <div class="inner titleslide">
+        <p class="eyebrow">Etapa 6 · construida — proyecto completo</p>
+        <h1>ConjAnalyzer queda funcional de punta a punta</h1>
+        <p class="lead">Léxico → sintáctico → ejecución con árbol acotado → simplificación algebraica con sus 5 leyes → diagrama de Venn exacto → reportes HTML y JSON. Las 6 etapas, verificadas con los 4 casos de <code class="inline">entradas/</code> y auditadas el 21 de julio de 2026.</p>
+        <p class="kicker">Para ver el motor de simplificación en movimiento, paso a paso: <a class="btn primary" href="simplificador.html" style="margin-top:6px">★ Profundización — El Simplificador y sus leyes</a><br><a class="btn" href="index.html" style="margin-top:14px">⌂ Volver al índice</a></p>
+      </div>
+    </section>
+
+  </div>
+
+  <div class="navbar">
+    <button id="prev" type="button">← Anterior</button>
+    <button id="next" type="button">Siguiente →</button>
+    <span class="hint">también se pueden usar las flechas del teclado</span>
+  </div>
+</div>
+
+<script src="assets/deck.js"></script>
+</body>
+</html>

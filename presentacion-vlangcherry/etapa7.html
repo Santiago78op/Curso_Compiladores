@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Etapa 7 · Cliente React — VLangCherry</title>
+<link rel="stylesheet" href="assets/estilo.css">
+</head>
+<body>
+
+<div class="deck">
+  <div class="topbar">
+    <a class="brand" href="index.html" title="Volver al índice">VLang<em>Cherry</em> · curso guiado</a>
+    <span class="chip">Etapa 7 · Cliente React</span>
+    <span class="counter"><span id="cur">1</span> / <span id="tot">?</span></span>
+    <button id="theme" type="button" title="Cambiar tema claro/oscuro" aria-label="Cambiar tema claro/oscuro">◐</button>
+  </div>
+  <div class="progress"><div id="bar"></div></div>
+
+  <div class="stage">
+
+    <!-- 1 · Intro -->
+    <section class="slide">
+      <div class="inner titleslide">
+        <p class="eyebrow">Etapa 7 · Parte 1</p>
+        <h1>Un cliente que ya existía, adaptado a un backend nuevo</h1>
+        <p class="lead">El cliente web de VLangCherry (React 19 + Vite) reutiliza y adapta el patrón de interfaz de CompInterpreter — mismo contrato <code class="inline">{errores, consola, simbolos, ast}</code> — reemplazando únicamente la capa de comunicación para apuntar al servidor Go (Etapa 6) en vez de a un servidor Node/Express.</p>
+      </div>
+    </section>
+
+    <!-- 2 · Componentes -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">Estructura del cliente (<code class="inline">client/src/</code>)</p>
+        <h2>Componentes con responsabilidad única</h2>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>Componente</th><th>Responsabilidad</th></tr></thead>
+            <tbody>
+              <tr><td><code>App.jsx</code></td><td>Estado de archivos abiertos (<code>{id, nombre, contenido, sinGuardar}</code>), archivo activo, resultado de la última ejecución, panel seleccionado. Orquesta Nuevo/Abrir/Guardar/Ejecutar.</td></tr>
+              <tr><td><code>api.js</code></td><td>Función <code>interpretar(codigo)</code>: hace el <code>fetch</code> a <code>POST {VITE_API_URL}/interpretar</code> y devuelve el JSON de respuesta.</td></tr>
+              <tr><td><code>Toolbar.jsx</code>, <code>FileTabs.jsx</code></td><td>Barra de acciones y pestañas de archivo multi-documento (indicador <code>•</code> de cambios sin guardar).</td></tr>
+              <tr><td><code>Editor.jsx</code></td><td>Área de edición con numeración de línea; resalta las líneas reportadas con error.</td></tr>
+              <tr><td><code>Consola.jsx</code>, <code>TablaErrores.jsx</code>, <code>TablaSimbolos.jsx</code></td><td>Presentación tabular de los reportes; las dos tablas permiten clic en fila para saltar a la línea en el editor.</td></tr>
+              <tr><td><code>AstGrafo.jsx</code></td><td>Renderiza <code>resultado.ast</code> (<code>{nodes, edges}</code>) con <strong>vis-network</strong>, layout jerárquico (<code>direction: 'UD'</code>).</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- 3 · Reuso -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">Qué se reusa y qué se reemplaza</p>
+        <h2>Mismo contrato, backend distinto</h2>
+        <p>El cliente de VLangCherry adapta el patrón de interfaz de otro proyecto del curso con arquitectura cliente-servidor equivalente. La UI (componentes, estado, interacción) se reusa casi sin cambios; lo único que cambia es la capa de comunicación:</p>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th></th><th>CompInterpreter (OLC1)</th><th>VLangCherry (OLC2)</th></tr></thead>
+            <tbody>
+              <tr><td>Backend</td><td>Node.js + Express</td><td>Go + <code>net/http</code></td></tr>
+              <tr><td>Contrato JSON</td><td><code>{errores, consola, simbolos, ast}</code></td><td>El mismo, más <code>consolaLineas</code> y <code>dot</code></td></tr>
+              <tr><td>Grafo de AST en cliente</td><td>vis-network</td><td>vis-network (idéntico)</td></tr>
+              <tr><td>Frontend</td><td>React</td><td>React 19 + Vite</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p><code class="inline">AstGrafo.jsx</code> reutiliza variables CSS del tema activo (claro/oscuro) para los colores de nodo, borde y texto — consistente con el resto de la interfaz.</p>
+      </div>
+    </section>
+
+    <!-- 4 · Pruebas e2e -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">Pruebas end-to-end</p>
+        <h2>Playwright sobre el flujo completo</h2>
+        <p><code class="inline">client/e2e/vlangcherry.spec.js</code> verifica, contra el servidor real corriendo:</p>
+        <div class="cards">
+          <div class="card">
+            <h3>1 · Ejecución del ejemplo inicial</h3>
+            <p>Corre el código de arranque y verifica que consola, tabla de símbolos y grafo de AST se muestren correctamente.</p>
+          </div>
+          <div class="card">
+            <h3>2 · Reporte de errores y salto de línea</h3>
+            <p>Provoca un error semántico, verifica que aparezca en <code>TablaErrores</code> y que un clic en la fila salte a la línea correcta del editor.</p>
+          </div>
+          <div class="card">
+            <h3>3 · Archivo nuevo</h3>
+            <p>Crea un archivo con extensión <code>.vch</code> desde la <code>Toolbar</code> y verifica la pestaña nueva en <code>FileTabs</code>.</p>
+          </div>
+        </div>
+        <pre class="code">cd client
+npm install
+npm run dev      # modo desarrollo
+npm run build    # construccion de produccion
+npm run e2e      # pruebas Playwright</pre>
+      </div>
+    </section>
+
+    <!-- 5 · Quiz -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">Chequeo rápido</p>
+        <h2>Sobre el cliente</h2>
+        <div class="quiz">
+          <div class="q">
+            <p class="question">1 · ¿Qué archivo hay que tocar si el servidor Go cambia de puerto o de dominio?</p>
+            <button type="button" onclick="this.parentElement.classList.add('revealed')">Revelar respuesta</button>
+            <div class="answer"><p><code class="inline">api.js</code> (vía la variable de entorno <code class="inline">VITE_API_URL</code>) — es el único punto que conoce la URL del backend. El resto de los componentes solo conocen la forma del JSON de respuesta.</p></div>
+          </div>
+          <div class="q">
+            <p class="question">2 · ¿Por qué CORS está habilitado con <code class="inline">*</code> en todas las rutas del servidor?</p>
+            <button type="button" onclick="this.parentElement.classList.add('revealed')">Revelar respuesta</button>
+            <div class="answer"><p>Porque en desarrollo el cliente (Vite, otro puerto) y el servidor (Go, <code class="inline">net/http</code>) corren en orígenes distintos; sin encabezados CORS, el navegador bloquearía el <code class="inline">fetch</code> de <code class="inline">api.js</code> a <code class="inline">/interpretar</code>.</p></div>
+          </div>
+          <div class="q">
+            <p class="question">3 · Si se agrega un campo nuevo al AST y aparece en el JSON de <code class="inline">/interpretar</code>, ¿hace falta cambiar <code class="inline">AstGrafo.jsx</code>?</p>
+            <button type="button" onclick="this.parentElement.classList.add('revealed')">Revelar respuesta</button>
+            <div class="answer"><p>No, mientras el formato siga siendo <code class="inline">{nodes, edges}</code> — el recorrido por reflection del servidor (Etapa 2) ya incorpora el nuevo campo al grafo automáticamente, y vis-network solo necesita ese mismo formato genérico para dibujarlo.</p></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 6 · Cierre -->
+    <section class="slide">
+      <div class="inner titleslide">
+        <p class="eyebrow">Etapa 7 · construida</p>
+        <h1>El pipeline completo queda visible en el navegador</h1>
+        <p class="lead">Editor multi-archivo, consola, tabla de errores con salto de línea, tabla de símbolos y grafo de AST — el mismo patrón de interfaz de CompInterpreter, hablando ahora con un backend en Go.</p>
+        <p class="kicker">Con esto se completan las 8 etapas. Queda la profundización ★ sobre los tres generadores usados en el curso.<br><a class="btn" href="index.html" style="margin-top:14px">⌂ Volver al índice</a></p>
+      </div>
+    </section>
+
+  </div>
+
+  <div class="navbar">
+    <button id="prev" type="button">← Anterior</button>
+    <button id="next" type="button">Siguiente →</button>
+    <span class="hint">también se pueden usar las flechas del teclado</span>
+  </div>
+</div>
+
+<script src="assets/deck.js"></script>
+</body>
+</html>

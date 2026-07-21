@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>★ ANTLR4 vs JFlex+CUP vs Jison — VLangCherry</title>
+<link rel="stylesheet" href="assets/estilo.css">
+</head>
+<body>
+
+<div class="deck">
+  <div class="topbar">
+    <a class="brand" href="index.html" title="Volver al índice">VLang<em>Cherry</em> · curso guiado</a>
+    <span class="chip">★ Profundización · Generadores</span>
+    <span class="counter"><span id="cur">1</span> / <span id="tot">?</span></span>
+    <button id="theme" type="button" title="Cambiar tema claro/oscuro" aria-label="Cambiar tema claro/oscuro">◐</button>
+  </div>
+  <div class="progress"><div id="bar"></div></div>
+
+  <div class="stage">
+
+    <!-- 1 · Intro -->
+    <section class="slide">
+      <div class="inner titleslide">
+        <p class="eyebrow">Profundización ★</p>
+        <h1>Tres generadores, cinco proyectos, un mismo problema</h1>
+        <p class="lead">Los cinco proyectos del curso (DataForge, ConjAnalyzer, CompScript, CompInterpreter, VLangCherry) resuelven el mismo problema — reconocer un lenguaje y construir un analizador léxico/sintáctico — con tres herramientas distintas. Esta profundización las compara directamente, con ejemplos reales de cada una.</p>
+      </div>
+    </section>
+
+    <!-- 2 · Tabla comparativa -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">De un vistazo</p>
+        <h2>Los tres generadores, lado a lado</h2>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th></th><th>JFlex + CUP</th><th>Jison</th><th>ANTLR4</th></tr></thead>
+            <tbody>
+              <tr><td>Herramientas</td><td>Dos: JFlex (léxico) + CUP (sintáctico)</td><td>Una</td><td>Una</td></tr>
+              <tr><td>Archivos fuente</td><td><code>.flex</code> + <code>.cup</code>, separados</td><td>un <code>.jison</code></td><td>un <code>.g4</code></td></tr>
+              <tr><td>Genera código para</td><td>Java</td><td>JavaScript</td><td>Go, Java, JS, Python, C++, …</td></tr>
+              <tr><td>Algoritmo de parsing</td><td>LALR (tablas precomputadas)</td><td>LALR/SLR/LR (configurable)</td><td>LL adaptativo (ALL(*))</td></tr>
+              <tr><td>Cuándo se resuelve la ambigüedad</td><td>En la generación (tabla de estados)</td><td>En la generación (tabla de estados)</td><td>En tiempo de análisis (mirando la entrada que haga falta)</td></tr>
+              <tr><td>Patrón para recorrer el árbol</td><td>Acciones semánticas embebidas en el <code>.cup</code> (sin AST — DataForge)</td><td>Visitor manual sobre el parse tree</td><td>Visitor generado (opcional) o <code>type-switch</code> sobre contextos etiquetados (VLangCherry)</td></tr>
+              <tr><td>Usado en</td><td>DataForge, ConjAnalyzer, CompScript</td><td>CompInterpreter</td><td>VLangCherry</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- 3 · JFlex+CUP ejemplo -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">1 de 3 · Dos herramientas separadas</p>
+        <h2>JFlex + CUP: léxico y sintaxis en archivos distintos</h2>
+        <pre class="code">// Lexer.flex (JFlex) — fragmento real de DataForge
+"var"       { return symbol(sym.VAR); }
+{Numero}    { return symbol(sym.NUMERO, Double.valueOf(yytext())); }
+{Id}        { return symbol(sym.ID); }</pre>
+        <p>El <code class="inline">.flex</code> solo conoce tokens; la gramática vive aparte, en un <code class="inline">.cup</code>, que declara <code class="inline">terminal</code>/<code class="inline">non terminal</code> y produce las reglas con acciones semánticas embebidas (<code class="inline">{: RESULT = … :}</code>). CUP genera además la clase <code class="inline">sym</code> con las constantes de token — el lexer y el parser deben coincidir en esos nombres, pero se escriben y mantienen por separado.</p>
+        <div class="callout"><p><strong>DataForge no construye AST</strong>: como no tiene control de flujo (toda instrucción corre exactamente una vez), ejecuta directamente en las acciones del <code class="inline">.cup</code> — gramática S-atribuida. VLangCherry sí necesita AST, precisamente porque tiene control de flujo y recursión (Etapas 2 y 5).</p></div>
+      </div>
+    </section>
+
+    <!-- 4 · Jison ejemplo -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">2 de 3 · Una herramienta, target JavaScript</p>
+        <h2>Jison: LALR sobre Node.js</h2>
+        <p>CompInterpreter (OLC1) usa Jison: como ANTLR4, resuelve léxico y sintaxis en un solo archivo de especificación, pero sigue generando parsers LALR/SLR/LR con tablas precomputadas — la misma familia de algoritmo que CUP, distinto lenguaje de salida.</p>
+        <pre class="code">npx jison src/grammar.jison -o src/parser.js</pre>
+        <p>El reporte de AST de CompInterpreter (<code class="inline">reportes/ast-grafo.js</code>) recorre el árbol dinámicamente inspeccionando las propiedades de cada objeto JavaScript — el mismo problema que resuelve <code class="inline">internal/ast/grafo.go</code> en VLangCherry (Etapa 2), pero con introspección dinámica de JS en vez de <code class="inline">reflect</code> de Go.</p>
+      </div>
+    </section>
+
+    <!-- 5 · ANTLR4 ejemplo -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">3 de 3 · Una herramienta, target Go</p>
+        <h2>ANTLR4: LL adaptativo, con etiquetas por alternativa</h2>
+        <pre class="code">expr
+    : expr op=('*'|'/'|'%') expr         # exprMultiplicativa
+    | expr op=('+'|'-') expr             # exprAditiva
+    | literal                            # exprLiteral
+    | ID                                  # exprIdentificador
+    ;</pre>
+        <p>La diferencia que más impacto tiene en el resto del proyecto no es el algoritmo de parsing en sí, sino las <strong>etiquetas <code class="inline">#nombre</code></strong>: generan un tipo de contexto Go concreto por alternativa, algo que ni JFlex+CUP ni Jison ofrecen de forma directa. Es lo que le permite a VLangCherry evitar el patrón Visitor completo con un <code class="inline">type-switch</code> (Etapa 2) — una opción que, en rigor, ANTLR4 también ofrece como Visitor generado, pero que este proyecto decidió no usar.</p>
+      </div>
+    </section>
+
+    <!-- 6 · Por qué importa la elección -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">La lección de fondo</p>
+        <h2>La herramienta no decide el diseño — lo habilita</h2>
+        <div class="cards">
+          <div class="card">
+            <h3>El generador es un medio</h3>
+            <p>Los 5 proyectos resuelven "reconocer un lenguaje" de tres formas distintas, pero ninguna elección de herramienta obliga por sí sola a tener o no tener AST, a usar Visitor o type-switch, o a ejecutar directo en las acciones semánticas.</p>
+          </div>
+          <div class="card">
+            <h3>El requisito del enunciado sí decide</h3>
+            <p>En VLangCherry, el lenguaje de implementación (Go) fue lo que descartó JFlex+CUP y Jison — no una preferencia de estilo. La elección de generador siguió al requisito, no al revés (Etapa 0).</p>
+          </div>
+          <div class="card">
+            <h3>Los patrones se repiten entre proyectos</h3>
+            <p>"Entorno fresco por ejecución", "propagación de error sin cascada", "reporte de AST por recorrido genérico" aparecen en los 5 proyectos, implementados con el idioma de cada lenguaje de turno (Java, JS, Go) — son decisiones de diseño de compiladores, no atadas a una herramienta.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 7 · Quiz -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">Chequeo rápido</p>
+        <h2>Sobre los tres generadores</h2>
+        <div class="quiz">
+          <div class="q">
+            <p class="question">1 · ¿Cuál de los tres generadores resuelve léxico y sintaxis en archivos SEPARADOS?</p>
+            <button type="button" onclick="this.parentElement.classList.add('revealed')">Revelar respuesta</button>
+            <div class="answer"><p>Solo JFlex+CUP (dos herramientas, dos archivos: <code class="inline">.flex</code> y <code class="inline">.cup</code>). Jison y ANTLR4 usan un único archivo de especificación cada uno.</p></div>
+          </div>
+          <div class="q">
+            <p class="question">2 · ¿Qué tienen en común los parsers que genera JFlex+CUP y los que genera Jison?</p>
+            <button type="button" onclick="this.parentElement.classList.add('revealed')">Revelar respuesta</button>
+            <div class="answer"><p>Ambos son parsers <strong>LALR</strong> (Jison además soporta SLR/LR configurable): construyen tablas de estados en tiempo de generación. ANTLR4, en cambio, genera un parser LL adaptativo que decide en tiempo de análisis.</p></div>
+          </div>
+          <div class="q">
+            <p class="question">3 · Si CompInterpreter (Jison) hubiera necesitado generar código para Go en vez de JavaScript, ¿habría podido seguir usando Jison?</p>
+            <button type="button" onclick="this.parentElement.classList.add('revealed')">Revelar respuesta</button>
+            <div class="answer"><p>No — Jison solo genera JavaScript. Habría necesitado cambiar de herramienta, igual que VLangCherry tuvo que descartar JFlex+CUP y Jison por el requisito de Go y terminar en ANTLR4.</p></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 8 · Cierre -->
+    <section class="slide">
+      <div class="inner titleslide">
+        <p class="eyebrow">Profundización ★ · completa</p>
+        <h1>Tres caminos al mismo destino</h1>
+        <p class="lead">JFlex+CUP (Java, LALR, dos herramientas), Jison (JavaScript, LALR/SLR/LR, una herramienta) y ANTLR4 (Go entre otros, LL adaptativo, una herramienta con etiquetas por alternativa) — tres formas válidas de resolver el análisis léxico y sintáctico, elegidas cada una por el requisito real del proyecto que las usa.</p>
+        <p class="kicker"><a class="btn" href="index.html" style="margin-top:14px">⌂ Volver al índice</a></p>
+      </div>
+    </section>
+
+  </div>
+
+  <div class="navbar">
+    <button id="prev" type="button">← Anterior</button>
+    <button id="next" type="button">Siguiente →</button>
+    <span class="hint">también se pueden usar las flechas del teclado</span>
+  </div>
+</div>
+
+<script src="assets/deck.js"></script>
+</body>
+</html>

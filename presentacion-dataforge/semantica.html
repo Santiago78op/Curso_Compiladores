@@ -1,0 +1,180 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Análisis semántico y tipos — DataForge</title>
+<link rel="stylesheet" href="assets/estilo.css">
+</head>
+<body>
+
+<div class="deck">
+  <div class="topbar">
+    <a class="brand" href="index.html" title="Volver al índice">Data<em>Forge</em> · curso guiado</a>
+    <span class="chip">Especial · Semántica</span>
+    <span class="counter"><span id="cur">1</span> / <span id="tot">?</span></span>
+    <button id="theme" type="button" title="Cambiar tema claro/oscuro" aria-label="Cambiar tema claro/oscuro">◐</button>
+  </div>
+  <div class="progress"><div id="bar"></div></div>
+
+  <div class="stage">
+
+    <!-- 1 · Portada -->
+    <section class="slide">
+      <div class="inner titleslide">
+        <p class="eyebrow">Profundización · Dragón §6.5 (y cap. 5)</p>
+        <h1>Análisis semántico y comprobación de tipos</h1>
+        <p class="lead">Los chequeos que se fueron sembrando en el Entorno desde la Etapa 3, ahora con su teoría: qué es exactamente el análisis semántico, el <strong>sistema de tipos</strong> de DataForge formalizado como lo escribe el libro, y el mapa consolidado del manejo de errores en las tres capas.</p>
+        <p class="kicker">La fase ③ del compilador, con nombre y apellido.</p>
+      </div>
+    </section>
+
+    <!-- 2 · Qué es -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">La definición</p>
+        <h2>Lo que la gramática no puede expresar</h2>
+        <p>Una gramática libre de contexto valida <strong>forma</strong>. Pero hay reglas de los lenguajes que son <em>sensibles al contexto</em> — dependen de qué se declaró antes, a kilómetros de distancia en el código:</p>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>Regla que la GLC no puede expresar</th><th>Por qué no</th></tr></thead>
+            <tbody>
+              <tr><td>«toda variable se declara antes de usarse»</td><td>exigiría que la gramática "recuerde" los nombres declarados — memoria arbitraria, no una pila</td></tr>
+              <tr><td>«los operandos de SUM deben ser double»</td><td>el tipo de <code>x</code> depende de SU declaración, no de la forma de la expresión</td></tr>
+              <tr><td>«ejeX y ejeY del mismo tamaño»</td><td>coherencia entre DATOS, invisible para la sintaxis</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="callout"><p><strong>Análisis semántico</strong> = los chequeos que necesitan la <strong>tabla de símbolos</strong> y los <strong>tipos</strong> para responderse. En el libro (§6.5) el protagonista es la <em>comprobación de tipos</em>; en el proyecto vive repartido entre <code class="inline">Entorno</code> (nombres, gráficas) y <code class="inline">Operaciones</code> (tipos de operandos). La escalera completa: regex ⊂ GLC ⊂ reglas con contexto — cada capa atrapa lo que la anterior no puede.</p></div>
+      </div>
+    </section>
+
+    <!-- 3 · Sistema de tipos -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">Formalizando · como escribe el libro</p>
+        <h2>El sistema de tipos de DataForge, completo</h2>
+        <p>Un <strong>sistema de tipos</strong> es el conjunto de reglas que asigna tipo a cada expresión (o la declara errónea). El de DataForge cabe en una tabla — y tenerlo explícito ES la robustez (va directo al manual técnico):</p>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>Construcción</th><th>Regla de tipos</th></tr></thead>
+            <tbody>
+              <tr><td>NUMERO</td><td>: double</td></tr>
+              <tr><td>CADENA</td><td>: char[]</td></tr>
+              <tr><td>ID</td><td>: el tipo de su declaración (consulta a la tabla de símbolos)</td></tr>
+              <tr><td>SUM/RES/MUL/DIV/MOD(a, b)</td><td>double × double → double &nbsp;<em>(otra cosa: error)</em></td></tr>
+              <tr><td>DIV(a, 0)</td><td>⊥ — error de valor, no de tipo (división entre cero)</td></tr>
+              <tr><td>Media/…/Min(A)</td><td>arreglo&lt;double&gt; → double</td></tr>
+              <tr><td><code>var:T:: id &lt;- E</code></td><td>exige tipo(E) = T &nbsp;<em>(sin conversiones)</em></td></tr>
+              <tr><td><code>arr:T::@id &lt;- [e₁…eₙ]</code></td><td>exige tipo(eᵢ) = T para TODO i</td></tr>
+              <tr><td><code>console::print = e₁…</code></td><td>acepta double y char[] (imprime cualquiera)</td></tr>
+              <tr><td>Atributos de gráfica</td><td>titulo/tituloX/tituloY : char[] · ejeX/label : arreglo&lt;char[]&gt; · ejeY/values : arreglo&lt;double&gt;</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="muted">Sin ambigüedad y sin excepciones: cada fila es un <code class="inline">if</code> concreto en <code class="inline">Operaciones</code>, <code class="inline">declararVariable</code> o <code class="inline">validarGrafica</code>. Teoría y código, 1 a 1.</p>
+      </div>
+    </section>
+
+    <!-- 4 · Estático vs dinámico -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">La distinción fina · §6.5.1 y §1.6</p>
+        <h2>¿Chequeo estático o dinámico? (y una sorpresa)</h2>
+        <div class="cards">
+          <div class="card"><h3>Estático — el del libro</h3><p>Los tipos se verifican <strong>en compilación</strong>, antes de ejecutar nada. El programa erróneo ni siquiera arranca. Es lo que hace javac con Java.</p></div>
+          <div class="card"><h3>Dinámico — el nuestro</h3><p>Los tipos se verifican <strong>durante la ejecución</strong>, al evaluar cada operación. Es lo que hacen Python o JavaScript… y el propio DataForge: <code>Operaciones.aritmetica</code> pregunta <code>instanceof Double</code> en pleno vuelo.</p></div>
+        </div>
+        <p>¿Y por qué el chequeo de DataForge es dinámico? Consecuencia directa de la arquitectura de la Etapa 3: se ejecuta <em>durante</em> el parse, así que no existe un "antes de ejecutar" donde chequear.</p>
+        <div class="callout"><p><strong>La sorpresa (argumento fino para la calificación):</strong> en DataForge la diferencia es <em>inobservable</em>. Como no hay control de flujo, <strong>toda instrucción se ejecuta exactamente una vez</strong> — no existe la rama muerta donde un error de tipos se esconda del chequeo dinámico. Dinámico y estático detectan exactamente los mismos errores. En CompScript (con <code class="inline">if</code>) esto deja de ser cierto: un error de tipos dentro de un if falso solo lo atrapa el chequeo estático — otra razón por la que allá se construirá el AST (que permite una pasada de verificación previa).</p></div>
+      </div>
+    </section>
+
+    <!-- 5 · Coerciones -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">Lo que DataForge NO tiene · §6.5.2</p>
+        <h2>Coerciones: la conversión silenciosa</h2>
+        <p>En el ejemplo del Cap. 1, el semántico insertaba <code class="inline">inttofloat(60)</code>: una <strong>coerción</strong> — conversión de tipo implícita que el compilador agrega para que <code class="inline">float * int</code> tenga sentido. El libro (§6.5.2) las formaliza con una función <code class="inline">max(t₁,t₂)</code> sobre una jerarquía de tipos (int ⊂ float ⊂ double…).</p>
+        <p><strong>DataForge no tiene ninguna</strong> — y es una decisión de diseño del lenguaje, no una omisión nuestra: con UN solo tipo numérico (double), no hay pares de tipos que reconciliar. <code class="inline">SUM("hola", 5)</code> no se coerciona: se rechaza. Esto se llama <em>tipado fuerte sin conversiones implícitas</em>.</p>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>Proyecto</th><th>Tipos numéricos</th><th>¿Coerciones?</th></tr></thead>
+            <tbody>
+              <tr><td>DataForge</td><td>double</td><td>ninguna — nada que convertir</td></tr>
+              <tr><td>CompScript / CompInterpreter</td><td>int, double, bool, string…</td><td>sí: tabla de coerciones (¿<code>int + double</code>? ¿<code>string + int</code> concatena?) — allí quedará por escribir el <code>max(t₁,t₂)</code> del libro</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="muted">Consejo para entonces: conviene definir la tabla de coerciones ANTES de escribir código — cada celda ambigua que quede sin resolver puede costar un bug en la calificación.</p>
+      </div>
+    </section>
+
+    <!-- 6 · Errores consolidado -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">El mapa consolidado</p>
+        <h2>Manejo de errores: tres familias, tres recuperaciones</h2>
+        <p>Se fue construyendo en tres etapas distintas; acá queda reunido — cada familia con su estrategia de recuperación, todas desembocando en la misma tabla de <code class="inline">RegistroError</code>:</p>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>Familia</th><th>Quién detecta</th><th>Recuperación</th><th>Qué se pierde</th><th>Libro</th></tr></thead>
+            <tbody>
+              <tr><td><strong>Léxico</strong><br><code>$</code></td><td>la regla <code>[^]</code> del AFD</td><td>descartar EL CARÁCTER y seguir escaneando</td><td>un carácter</td><td>§3.1.4</td></tr>
+              <tr><td><strong>Sintáctico</strong><br>falta <code>&lt;-</code></td><td>el LALR sin jugada legal</td><td><strong>modo pánico</strong>: podar pila + descartar hasta <code>;</code></td><td>la instrucción completa</td><td>§4.8.1-3</td></tr>
+              <tr><td><strong>Semántico</strong><br><code>SUM("a",1)</code></td><td>Entorno / Operaciones</td><td><strong>propagación por null</strong>: la expresión muere en silencio, la siguiente instrucción corre</td><td>el valor de esa expresión</td><td>cap. 6</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p>Se nota el patrón común — es la filosofía del enunciado (§6.2 quiere TODOS los errores): <strong>reportar con posición, sacrificar lo mínimo posible, y seguir</strong>. Cada capa sacrifica su unidad natural: carácter, instrucción, valor.</p>
+        <div class="callout"><p>Y una asimetría que vale examen: el error léxico y el semántico se recuperan «gratis» (descartar y seguir es trivial); el sintáctico necesitó <strong>maquinaria del generador</strong> (el terminal <code class="inline">error</code>) — porque el parser tiene estado (la pila) que quedó a medio camino y hay que podarlo coherentemente.</p></div>
+      </div>
+    </section>
+
+    <!-- 7 · Quiz -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">Chequeo rápido</p>
+        <h2>¿Fase ③ dominada?</h2>
+        <div class="quiz">
+          <div class="q">
+            <p class="question">1 · «Toda variable se declara antes de usarse» — ¿por qué esta regla NO puede ir en la gramática, si la gramática es tan poderosa?</p>
+            <button type="button" onclick="this.parentElement.classList.add('revealed')">Revelar respuesta</button>
+            <div class="answer"><p>Porque una GLC solo tiene una <strong>pila</strong> como memoria, y esta regla exige recordar un <strong>conjunto arbitrario de nombres</strong> declarados en cualquier punto anterior — es una propiedad sensible al contexto. Por eso existe la fase semántica: chequeos que consultan la tabla de símbolos, que es exactamente esa memoria que a la GLC le falta.</p></div>
+          </div>
+          <div class="q">
+            <p class="question">2 · ¿DataForge hace comprobación de tipos estática o dinámica? ¿Importa la diferencia en este lenguaje?</p>
+            <button type="button" onclick="this.parentElement.classList.add('revealed')">Revelar respuesta</button>
+            <div class="answer"><p><strong>Dinámica</strong> (chequea al evaluar, con <code class="inline">instanceof</code>), consecuencia de ejecutar durante el parse. Y <strong>no, no importa acá</strong>: sin control de flujo toda instrucción corre exactamente una vez, así que no hay código muerto donde un error se esconda — dinámico y estático atrapan lo mismo. En CompScript la diferencia se vuelve real.</p></div>
+          </div>
+          <div class="q">
+            <p class="question">3 · ¿Por qué <code class="inline">DIV(x, 0)</code> está en el sistema de tipos como ⊥ y no como error de tipos?</p>
+            <button type="button" onclick="this.parentElement.classList.add('revealed')">Revelar respuesta</button>
+            <div class="answer"><p>Porque los TIPOS de <code class="inline">DIV(x, 0)</code> son perfectos: double × double. El problema es el <strong>valor</strong> del segundo operando — algo que ningún chequeo de tipos puede prever en general (podría ser <code class="inline">DIV(x, RES(5,5))</code>). Es un error semántico <em>de ejecución</em>, la subcategoría que solo un chequeo dinámico atrapa. Distinguir error de tipo vs error de valor es puntaje fácil en el parcial.</p></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 8 · Cierre -->
+    <section class="slide">
+      <div class="inner titleslide">
+        <p class="eyebrow">Resumen en una pantalla</p>
+        <h1>Contexto · tipos · recuperar y seguir</h1>
+        <p class="lead">Semántica = lo que exige tabla de símbolos y tipos · el sistema de tipos de DataForge en una tabla (fuerte, sin coerciones — un solo double) · chequeo dinámico ≡ estático porque todo corre una vez · tres familias de errores, tres recuperaciones, una sola tabla de reporte.</p>
+        <p class="kicker"><a class="btn" href="index.html">⌂ Volver al índice</a></p>
+      </div>
+    </section>
+
+  </div>
+
+  <div class="navbar">
+    <button id="prev" type="button">← Anterior</button>
+    <button id="next" type="button">Siguiente →</button>
+    <span class="hint">también se pueden usar las flechas del teclado</span>
+  </div>
+</div>
+
+<script src="assets/deck.js"></script>
+</body>
+</html>

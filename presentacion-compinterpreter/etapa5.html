@@ -1,0 +1,202 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Etapa 5 · El servidor Express — CompInterpreter</title>
+<link rel="stylesheet" href="assets/estilo.css">
+</head>
+<body>
+
+<div class="deck">
+  <div class="topbar">
+    <a class="brand" href="index.html" title="Volver al índice">Comp<em>Interpreter</em> · curso guiado</a>
+    <span class="chip">Etapa 5 · El servidor Express</span>
+    <span class="counter"><span id="cur">1</span> / <span id="tot">?</span></span>
+    <button id="theme" type="button" title="Cambiar tema claro/oscuro" aria-label="Cambiar tema claro/oscuro">◐</button>
+  </div>
+  <div class="progress"><div id="bar"></div></div>
+
+  <div class="stage">
+
+    <!-- 1 · Intro -->
+    <section class="slide">
+      <div class="inner titleslide">
+        <p class="eyebrow">Etapa 5 · Parte 1</p>
+        <h1>Un servidor delgado sobre un pipeline completo</h1>
+        <p class="lead"><code class="inline">server/server.js</code> es corto a propósito: no contiene lógica de análisis ni de ejecución, solo expone por HTTP lo que ya construyeron las etapas anteriores (Jison + <code class="inline">Interprete</code>). Toda la inteligencia vive en <code class="inline">analizar.js</code> y el paquete <code class="inline">interprete/</code>; el servidor solo traduce peticiones HTTP a llamadas de función y respuestas JSON.</p>
+      </div>
+    </section>
+
+    <!-- 2 · El endpoint -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">El único endpoint que importa</p>
+        <h2><code>POST /interpretar</code>, de punta a punta</h2>
+        <pre class="code">const express = require('express');
+const cors = require('cors');
+const { analizar } = require('./src/analizar');
+
+const app = express();
+const PUERTO = process.env.PORT || 4000;
+
+app.use(cors());                              // CORS para el cliente de dev (Vite)
+app.use(express.json({ limit: '5mb' }));
+
+app.get('/', (req, res) => {
+  res.json({ nombre: 'CompInterpreter', estado: 'ok', endpoint: 'POST /interpretar { codigo }' });
+});
+app.get('/salud', (req, res) => res.json({ estado: 'ok' }));
+
+app.post('/interpretar', (req, res) => {
+  const codigo = (req.body &amp;&amp; typeof req.body.codigo === 'string') ? req.body.codigo : '';
+  try {
+    const resultado = analizar(codigo);
+    res.json(resultado);
+  } catch (e) {
+    res.status(500).json({ errores: [{ tipo: 'Interno', descripcion: e.message || String(e), linea: 0, columna: 0 }], ... });
+  }
+});</pre>
+        <p class="muted"><code class="inline">GET /salud</code> existe únicamente para que la suite de pruebas Playwright (Etapa 7) pueda esperar a que el servidor esté realmente listo antes de empezar a interactuar con el cliente.</p>
+      </div>
+    </section>
+
+    <!-- 3 · El contrato completo -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">El contrato de la API, tal como lo consume el cliente</p>
+        <h2>Petición y respuesta, campo por campo</h2>
+        <pre class="code">POST /interpretar
+Cuerpo:    { "codigo": "&lt;código fuente .ci&gt;" }
+
+Respuesta:
+{
+  "errores":        [{ tipo, descripcion, linea, columna }, ...],
+  "consola":        "línea1\nlínea2\n...",
+  "consolaLineas":  ["línea1", "línea2", ...],
+  "simbolos":       [{ id, categoria, tipoDato, entorno, valor, linea, columna }, ...],
+  "ast":            { nodes: [{ id, label }], edges: [{ from, to, label }] },
+  "dot":            "digraph { ... }"
+}</pre>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>Campo</th><th>Quién lo produce</th><th>Quién lo consume en el cliente</th></tr></thead>
+            <tbody>
+              <tr><td><code>errores</code></td><td><code>ListaErrores</code>, alimentada por lexer + parser + intérprete</td><td><code>TablaErrores.jsx</code></td></tr>
+              <tr><td><code>consolaLineas</code></td><td><code>interprete.consola</code> (una entrada por <code>echo</code>)</td><td><code>Consola.jsx</code></td></tr>
+              <tr><td><code>simbolos</code></td><td><code>interprete.simbolos</code> (Map volcado a arreglo)</td><td><code>TablaSimbolos.jsx</code></td></tr>
+              <tr><td><code>ast</code></td><td><code>construirGrafo(ast)</code> (Etapa 2/6)</td><td><code>AstGrafo.jsx</code> vía <code>vis-network</code></td></tr>
+              <tr><td><code>dot</code></td><td><code>aDot(grafo)</code></td><td>No usado por el cliente; alternativa para Graphviz fuera del navegador</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- 4 · analizar.js: el orquestador -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">La pieza que conecta todo</p>
+        <h2><code>analizar.js</code>: Jison, el intérprete y los reportes, en orden</h2>
+        <pre class="code">function analizar(codigo) {
+  const errores = new ListaErrores();
+  const parser = obtenerParser();
+
+  // yy compartido entre lexer y parser (ver Etapa 1)
+  parser.yy = { errores: errores.errores };
+  parser.yy.parseError = function (msg, hash) { /* arma descripcion + errores.sintactico(...) */ };
+  parser.parseError = parser.yy.parseError;
+
+  let ast = null;
+  try { ast = parser.parse(codigo); }
+  catch (e) { if (!errores.hay()) errores.sintactico(e.message || 'Error de análisis', 0, 0); }
+
+  const interprete = new Interprete(errores);
+  if (ast) {
+    try { interprete.interpretar(ast); }
+    catch (e) { errores.semantico('Error interno durante la ejecución: ' + (e.message || e), 0, 0); }
+  }
+
+  const grafo = ast ? construirGrafo(ast) : { nodes: [], edges: [] };
+  return {
+    errores: errores.errores.slice().sort((a, b) => (a.linea - b.linea) || (a.columna - b.columna)),
+    consola: interprete.consola.join('\n'),
+    consolaLineas: interprete.consola,
+    simbolos: Array.from(interprete.simbolos.values()),
+    ast: grafo,
+    dot: aDot(grafo)
+  };
+}</pre>
+        <p class="muted">Nótese el <code class="inline">try/catch</code> alrededor de <code class="inline">interprete.interpretar(ast)</code>: es la última línea de defensa contra cualquier excepción de JavaScript no anticipada durante la ejecución — el mismo tipo de excepción que, antes de la corrección de la Etapa 4, convertía el bug del vector en un "Error interno" genérico en vez de un error semántico localizado.</p>
+      </div>
+    </section>
+
+    <!-- 5 · Entorno fresco -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">Decisión de diseño explícita en el manual técnico</p>
+        <h2>Ninguna ejecución contamina a la siguiente</h2>
+        <p>Cada llamada a <code class="inline">analizar(codigo)</code> crea su propia <code class="inline">ListaErrores</code> y su propio <code class="inline">Interprete</code> — y con él, un <code class="inline">Entorno</code> global nuevo. Nada persiste entre peticiones.</p>
+        <div class="callout"><p><strong>El mismo principio que en DataForge.</strong> La Guía técnica lo documenta explícitamente: «Cada invocación a <code class="inline">POST /interpretar</code> construye una nueva instancia de la lista de errores y del intérprete... Esta decisión evita que variables, funciones o errores de una ejecución anterior persistan o interfieran en la siguiente, garantizando que los reportes correspondan exclusivamente al último análisis realizado.» Es exactamente la misma regla que en DataForge («entorno fresco por ejecución», enunciado §6) — cambia el vehículo (una petición HTTP en vez de una corrida de la GUI), no el principio.</p></div>
+        <p class="muted">Esto también es lo que hace seguro correr el servidor con varios clientes o pestañas conectadas al mismo tiempo: no hay estado global compartido entre peticiones concurrentes más allá del propio proceso Node.js.</p>
+      </div>
+    </section>
+
+    <!-- 6 · CORS -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">Un detalle de despliegue que sí importa en desarrollo</p>
+        <h2>Por qué hace falta <code>cors()</code></h2>
+        <p>En desarrollo, el cliente Vite corre en su propio puerto (típicamente <code class="inline">5173</code>) y el servidor Express en otro (<code class="inline">4000</code>). Son <strong>orígenes distintos</strong> desde la perspectiva del navegador, así que sin CORS el navegador bloquearía las peticiones <code class="inline">fetch</code> del cliente hacia el servidor, aunque ambos corran en la misma máquina.</p>
+        <pre class="code">app.use(cors());   // habilitado globalmente para todas las rutas</pre>
+        <p class="muted"><code class="inline">client/src/api.js</code> apunta al servidor mediante la variable de entorno <code class="inline">VITE_API_URL</code> (por defecto <code class="inline">http://localhost:4000</code>); si el puerto del servidor cambia, hay que actualizar esa variable en el cliente.</p>
+      </div>
+    </section>
+
+    <!-- 7 · Quiz -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">Chequeo rápido</p>
+        <h2>Sobre el servidor y su contrato</h2>
+        <div class="quiz">
+          <div class="q">
+            <p class="question">1 · ¿Por qué <code class="inline">server.js</code> casi no tiene lógica propia, más allá de recibir la petición y llamar a <code class="inline">analizar()</code>?</p>
+            <button type="button" onclick="this.parentElement.classList.add('revealed')">Revelar respuesta</button>
+            <div class="answer"><p>Porque separa dos responsabilidades: el protocolo de transporte (HTTP, JSON, CORS) es responsabilidad de <code class="inline">server.js</code>; el análisis léxico/sintáctico/semántico y la ejecución son responsabilidad de <code class="inline">analizar.js</code> y el paquete <code class="inline">interprete/</code>. Esa separación permitiría, en teoría, invocar <code class="inline">analizar()</code> directamente desde un script de consola sin levantar ningún servidor — como de hecho se hizo para verificar los casos de prueba (Etapa 3 y Etapa 7).</p></div>
+          </div>
+          <div class="q">
+            <p class="question">2 · ¿Qué pasaría si <code class="inline">analizar()</code> reutilizara el mismo <code class="inline">Interprete</code> entre peticiones en vez de crear uno nuevo cada vez?</p>
+            <button type="button" onclick="this.parentElement.classList.add('revealed')">Revelar respuesta</button>
+            <div class="answer"><p>Las variables globales, funciones y errores de una ejecución anterior seguirían presentes en la siguiente: el reporte de símbolos mostraría variables que ya no existen en el código actual, y errores de una corrida previa podrían mezclarse con los de la corrida nueva. Por eso la Guía técnica documenta "entorno fresco por llamada" como una decisión de diseño explícita, no un detalle accidental.</p></div>
+          </div>
+          <div class="q">
+            <p class="question">3 · ¿Para qué sirve específicamente <code class="inline">GET /salud</code>, si el cliente nunca lo usa durante el uso normal de la aplicación?</p>
+            <button type="button" onclick="this.parentElement.classList.add('revealed')">Revelar respuesta</button>
+            <div class="answer"><p>Lo usa la suite de pruebas automatizadas (Playwright, Etapa 7) para esperar a que el servidor Express termine de arrancar antes de empezar a interactuar con el cliente — evita condiciones de carrera donde las pruebas intentan ejecutar código antes de que <code class="inline">/interpretar</code> esté disponible.</p></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 8 · Cierre -->
+    <section class="slide">
+      <div class="inner titleslide">
+        <p class="eyebrow">Etapa 5 · construida</p>
+        <h1>El servidor está en pie y responde por contrato</h1>
+        <p class="lead"><code class="inline">POST /interpretar</code> con un contrato JSON estable, entorno fresco por petición, CORS habilitado para el desarrollo con orígenes separados, y una arquitectura donde el transporte HTTP nunca se mezcla con la lógica de análisis. Falta la otra mitad: quién consume ese contrato desde el navegador.</p>
+        <p class="kicker">Próxima: <strong>Etapa 6 — el cliente React: editor, reportes y el AST con vis-network</strong>.<br><a class="btn" href="index.html" style="margin-top:14px">⌂ Volver al índice</a></p>
+      </div>
+    </section>
+
+  </div>
+
+  <div class="navbar">
+    <button id="prev" type="button">← Anterior</button>
+    <button id="next" type="button">Siguiente →</button>
+    <span class="hint">también se pueden usar las flechas del teclado</span>
+  </div>
+</div>
+
+<script src="assets/deck.js"></script>
+</body>
+</html>

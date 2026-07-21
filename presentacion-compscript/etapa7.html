@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Etapa 7 · Editor y reportes — CompScript</title>
+<link rel="stylesheet" href="assets/estilo.css">
+</head>
+<body>
+
+<div class="deck">
+  <div class="topbar">
+    <a class="brand" href="index.html" title="Volver al índice">Comp<em>Script</em> · curso guiado</a>
+    <span class="chip">Etapa 7 · Editor y reportes</span>
+    <span class="counter"><span id="cur">1</span> / <span id="tot">?</span></span>
+    <button id="theme" type="button" title="Cambiar tema claro/oscuro" aria-label="Cambiar tema claro/oscuro">◐</button>
+  </div>
+  <div class="progress"><div id="bar"></div></div>
+
+  <div class="stage">
+
+    <!-- 1 · Intro -->
+    <section class="slide">
+      <div class="inner titleslide">
+        <p class="eyebrow">Etapa 7 · Parte 1</p>
+        <h1>La cara visible: editor + 5 reportes</h1>
+        <p class="lead">Con el pipeline completo funcionando por consola (<code class="inline">TestInterprete</code>), la última pieza es la interfaz gráfica que el enunciado exige: un editor con pestañas, y los reportes que muestran tokens, errores, símbolos y el AST mismo.</p>
+        <p class="kicker">Fuente: <code class="inline">gui/EditorApp.java</code>, <code class="inline">gui/Lanzador.java</code>, <code class="inline">reportes/Reportes.java</code>.</p>
+      </div>
+    </section>
+
+    <!-- 2 · El editor -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">Mismo patrón que DataForge</p>
+        <h2><code class="inline">EditorApp</code>: JavaFX por código, sin FXML</h2>
+        <div class="cards">
+          <div class="card"><h3>Barra de botones</h3><p>Nuevo · Abrir · Guardar · ▶ Ejecutar · Reportes · Ver AST.</p></div>
+          <div class="card"><h3><code class="inline">TabPane</code></h3><p>Múltiples archivos abiertos a la vez; cada <code class="inline">Tab</code> guarda su <code class="inline">File</code> asociado (mismo patrón que DataForge para distinguir "Guardar" de "Guardar como").</p></div>
+          <div class="card"><h3>Consola</h3><p><code class="inline">TextArea</code> de solo lectura, dentro de un <code class="inline">SplitPane</code> vertical sobre un <code class="inline">BorderPane</code>.</p></div>
+        </div>
+        <p><code class="inline">Lanzador</code> resuelve el mismo problema clásico de siempre: una clase <code class="inline">main</code> que NO extiende <code class="inline">javafx.application.Application</code> directamente, para esquivar el error <em>"JavaFX runtime components are missing"</em> cuando el módulo JavaFX no está en el <em>module path</em>.</p>
+      </div>
+    </section>
+
+    <!-- 3 · Entorno fresco -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">La misma exigencia general del curso</p>
+        <h2>Cada "Ejecutar" empieza de cero</h2>
+        <pre class="code"><span class="tk-sym">// EditorApp: al presionar Ejecutar</span>
+Contexto ultimo = Interprete.ejecutar(area.getText());   <span class="tk-sym">// Contexto NUEVO cada vez</span></pre>
+        <p>Igual que en DataForge, los reportes solo deben reflejar el <strong>último</strong> archivo ejecutado. Como <code class="inline">Interprete.ejecutar(...)</code> crea un <code class="inline">Contexto</code> desde cero en cada llamada, no hay forma de que datos de una ejecución anterior contaminen el reporte actual.</p>
+      </div>
+    </section>
+
+    <!-- 4 · Los 5 archivos -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">Un archivo más que DataForge</p>
+        <h2>5 salidas desde un mismo <code class="inline">Contexto</code></h2>
+        <pre class="code"><span class="tk-res">public static</span> File[] generar(Contexto ctx, File carpeta) <span class="tk-res">throws</span> Exception</pre>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>Archivo</th><th>Contenido</th></tr></thead>
+            <tbody>
+              <tr><td><code>tokens.html</code></td><td>todos los tokens reconocidos (6.1)</td></tr>
+              <tr><td><code>errores.html</code></td><td>los 3 tipos de error, con línea y columna (6.2)</td></tr>
+              <tr><td><code>simbolos.html</code></td><td>el registro histórico de <code>Simbolo</code>s (6.4, ver Etapa 4)</td></tr>
+              <tr><td><code>ast.html</code></td><td>el árbol como lista anidada <code>&lt;ul&gt;/&lt;li&gt;</code>, autocontenido (6.3)</td></tr>
+              <tr><td><code>ast.dot</code></td><td>el mismo árbol en formato Graphviz — <code>dot -Tpng ast.dot -o ast.png</code></td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p>Los nombres de token se obtienen por <strong>reflexión sobre <code class="inline">sym.class</code></strong> (la clase generada por CUP a partir de las declaraciones <code class="inline">terminal</code>) — el mismo truco de DataForge para nunca mantener una tabla de nombres duplicada a mano.</p>
+      </div>
+    </section>
+
+    <!-- 5 · Doble representación del AST -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">Requisito único de CompScript entre los proyectos hermanos</p>
+        <h2>El AST, visto de tres formas distintas</h2>
+        <div class="cards three">
+          <div class="card"><div class="step">1</div><h3><code class="inline" style="font-size:.8em">ast.html</code></h3><p>Lista anidada HTML, autocontenida, sin dependencias — se abre en cualquier navegador sin conexión.</p></div>
+          <div class="card"><div class="step">2</div><h3><code class="inline" style="font-size:.8em">ast.dot</code></h3><p>Fuente Graphviz de mayor fidelidad, para quien quiera renderizar <code class="inline">dot -Tpng ast.dot -o ast.png</code> y documentar el árbol visualmente.</p></div>
+          <div class="card"><div class="step">3</div><h3><code class="inline" style="font-size:.8em">TreeView</code></h3><p><code class="inline">EditorApp.verAst()</code> lo muestra embebido en la propia interfaz de JavaFX, sin depender de abrir ningún HTML.</p></div>
+        </div>
+        <div class="callout"><p><strong>Por qué tres y no una:</strong> el enunciado (§4.5) exige mostrar el AST "desde la interfaz" — el <code class="inline">TreeView</code> cumple eso directamente. El HTML y el <code class="inline">.dot</code> agregan una representación de mayor fidelidad para documentación externa, sin triplicar la lógica: los tres recorren el mismo árbol usando <code class="inline">etiquetaAst()</code>/<code class="inline">hijosAst()</code> (Etapa 3).</p></div>
+      </div>
+    </section>
+
+    <!-- 6 · Quiz -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">Chequeo rápido</p>
+        <h2>Sobre el editor y los reportes</h2>
+        <div class="quiz">
+          <div class="q">
+            <p class="question">1 · ¿Por qué <code class="inline">Lanzador</code> no extiende <code class="inline">javafx.application.Application</code> directamente?</p>
+            <button type="button" onclick="this.parentElement.classList.add('revealed')">Revelar respuesta</button>
+            <div class="answer"><p>Porque si la clase con el <code class="inline">main</code> extiende <code class="inline">Application</code> directamente, la JVM aplica una verificación de módulos JavaFX que falla con "JavaFX runtime components are missing" cuando JavaFX no está en el <em>module path</em>. <code class="inline">Lanzador</code> esquiva esa verificación al no extenderla.</p></div>
+          </div>
+          <div class="q">
+            <p class="question">2 · Si <code class="inline">sym.java</code> agrega un nuevo terminal (por ejemplo, un futuro operador), ¿hay que actualizar manualmente el código de reportes para que aparezca con su nombre?</p>
+            <button type="button" onclick="this.parentElement.classList.add('revealed')">Revelar respuesta</button>
+            <div class="answer"><p>No. Los nombres de token se leen por reflexión sobre los campos públicos <code class="inline">int</code> de <code class="inline">sym.class</code> — cualquier terminal nuevo aparece automáticamente en el reporte de tokens sin tocar <code class="inline">Reportes.java</code>.</p></div>
+          </div>
+          <div class="q">
+            <p class="question">3 · ¿Qué archivo tiene CompScript que DataForge NO genera, y por qué?</p>
+            <button type="button" onclick="this.parentElement.classList.add('revealed')">Revelar respuesta</button>
+            <div class="answer"><p><code class="inline">ast.html</code> (y su equivalente <code class="inline">ast.dot</code>). DataForge no construye un AST (evaluación directa, Etapa 0), así que no tiene un árbol que reportar — su reporte 6.3 en el enunciado de DataForge era distinto. CompScript sí necesita mostrarlo, porque construirlo es uno de sus objetivos específicos.</p></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 7 · Cierre -->
+    <section class="slide">
+      <div class="inner titleslide">
+        <p class="eyebrow">Etapa 7 · construida</p>
+        <h1>Queda construido el editor y los 5 reportes</h1>
+        <p class="lead">Editor JavaFX con pestañas, un <code class="inline">Contexto</code> fresco por ejecución, y el AST mostrado en tres formas distintas para cumplir el requisito de "mostrarlo desde la interfaz". El pipeline de CompScript queda completo, de punta a punta.</p>
+        <p class="kicker">Profundización: <strong>el AST real de CompScript</strong>, con el árbol de un ejemplo real dibujado paso a paso.<br><a class="btn primary" href="ast.html" style="margin-top:14px">★ Ver la profundización →</a>&nbsp;&nbsp;<a class="btn" href="index.html">⌂ Volver al índice</a></p>
+      </div>
+    </section>
+
+  </div>
+
+  <div class="navbar">
+    <button id="prev" type="button">← Anterior</button>
+    <button id="next" type="button">Siguiente →</button>
+    <span class="hint">también se pueden usar las flechas del teclado</span>
+  </div>
+</div>
+
+<script src="assets/deck.js"></script>
+</body>
+</html>

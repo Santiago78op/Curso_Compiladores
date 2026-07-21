@@ -1,0 +1,711 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Gramáticas, muy claro — DataForge</title>
+<link rel="stylesheet" href="assets/estilo.css">
+<style>
+  /* ---------- estilos exclusivos de las demos animadas ---------- */
+
+  /* no terminal: concepto pendiente de sustituir */
+  .nt {
+    display: inline-block;
+    font-family: "Cascadia Code", Consolas, monospace;
+    color: var(--accent);
+    border: 1.5px dashed var(--accent);
+    border-radius: 6px;
+    padding: 0 7px;
+    margin: 0 2px;
+    font-size: .95em;
+    white-space: nowrap;
+  }
+  /* terminal: pieza definitiva */
+  .t {
+    display: inline-block;
+    font-family: "Cascadia Code", Consolas, monospace;
+    background: var(--surface2);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 0 7px;
+    margin: 0 2px;
+    white-space: nowrap;
+  }
+
+  /* contenedor de demo con controles */
+  .demo {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    box-shadow: var(--shadow);
+    padding: 20px 22px;
+    margin: 22px 0;
+  }
+  .demo .controls {
+    display: flex; align-items: center; gap: 12px;
+    margin-top: 16px; padding-top: 14px;
+    border-top: 1px dashed var(--line);
+  }
+  .demo .controls button {
+    font: inherit; font-size: 14.5px; font-weight: 600;
+    background: var(--accent); color: var(--accent-ink);
+    border: none; border-radius: 8px;
+    padding: 7px 18px; cursor: pointer;
+  }
+  .demo .controls button.reset-btn {
+    background: var(--surface); color: var(--muted);
+    border: 1px solid var(--line);
+  }
+  .demo .controls button:disabled { opacity: .35; cursor: default; }
+  .demo .controls .step-counter {
+    margin-left: auto; color: var(--muted);
+    font-variant-numeric: tabular-nums; font-size: 13.5px;
+  }
+  .demo .explica { font-size: 14px; color: var(--muted); margin: 4px 0 0; min-height: 1.5em; }
+
+  /* líneas de derivación que van apareciendo */
+  .derivacion { display: grid; gap: 9px; font-size: 16.5px; line-height: 2; }
+  .derivacion .paso {
+    display: flex; align-items: baseline; gap: 10px;
+    opacity: 0; transform: translateY(8px);
+    transition: opacity .4s ease, transform .4s ease;
+  }
+  .derivacion .paso.shown { opacity: 1; transform: none; }
+  .derivacion .paso .flecha { color: var(--muted); flex: none; width: 18px; }
+  /* lo recién sustituido brilla */
+  .paso .nuevo { position: relative; }
+  .paso.current .nuevo > .t, .paso.current .nuevo > .nt,
+  .paso.current .nuevo.t, .paso.current .nuevo.nt {
+    animation: brillo 1s ease 1;
+  }
+  .paso.current .nuevo { background: color-mix(in srgb, var(--accent) 14%, transparent); border-radius: 8px; }
+  @keyframes brillo {
+    0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 55%, transparent); }
+    100% { box-shadow: 0 0 0 9px transparent; }
+  }
+
+  /* cajas anidadas: el árbol visto desde abajo */
+  .cajas { font-size: 16px; line-height: 3.4; padding: 26px 6px 6px; }
+  .caja {
+    position: relative;
+    border: 2px solid transparent;
+    border-radius: 10px;
+    padding: 3px 5px;
+    margin: 0 2px;
+    transition: border-color .45s ease, background .45s ease;
+    white-space: nowrap;
+  }
+  .caja::before {
+    content: attr(data-nombre);
+    position: absolute; top: -15px; left: 8px;
+    font-family: "Cascadia Code", Consolas, monospace;
+    font-size: 10.5px; font-weight: 600;
+    color: var(--accent);
+    opacity: 0; transition: opacity .45s ease;
+    line-height: 1;
+    background: var(--surface);
+    padding: 0 4px; border-radius: 4px;
+    white-space: nowrap;
+  }
+  .caja.shown { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 6%, transparent); }
+  .caja.shown::before { opacity: 1; }
+  .caja.current.shown { animation: brillo 1s ease 1; }
+
+  /* error: cuando la derivación se atasca */
+  .t.err { border-color: #C43A3A; color: #C43A3A; }
+  .paso .veredicto-ok { color: var(--tk-str); font-weight: 700; }
+  .paso .veredicto-err { color: #C43A3A; font-weight: 700; }
+
+  /* dos árboles lado a lado (ambigüedad) */
+  .dos { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px; margin: 20px 0; }
+
+  @media (prefers-reduced-motion: reduce) {
+    .derivacion .paso, .caja, .caja::before { transition: none; }
+    .paso.current .nuevo > *, .caja.current.shown { animation: none; }
+  }
+</style>
+</head>
+<body>
+
+<div class="deck">
+  <div class="topbar">
+    <a class="brand" href="index.html" title="Volver al índice">Data<em>Forge</em> · curso guiado</a>
+    <span class="chip">Especial · Gramáticas</span>
+    <span class="counter"><span id="cur">1</span> / <span id="tot">?</span></span>
+    <button id="theme" type="button" title="Cambiar tema claro/oscuro" aria-label="Cambiar tema claro/oscuro">◐</button>
+  </div>
+  <div class="progress"><div id="bar"></div></div>
+
+  <div class="stage">
+
+    <!-- 1 · Portada -->
+    <section class="slide">
+      <div class="inner titleslide">
+        <p class="eyebrow">Profundización · el concepto central del curso</p>
+        <h1>Gramáticas, muy claro</h1>
+        <p class="lead">Cómo un puñado de reglas define un lenguaje infinito — con demos animadas para <strong>ver</strong> las derivaciones en movimiento, no solo leerlas.</p>
+        <p class="kicker">Las demos se manejan con el botón «▶ Paso», a ritmo propio.<br>Fuente: Libro del Dragón, cap. 4 · notas del vault.</p>
+      </div>
+    </section>
+
+    <!-- 2 · El problema -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">El problema que resuelven</p>
+        <h2>Infinitas frases válidas, memoria finita</h2>
+        <p>DataForge acepta <strong>infinitos</strong> programas distintos: con 1 instrucción, con 50, con expresiones anidadas 8 niveles… No se puede validar guardando "la lista de programas válidos" — es infinita.</p>
+        <p>La solución es la misma que usa el español: nadie memoriza todas las oraciones posibles; se memorizan <strong>reglas finitas para combinarlas</strong>. Eso es una gramática:</p>
+        <div class="callout"><p>Una <strong>gramática libre de contexto</strong> es un conjunto finito de <strong>reglas de sustitución</strong> que genera (y por lo tanto permite validar) todas las frases de un lenguaje — aunque sean infinitas.</p></div>
+        <p>La palabra clave es <em>sustitución</em>: cada regla dice «este concepto puede convertirse en esto». Validar una frase = encontrar la cadena de sustituciones que la produce. A continuación se ve en movimiento.</p>
+      </div>
+    </section>
+
+    <!-- 3 · Ingredientes -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">Los 4 ingredientes</p>
+        <h2>Con qué se arma una gramática</h2>
+        <pre class="code">&lt;oracion&gt;    ::= &lt;sujeto&gt; &lt;predicado&gt;
+&lt;sujeto&gt;     ::= "El" &lt;animal&gt;
+&lt;animal&gt;     ::= "gato" | "perro"
+&lt;predicado&gt;  ::= "duerme" | "corre"</pre>
+        <div class="cards">
+          <div class="card"><h3><span class="nt">&lt;no-terminales&gt;</span> — los conceptos</h3><p>Van entre ángulos, con borde punteado en las demos. Son provisionales: <strong>todavía hay que sustituirlos</strong>. No existen en la frase final.</p></div>
+          <div class="card"><h3><span class="t">terminales</span> — las piezas definitivas</h3><p>Van entre comillas (con fondo sólido en las demos). Ahí la sustitución <strong>termina</strong>. En DataForge, los terminales son exactamente <strong>los tokens del lexer</strong>.</p></div>
+          <div class="card"><h3><code class="inline">::=</code> y <code class="inline">|</code> — las producciones</h3><p>Cada línea es una <strong>producción</strong>: «lo de la izquierda puede convertirse en lo de la derecha». La barra <code class="inline">|</code> separa alternativas: un menú de opciones.</p></div>
+          <div class="card"><h3>El símbolo inicial — la raíz</h3><p>El concepto del que parte todo (acá <span class="nt">&lt;oracion&gt;</span>; en DataForge, <span class="nt">&lt;inicio&gt;</span>). Toda frase válida debe poder alcanzarse desde él.</p></div>
+        </div>
+        <p class="muted">Esta notación se llama <strong>BNF</strong> (Backus-Naur Form, 1959 — inventada para describir ALGOL y usada desde entonces para todo lenguaje).</p>
+      </div>
+    </section>
+
+    <!-- 4 · DEMO derivación español -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">Demo 1 · derivar en español</p>
+        <h2>Una derivación, paso a paso</h2>
+        <p>Objetivo: demostrar que <strong>«El gato duerme»</strong> es válida. Regla del juego: en cada paso, se elige UN <span class="nt">&lt;no-terminal&gt;</span> y se lo reemplaza por una de sus alternativas. Con el botón «▶ Paso» se avanza:</p>
+        <div class="demo">
+          <div class="derivacion">
+            <div class="paso" data-step="0"><span class="flecha"></span><span><span class="nt">&lt;oracion&gt;</span></span></div>
+            <div class="paso" data-step="1"><span class="flecha">→</span><span><span class="nuevo"><span class="nt">&lt;sujeto&gt;</span> <span class="nt">&lt;predicado&gt;</span></span></span></div>
+            <div class="paso" data-step="2"><span class="flecha">→</span><span><span class="nuevo"><span class="t">El</span> <span class="nt">&lt;animal&gt;</span></span> <span class="nt">&lt;predicado&gt;</span></span></div>
+            <div class="paso" data-step="3"><span class="flecha">→</span><span><span class="t">El</span> <span class="nuevo"><span class="t">gato</span></span> <span class="nt">&lt;predicado&gt;</span></span></div>
+            <div class="paso" data-step="4"><span class="flecha">→</span><span><span class="t">El</span> <span class="t">gato</span> <span class="nuevo"><span class="t">duerme</span></span> <span class="veredicto-ok">✓ válida</span></span></div>
+          </div>
+          <div class="controls">
+            <button type="button" class="step-btn">▶ Paso</button>
+            <button type="button" class="reset-btn">⟲ Reiniciar</button>
+            <span class="step-counter"></span>
+          </div>
+          <p class="explica" data-textos='["Arrancamos en el símbolo inicial.","Apliqué ⟨oracion⟩ ::= ⟨sujeto⟩ ⟨predicado⟩ — un concepto se abrió en dos.","Apliqué ⟨sujeto⟩ ::= \"El\" ⟨animal⟩ — apareció el primer terminal.","Del menú ⟨animal⟩ elegí \"gato\" (pude elegir \"perro\": otra frase válida).","Último no terminal sustituido: solo quedan terminales. La frase EXISTE en el lenguaje."]'></p>
+        </div>
+        <p>Cuando ya no quedan conceptos con borde punteado, la derivación terminó. <strong>Si la secuencia de terminales coincide con la frase analizada, la frase es válida.</strong></p>
+      </div>
+    </section>
+
+    <!-- 5 · DEMO derivación DataForge -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">Demo 2 · lo mismo, en DataForge</p>
+        <h2>Derivar una declaración real</h2>
+        <p>Gramática (fragmento real de <code class="inline">docs/gramatica.txt</code>):</p>
+        <pre class="code">&lt;declaracion-var&gt; ::= "var" ":" &lt;tipo&gt; "::" ID "&lt;-" &lt;expresion&gt; "end" ";"
+&lt;tipo&gt;            ::= "double" | "char" "[" "]"
+&lt;expresion&gt;       ::= NUMERO | CADENA | ID | &lt;aritmetica&gt; | &lt;estadistica&gt;</pre>
+        <p>Objetivo: <code class="inline">var:double:: numero &lt;- 2.5 end;</code></p>
+        <div class="demo">
+          <div class="derivacion" style="font-size:15px">
+            <div class="paso" data-step="0"><span class="flecha"></span><span><span class="nt">&lt;declaracion-var&gt;</span></span></div>
+            <div class="paso" data-step="1"><span class="flecha">→</span><span><span class="nuevo"><span class="t">var</span> <span class="t">:</span> <span class="nt">&lt;tipo&gt;</span> <span class="t">::</span> <span class="t">ID</span> <span class="t">&lt;-</span> <span class="nt">&lt;expresion&gt;</span> <span class="t">end</span> <span class="t">;</span></span></span></div>
+            <div class="paso" data-step="2"><span class="flecha">→</span><span><span class="t">var</span> <span class="t">:</span> <span class="nuevo"><span class="t">double</span></span> <span class="t">::</span> <span class="t">ID</span> <span class="t">&lt;-</span> <span class="nt">&lt;expresion&gt;</span> <span class="t">end</span> <span class="t">;</span></span></div>
+            <div class="paso" data-step="3"><span class="flecha">→</span><span><span class="t">var</span> <span class="t">:</span> <span class="t">double</span> <span class="t">::</span> <span class="t">ID</span> <span class="t">&lt;-</span> <span class="nuevo"><span class="t">NUMERO</span></span> <span class="t">end</span> <span class="t">;</span> <span class="veredicto-ok">✓</span></span></div>
+          </div>
+          <div class="controls">
+            <button type="button" class="step-btn">▶ Paso</button>
+            <button type="button" class="reset-btn">⟲ Reiniciar</button>
+            <span class="step-counter"></span>
+          </div>
+          <p class="explica" data-textos='["El símbolo del que partimos (una de las alternativas de ⟨instruccion⟩).","Toda la estructura fija de la producción apareció de un golpe: los terminales quedan, los ⟨conceptos⟩ esperan.","Del menú de ⟨tipo⟩ elegí \"double\".","⟨expresion⟩ → NUMERO. El token ID matchea \"numero\" y NUMERO matchea \"2.5\": la línea es válida."]'></p>
+        </div>
+        <div class="callout"><p>Nótese el reparto de trabajo: <span class="t">ID</span> y <span class="t">NUMERO</span> son <strong>terminales</strong> — la gramática no sabe (ni le importa) si el identificador es <code class="inline">numero</code> o <code class="inline">edad</code>: eso ya lo resolvió el <strong>lexer</strong>. La gramática solo ordena categorías.</p></div>
+      </div>
+    </section>
+
+    <!-- 6 · DEMO cajas anidadas / árbol -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">Demo 3 · el árbol sintáctico</p>
+        <h2>La misma derivación, vista como cajas</h2>
+        <p>Toda derivación dibuja un <strong>árbol</strong>. Una forma de verlo sin dibujar ramas: cada producción aplicada es una <strong>caja que agrupa</strong> sus piezas. Así lo construye CUP — <strong>de abajo hacia arriba</strong> (método LALR): primero agrupa lo pequeño, al final reconoce el todo:</p>
+        <div class="demo">
+          <div class="cajas">
+            <span class="caja" data-step="3" data-nombre="⟨declaracion-var⟩"><span class="t">var</span> <span class="t">:</span> <span class="caja" data-step="1" data-nombre="⟨tipo⟩"><span class="t">double</span></span> <span class="t">::</span> <span class="t">numero</span> <span class="t">&lt;-</span> <span class="caja" data-step="2" data-nombre="⟨expresion⟩"><span class="t">2.5</span></span> <span class="t">end</span> <span class="t">;</span></span>
+          </div>
+          <div class="controls">
+            <button type="button" class="step-btn">▶ Paso</button>
+            <button type="button" class="reset-btn">⟲ Reiniciar</button>
+            <span class="step-counter"></span>
+          </div>
+          <p class="explica" data-textos='["Los 9 tokens sueltos, tal como los entregó el lexer.","El parser ve \"double\" y lo REDUCE a ⟨tipo⟩ (aplicó la producción al revés).","\"2.5\" se reduce a ⟨expresion⟩.","Con todas las piezas listas, el patrón completo se reduce a ⟨declaracion-var⟩. Frase reconocida."]'></p>
+        </div>
+        <p>Las cajas anidadas SON el árbol sintáctico (cada caja = un nodo; lo que contiene = sus hijos). En la Etapa 3, ejecutar el programa será <strong>recorrer estas cajas</strong> calculando valores de adentro hacia afuera.</p>
+      </div>
+    </section>
+
+    <!-- 7 · DEMO recursión -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">Demo 4 · el superpoder</p>
+        <h2>Recursión: infinito con reglas finitas</h2>
+        <p>La producción <span class="nt">&lt;aritmetica&gt;</span> contiene <span class="nt">&lt;expresion&gt;</span>… y <span class="nt">&lt;expresion&gt;</span> puede volver a ser <span class="nt">&lt;aritmetica&gt;</span>. Ese ciclo permite anidar sin límite. Se deriva <code class="inline">SUM(SUM(1,2),3)</code>:</p>
+        <div class="demo">
+          <div class="derivacion" style="font-size:15px">
+            <div class="paso" data-step="0"><span class="flecha"></span><span><span class="nt">&lt;expresion&gt;</span></span></div>
+            <div class="paso" data-step="1"><span class="flecha">→</span><span><span class="nuevo"><span class="t">SUM</span> <span class="t">(</span> <span class="nt">&lt;expresion&gt;</span> <span class="t">,</span> <span class="nt">&lt;expresion&gt;</span> <span class="t">)</span></span></span></div>
+            <div class="paso" data-step="2"><span class="flecha">→</span><span><span class="t">SUM</span> <span class="t">(</span> <span class="nuevo"><span class="t">SUM</span> <span class="t">(</span> <span class="nt">&lt;expresion&gt;</span> <span class="t">,</span> <span class="nt">&lt;expresion&gt;</span> <span class="t">)</span></span> <span class="t">,</span> <span class="nt">&lt;expresion&gt;</span> <span class="t">)</span></span></div>
+            <div class="paso" data-step="3"><span class="flecha">→</span><span><span class="t">SUM</span> <span class="t">(</span> <span class="t">SUM</span> <span class="t">(</span> <span class="nuevo"><span class="t">1</span></span> <span class="t">,</span> <span class="nuevo"><span class="t">2</span></span> <span class="t">)</span> <span class="t">,</span> <span class="nuevo"><span class="t">3</span></span> <span class="t">)</span> <span class="veredicto-ok">✓</span></span></div>
+          </div>
+          <div class="controls">
+            <button type="button" class="step-btn">▶ Paso</button>
+            <button type="button" class="reset-btn">⟲ Reiniciar</button>
+            <span class="step-counter"></span>
+          </div>
+          <p class="explica" data-textos='["Una expresión cualquiera.","⟨expresion⟩ → ⟨aritmetica⟩ → SUM(⟨expresion⟩, ⟨expresion⟩). Nacieron DOS expresiones nuevas.","La primera ⟨expresion⟩ volvió a elegir el camino SUM: eso ES la recursión. Podría repetirse mil veces.","Las tres ⟨expresion⟩ restantes eligieron NUMERO. Nótese que cada ( trajo su ): el balanceo salió gratis de la estructura."]'></p>
+        </div>
+        <div class="callout"><p>Esto es lo que una expresión regular <strong>no puede hacer</strong>: no tiene con qué recordar cuántos paréntesis van abiertos. La gramática lo hace sin esfuerzo, porque cada producción trae sus <code class="inline">(</code> <code class="inline">)</code> <strong>en pareja</strong>.</p></div>
+      </div>
+    </section>
+
+    <!-- 8 · DEMO inválido -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">Demo 5 · cuando no hay camino</p>
+        <h2>Así se ve un error sintáctico</h2>
+        <p>Al intentar derivar <code class="inline">var:double:: numero 2.5 end;</code>, aparece el problema — al usuario se le olvidó el <code class="inline">&lt;-</code>:</p>
+        <div class="demo">
+          <div class="derivacion" style="font-size:15px">
+            <div class="paso" data-step="0"><span class="flecha"></span><span><span class="nt">&lt;declaracion-var&gt;</span> exige: <span class="t">var</span> <span class="t">:</span> <span class="nt">&lt;tipo&gt;</span> <span class="t">::</span> <span class="t">ID</span> <span class="t">&lt;-</span> <span class="nt">&lt;expresion&gt;</span> <span class="t">end</span> <span class="t">;</span></span></div>
+            <div class="paso" data-step="1"><span class="flecha">→</span><span>llegan: <span class="t">var</span> <span class="t">:</span> <span class="t">double</span> <span class="t">::</span> <span class="t">numero</span> <span class="nuevo"><span class="t">✓ ✓ ✓ ✓ ✓</span></span> …va perfecto…</span></div>
+            <div class="paso" data-step="2"><span class="flecha">→</span><span>la gramática espera <span class="t">&lt;-</span> pero llega <span class="nuevo"><span class="t err">2.5</span></span> <span class="veredicto-err">✗ no hay producción que lo permita</span></span></div>
+          </div>
+          <div class="controls">
+            <button type="button" class="step-btn">▶ Paso</button>
+            <button type="button" class="reset-btn">⟲ Reiniciar</button>
+            <span class="step-counter"></span>
+          </div>
+          <p class="explica" data-textos='["La única producción posible para una línea que empieza con var.","Los primeros 5 tokens calzan uno a uno con la estructura exigida.","No existe NINGUNA cadena de sustituciones que ponga un NUMERO justo después del ID. El parser reporta: error sintáctico, línea y columna del token 2.5."]'></p>
+        </div>
+        <p><strong>Esta es la definición de error sintáctico:</strong> tokens perfectamente válidos (el lexer no se quejó) para los que <em>no existe derivación</em>. Exactamente lo mismo que se observa al quitarle el <code class="inline">;</code> a <code class="inline">ejemplo2.df</code>.</p>
+      </div>
+    </section>
+
+    <!-- LL/LR 1 · Las dos familias -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">Cómo trabaja un parser de verdad · Dragón §4.4–4.7</p>
+        <h2>Las dos familias: LL y LR</h2>
+        <p>Ya se sabe <em>qué</em> es derivar. La pregunta del libro es: ¿en qué <strong>orden</strong> hace el parser las sustituciones? Hay dos estrategias, y sus nombres son siglas que se leen letra por letra:</p>
+        <div class="cards">
+          <div class="card">
+            <h3>LL — descendente (top-down)</h3>
+            <p><strong>L</strong>eft-to-right: lee la entrada de izquierda a derecha · <strong>L</strong>eftmost: hace la derivación <em>por la izquierda</em> (siempre sustituye el no terminal de más a la izquierda). Construye el árbol <strong>de la raíz hacia las hojas</strong>: parte de <span class="nt">&lt;inicio&gt;</span> y PREDICE qué producción usar.</p>
+          </div>
+          <div class="card">
+            <h3>LR — ascendente (bottom-up)</h3>
+            <p><strong>L</strong>eft-to-right: lee igual, de izquierda a derecha · <strong>R</strong>ightmost: equivale a una derivación <em>por la derecha</em>, en reversa. Construye el árbol <strong>de las hojas hacia la raíz</strong>: junta tokens y los REDUCE a conceptos.</p>
+          </div>
+        </div>
+        <div class="callout"><p><strong>Ya se vieron las dos sin saberlo:</strong> las Demos 1 y 2 (sustituir desde el símbolo inicial hacia abajo) eran derivaciones estilo <strong>LL</strong>. La Demo 3 (cajas que agrupan de abajo hacia arriba) era exactamente <strong>LR</strong>. Conviene volver a mirarlas con esta perspectiva.</p></div>
+        <p class="muted">El número entre paréntesis — LL(<strong>1</strong>), LALR(<strong>1</strong>) — es cuántos tokens mira adelante para decidir. Casi siempre basta 1.</p>
+      </div>
+    </section>
+
+    <!-- LL/LR 2 · LL(1) con código -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">LL(1) · Dragón §4.4 y §2.4</p>
+        <h2>LL en código: el descenso recursivo</h2>
+        <p>Lo hermoso de LL es que se puede escribir <strong>a mano</strong> y el código queda idéntico a la gramática: <strong>un método por no terminal</strong>. Así se vería el nuestro en Java:</p>
+        <pre class="code"><span class="tk-sym">// &lt;declaracion-var&gt; ::= "var" ":" &lt;tipo&gt; "::" ID "&lt;-" &lt;expresion&gt; "end" ";"</span>
+<span class="tk-res">void</span> declaracionVar() {
+    match(VAR); match(DOS_PUNTOS);
+    tipo();                              <span class="tk-sym">// no terminal → llamada a su método</span>
+    match(DOBLE_DOS_PUNTOS); match(ID); match(ASIGNACION);
+    expresion();
+    match(END); match(PUNTO_COMA);
+}
+
+<span class="tk-sym">// &lt;tipo&gt; ::= "double" | "char" "[" "]"</span>
+<span class="tk-res">void</span> tipo() {
+    <span class="tk-res">if</span> (tokenActual == DOUBLE) { match(DOUBLE); }               <span class="tk-sym">// ← el (1):</span>
+    <span class="tk-res">else if</span> (tokenActual == CHAR) { match(CHAR); match(COR_IZQ); <span class="tk-sym">// decide mirando</span>
+                                     match(COR_DER); }             <span class="tk-sym">// UN token</span>
+    <span class="tk-res">else</span> error(<span class="tk-str">"se esperaba un tipo (línea "</span> + linea + <span class="tk-str">")"</span>);
+}</pre>
+        <p>Dos operaciones lo son todo: <code class="inline">match(X)</code> — «el token actual debe ser X; consumilo y avanzá» — y la <strong>llamada recursiva</strong> por cada no terminal. La pila de llamadas de Java ES la pila del parser: el árbol se dibuja solo en los stack frames.</p>
+        <div class="callout"><p>El <strong>(1)</strong> de LL(1): en cada <code class="inline">if</code>, el método decide qué alternativa tomar mirando <strong>un solo token adelante</strong> (<code class="inline">tokenActual</code>). Si con 1 token no alcanza para distinguir dos alternativas, la gramática no es LL(1).</p></div>
+      </div>
+    </section>
+
+    <!-- LL/LR 3 · PRIMERO y SIGUIENTE -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">Las herramientas del libro · Dragón §4.4.2</p>
+        <h2>PRIMERO y SIGUIENTE: cómo se decide el <code class="inline">if</code></h2>
+        <p>¿De dónde salen las condiciones de <code class="inline">tipo()</code>? Del conjunto <strong>PRIMERO</strong> (FIRST): <em>¿con qué terminales puede <strong>empezar</strong> lo que genera cada alternativa?</em></p>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>Alternativa de ⟨tipo⟩</th><th>PRIMERO</th><th>Entonces…</th></tr></thead>
+            <tbody>
+              <tr><td><code>"double"</code></td><td>{ <code>DOUBLE</code> }</td><td>si veo <code>DOUBLE</code> → voy por acá</td></tr>
+              <tr><td><code>"char" "[" "]"</code></td><td>{ <code>CHAR</code> }</td><td>si veo <code>CHAR</code> → voy por acá</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p>Los dos conjuntos son <strong>disjuntos</strong> (no comparten tokens) → con 1 token de lookahead siempre sé cuál elegir → esa parte de la gramática <strong>es LL(1)</strong>. Otro ejemplo con más alternativas:</p>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>Alternativa de ⟨expresion⟩</th><th>PRIMERO</th></tr></thead>
+            <tbody>
+              <tr><td><code>NUMERO</code> · <code>CADENA</code> · <code>ID</code></td><td>{ <code>NUMERO</code> } · { <code>CADENA</code> } · { <code>ID</code> }</td></tr>
+              <tr><td>⟨aritmetica⟩</td><td>{ <code>SUM, RES, MUL, DIV, MOD</code> }</td></tr>
+              <tr><td>⟨estadistica⟩</td><td>{ <code>MEDIA, MEDIANA, MODA, VARIANZA, MAX, MIN</code> }</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p>Todos disjuntos → decidible con un <code class="inline">switch(tokenActual)</code>. Y <strong>SIGUIENTE</strong> (FOLLOW) — <em>¿qué puede venir <strong>después</strong> de un no terminal?</em> — se usa cuando una alternativa puede ser vacía (ε): ahí se decide mirando si el token actual puede <em>seguir</em> al concepto. En el parcial: calcular PRIMERO y SIGUIENTE de una gramática dada es LA pregunta clásica.</p>
+      </div>
+    </section>
+
+    <!-- LL/LR 4 · Recursión izquierda -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">La trampa famosa · Dragón §4.3.3</p>
+        <h2>Recursión izquierda: veneno para LL, alimento para LR</h2>
+        <p>Nuestra gramática real dice: <code class="inline">lista_instr ::= lista_instr instruccion | instruccion</code>. Al intentar escribir eso como descenso recursivo aparece el problema:</p>
+        <pre class="code"><span class="tk-res">void</span> listaInstr() {
+    listaInstr();      <span class="tk-sym">// 💥 se llama a sí mismo SIN consumir ningún token:</span>
+    instruccion();     <span class="tk-sym">//    recursión infinita → StackOverflowError</span>
+}</pre>
+        <p>Una producción que empieza con su propio no terminal (<strong>recursión por la izquierda</strong>) rompe cualquier parser LL: predice → se llama → predice → se llama… sin avanzar jamás en la entrada.</p>
+        <div class="cards">
+          <div class="card">
+            <h3>Arreglo para LL (el del libro)</h3>
+            <p>Reescribir con recursión <em>a la derecha</em> o iteración:<br><code>lista ::= instruccion lista'</code><br><code>lista' ::= instruccion lista' | ε</code><br>(en código: un <code>while</code> que consume instrucciones mientras el token actual pueda empezar una).</p>
+          </div>
+          <div class="card">
+            <h3>En LR no hace falta</h3>
+            <p>El parser LR <strong>no predice</strong>: consume tokens y reduce cuando reconoce un patrón completo. La recursión izquierda no le da vértigo — es más: la <em>prefiere</em>, porque mantiene la pila chiquita (reduce apenas puede).</p>
+          </div>
+        </div>
+        <div class="callout"><p><strong>Por eso nuestro <code class="inline">parser.cup</code> usa recursión izquierda sin culpa:</strong> CUP es LALR (familia LR). Si algún día se escribe un parser a mano (LL), conviene recordar esta diapositiva antes del StackOverflow.</p></div>
+      </div>
+    </section>
+
+    <!-- LL/LR 5 · DEMO shift-reduce -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">Demo 6 · LR por dentro · Dragón §4.5</p>
+        <h2>Shift-reduce: la pila en acción</h2>
+        <p>Así procesa CUP la expresión <code class="inline">SUM ( 1 , 2 )</code> con la gramática <code class="inline">⟨expr⟩ ::= SUM ( ⟨expr⟩ , ⟨expr⟩ ) | NUMERO</code>. Dos movimientos posibles: <strong>shift</strong> (meter el token a la pila) y <strong>reduce</strong> (reemplazar lo de arriba de la pila por su no terminal — ¡las cajas de la Demo 3!):</p>
+        <div class="demo">
+          <div class="tablewrap">
+            <table style="font-family:'Cascadia Code',Consolas,monospace;font-size:13.5px">
+              <thead><tr><th style="width:38%">Pila</th><th style="width:34%">Entrada restante</th><th>Acción</th></tr></thead>
+              <tbody class="derivacion" style="display:table-row-group">
+                <tr class="paso" data-step="0" style="display:table-row"><td><em>(vacía)</em></td><td>SUM ( 1 , 2 ) $</td><td><strong>shift</strong> SUM</td></tr>
+                <tr class="paso" data-step="1" style="display:table-row"><td>SUM</td><td>( 1 , 2 ) $</td><td><strong>shift</strong> (</td></tr>
+                <tr class="paso" data-step="2" style="display:table-row"><td>SUM (</td><td>1 , 2 ) $</td><td><strong>shift</strong> 1</td></tr>
+                <tr class="paso" data-step="3" style="display:table-row"><td>SUM ( 1</td><td>, 2 ) $</td><td><strong>reduce</strong> ⟨expr⟩→NUMERO</td></tr>
+                <tr class="paso" data-step="4" style="display:table-row"><td>SUM ( <span class="nt">⟨expr⟩</span></td><td>, 2 ) $</td><td><strong>shift</strong> ,</td></tr>
+                <tr class="paso" data-step="5" style="display:table-row"><td>SUM ( <span class="nt">⟨expr⟩</span> ,</td><td>2 ) $</td><td><strong>shift</strong> 2</td></tr>
+                <tr class="paso" data-step="6" style="display:table-row"><td>SUM ( <span class="nt">⟨expr⟩</span> , 2</td><td>) $</td><td><strong>reduce</strong> ⟨expr⟩→NUMERO</td></tr>
+                <tr class="paso" data-step="7" style="display:table-row"><td>SUM ( <span class="nt">⟨expr⟩</span> , <span class="nt">⟨expr⟩</span></td><td>) $</td><td><strong>shift</strong> )</td></tr>
+                <tr class="paso" data-step="8" style="display:table-row"><td>SUM ( <span class="nt">⟨expr⟩</span> , <span class="nt">⟨expr⟩</span> )</td><td>$</td><td><strong>reduce</strong> ⟨expr⟩→SUM(⟨expr⟩,⟨expr⟩)</td></tr>
+                <tr class="paso" data-step="9" style="display:table-row"><td><span class="nt">⟨expr⟩</span></td><td>$</td><td><span class="veredicto-ok">aceptar ✓</span></td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="controls">
+            <button type="button" class="step-btn">▶ Paso</button>
+            <button type="button" class="reset-btn">⟲ Reiniciar</button>
+            <span class="step-counter"></span>
+          </div>
+          <p class="explica" data-textos='["Pila vacía; toda la entrada por leer ($ = fin de archivo).","SUM entra a la pila. Todavía no hay nada que reducir.","Se apilan los tokens tal como llegan…","¡Primera reducción! El 1 de arriba de la pila ES un ⟨expr⟩ completo: se reemplaza. Una caja de la Demo 3 se acaba de cerrar.","La pila ahora mezcla terminales y no terminales. Sigue el shift de la coma.","El 2 entra a la pila…","…y se reduce a ⟨expr⟩ igual que el 1.","Con el ) adentro, arriba de la pila quedó el patrón COMPLETO de la producción grande…","…así que se reduce TODO a un solo ⟨expr⟩: la caja exterior se cerró.","La pila quedó reducida al símbolo inicial y la entrada en $: el programa es válido. Esto hace CUP con cada archivo .df."]'></p>
+        </div>
+        <p class="muted">¿Cómo sabe CUP cuándo shift y cuándo reduce? Con una <strong>tabla ACTION/GOTO</strong> que genera analizando la gramática (por eso «genera el parser»). LALR(1) = esa tabla, comprimida, con 1 token de lookahead.</p>
+      </div>
+    </section>
+
+    <!-- LL/LR 6 · Comparación -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">El mapa completo</p>
+        <h2>LL vs LR: cuándo usar cada uno</h2>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th></th><th>LL(1) — descendente</th><th>LR / LALR(1) — ascendente</th></tr></thead>
+            <tbody>
+              <tr><td>Construye el árbol</td><td>de la raíz a las hojas (predice)</td><td>de las hojas a la raíz (reduce)</td></tr>
+              <tr><td>Derivación</td><td>por la izquierda</td><td>por la derecha, en reversa</td></tr>
+              <tr><td>Recursión izquierda</td><td>💥 prohibida (loop infinito)</td><td>✓ bienvenida (pila más chica)</td></tr>
+              <tr><td>Gramáticas que acepta</td><td>menos (deben ser "predecibles" con 1 token)</td><td>muchas más — casi todo lenguaje real</td></tr>
+              <tr><td>Cómo se implementa</td><td>a mano, natural (descenso recursivo)</td><td>a mano es inviable → <strong>generadores</strong></td></tr>
+              <tr><td>Herramientas</td><td>ANTLR (LL(*)), parsers artesanales</td><td><strong>CUP</strong>, Yacc/Bison, <strong>Jison</strong> — todos LALR</td></tr>
+              <tr><td>En el curso</td><td>se calcula en el parcial (PRIMERO/SIGUIENTE, tabla predictiva)</td><td>se usa en los 4 proyectos (CUP y Jison)</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="callout"><p>La jerarquía del libro (§4.5): las gramáticas LL(1) son un subconjunto de las LR(1). Por eso los generadores serios eligieron LR: <strong>aceptan más gramáticas escritas de forma natural</strong> — como la nuestra, con su recursión izquierda y sin transformaciones raras.</p></div>
+      </div>
+    </section>
+
+    <!-- PACK 1 · Factorización izquierda -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">Pack de parcial LL · Dragón §4.3.4</p>
+        <h2>Factorización izquierda: cuando dos alternativas empiezan igual</h2>
+        <p>Ya se vio que LL(1) decide con los conjuntos PRIMERO. ¿Y si dos alternativas <strong>comparten el arranque</strong>?</p>
+        <pre class="code">&lt;sentencia&gt; ::= "si" &lt;cond&gt; "entonces" &lt;bloque&gt;
+              | "si" &lt;cond&gt; "entonces" &lt;bloque&gt; "sino" &lt;bloque&gt;</pre>
+        <p>PRIMERO de ambas = { <code class="inline">si</code> } — <strong>no disjuntos</strong>: viendo un solo token es imposible elegir. La cura del libro: <strong>factorizar el prefijo común</strong> y patear la decisión para después, cuando ya haya información:</p>
+        <pre class="code">&lt;sentencia&gt; ::= "si" &lt;cond&gt; "entonces" &lt;bloque&gt; &lt;resto&gt;
+&lt;resto&gt;     ::= "sino" &lt;bloque&gt;
+              | ε                       <span class="tk-sym">// ε = vacío: no hay sino</span></pre>
+        <p>En código de descenso recursivo se ve clarísimo — parseás lo común y <em>recién ahí</em> mirás:</p>
+        <pre class="code"><span class="tk-res">void</span> sentencia() {
+    match(SI); cond(); match(ENTONCES); bloque();   <span class="tk-sym">// prefijo común</span>
+    <span class="tk-res">if</span> (tokenActual == SINO) { match(SINO); bloque(); }  <span class="tk-sym">// &lt;resto&gt;</span>
+    <span class="tk-sym">// si no viene "sino", &lt;resto&gt; ::= ε: no hago nada (¡decidido con FOLLOW!)</span>
+}</pre>
+        <div class="callout"><p><strong>Las dos cirugías LL del libro, juntas:</strong> recursión izquierda (ya vista) se elimina, prefijos comunes se factorizan. En el parcial suelen dar una gramática con ambos males y pedir «déjela LL(1)». Ahora queda el kit completo.</p></div>
+      </div>
+    </section>
+
+    <!-- PACK 2 · Tabla predictiva -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">Pack de parcial LL · Dragón §4.4.4</p>
+        <h2>La tabla predictiva M: el parser LL hecho tabla</h2>
+        <p>El descenso recursivo se puede reemplazar por una <strong>tabla</strong> M[No terminal, token] que dice qué producción aplicar. La gramática canónica del libro (expresiones, ya sin recursión izquierda):</p>
+        <pre class="code">E  → T E'          E' → + T E' | ε
+T  → F T'          T' → * F T' | ε
+F  → ( E ) | id</pre>
+        <p>Regla de llenado: la producción A → α va en M[A, t] <strong>para cada t en PRIMERO(α)</strong>; si α puede ser ε, va en M[A, t] <strong>para cada t en SIGUIENTE(A)</strong>. Resultado (fig. 4.17 del libro):</p>
+        <div class="tablewrap">
+          <table style="font-family:'Cascadia Code',Consolas,monospace;font-size:13px">
+            <thead><tr><th>M</th><th>id</th><th>+</th><th>*</th><th>(</th><th>)</th><th>$</th></tr></thead>
+            <tbody>
+              <tr><td><strong>E</strong></td><td>E→TE'</td><td></td><td></td><td>E→TE'</td><td></td><td></td></tr>
+              <tr><td><strong>E'</strong></td><td></td><td>E'→+TE'</td><td></td><td></td><td>E'→ε</td><td>E'→ε</td></tr>
+              <tr><td><strong>T</strong></td><td>T→FT'</td><td></td><td></td><td>T→FT'</td><td></td><td></td></tr>
+              <tr><td><strong>T'</strong></td><td></td><td>T'→ε</td><td>T'→*FT'</td><td></td><td>T'→ε</td><td>T'→ε</td></tr>
+              <tr><td><strong>F</strong></td><td>F→id</td><td></td><td></td><td>F→(E)</td><td></td><td></td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p>Se lee así: «estoy esperando un <strong>E'</strong> y veo un <strong>+</strong> → aplico E'→+TE'». Las <strong>celdas vacías son errores sintácticos</strong>: no hay jugada legal. Los ε se colocaron usando SIGUIENTE (E' puede desaparecer solo si lo que viene — <code class="inline">)</code> o <code class="inline">$</code> — puede seguir a un E').</p>
+        <div class="callout"><p><strong>Chequeo de parcial:</strong> si alguna celda quedara con DOS producciones, la gramática NO es LL(1) — ese es el test formal. Una celda doble te está gritando «recursión izquierda o falta factorizar».</p></div>
+      </div>
+    </section>
+
+    <!-- PACK 3 · Demo tabla + pila -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">Demo 7 · LL de tabla, con pila · Dragón fig. 4.21</p>
+        <h2>Parseando <code class="inline">id + id</code> con la tabla M</h2>
+        <p>El algoritmo: pila con el símbolo inicial y $. Si el tope es <strong>no terminal</strong> → se consulta M y se lo reemplaza por el lado derecho. Si es <strong>terminal</strong> → debe coincidir con la entrada (match) y ambos avanzan:</p>
+        <div class="demo">
+          <div class="tablewrap">
+            <table style="font-family:'Cascadia Code',Consolas,monospace;font-size:13px">
+              <thead><tr><th style="width:34%">Pila (tope a la izq.)</th><th style="width:26%">Entrada</th><th>Jugada</th></tr></thead>
+              <tbody class="derivacion" style="display:table-row-group">
+                <tr class="paso" data-step="0" style="display:table-row"><td>E $</td><td>id + id $</td><td>M[E, id] = E→TE'</td></tr>
+                <tr class="paso" data-step="1" style="display:table-row"><td>T E' $</td><td>id + id $</td><td>M[T, id] = T→FT'</td></tr>
+                <tr class="paso" data-step="2" style="display:table-row"><td>F T' E' $</td><td>id + id $</td><td>M[F, id] = F→id</td></tr>
+                <tr class="paso" data-step="3" style="display:table-row"><td>id T' E' $</td><td>id + id $</td><td><strong>match</strong> id</td></tr>
+                <tr class="paso" data-step="4" style="display:table-row"><td>T' E' $</td><td>+ id $</td><td>M[T', +] = T'→ε</td></tr>
+                <tr class="paso" data-step="5" style="display:table-row"><td>E' $</td><td>+ id $</td><td>M[E', +] = E'→+TE'</td></tr>
+                <tr class="paso" data-step="6" style="display:table-row"><td>+ T E' $</td><td>+ id $</td><td><strong>match</strong> +</td></tr>
+                <tr class="paso" data-step="7" style="display:table-row"><td>T E' $</td><td>id $</td><td>M[T, id] = T→FT'</td></tr>
+                <tr class="paso" data-step="8" style="display:table-row"><td>F T' E' $</td><td>id $</td><td>M[F, id] = F→id</td></tr>
+                <tr class="paso" data-step="9" style="display:table-row"><td>id T' E' $</td><td>id $</td><td><strong>match</strong> id</td></tr>
+                <tr class="paso" data-step="10" style="display:table-row"><td>T' E' $</td><td>$</td><td>M[T', $] = T'→ε</td></tr>
+                <tr class="paso" data-step="11" style="display:table-row"><td>E' $</td><td>$</td><td>M[E', $] = E'→ε</td></tr>
+                <tr class="paso" data-step="12" style="display:table-row"><td>$</td><td>$</td><td><span class="veredicto-ok">aceptar ✓</span></td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="controls"><button type="button" class="step-btn">▶ Paso</button><button type="button" class="reset-btn">⟲ Reiniciar</button><span class="step-counter"></span></div>
+          <p class="explica" data-textos='["Configuración inicial: el símbolo inicial y $ en la pila; toda la entrada por leer.","Tope E (no terminal) + entrada id → la tabla manda: reemplazar E por T E&#39;.","Mismo mecanismo: T se abre en F T&#39;.","F se convierte en id. Ahora el tope es un TERMINAL…","…que coincide con la entrada: match. Ambos avanzan — el único momento en que se consume entrada.","Tope T&#39; viendo +: la tabla dice ε → T&#39; se esfuma de la pila sin consumir nada.","E&#39; viendo + sí produce: aparece + T E&#39;.","match del +. Fijate el ritmo: abrir, abrir, abrir, match.","Segunda vuelta para el segundo id: idéntica a la primera…","…","match del último id.","Ya no viene nada ($): T&#39; y E&#39; se esfuman por ε…","Pila en $ y entrada en $: aceptar. Comparalo con la Demo 6 (LR): allá la pila CRECÍA con tokens y se reducía; acá la pila lleva LO QUE FALTA por encontrar."]'></p>
+        </div>
+      </div>
+    </section>
+
+    <!-- CONF 1 · Conflictos -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">El lado práctico de LR · Dragón §4.5.4 y §4.8</p>
+        <h2>Conflictos: cuando CUP no sabe qué jugada hacer</h2>
+        <p>Al construir su tabla, CUP puede encontrar estados donde hay <strong>dos jugadas legales</strong>. Al compilar esta gramática ambigua de expresiones infijas aparece el conflicto:</p>
+        <pre class="code">expr ::= expr MAS expr
+       | expr POR expr
+       | NUMERO ;</pre>
+        <p>Situación fatal: pila = <code class="inline">expr MAS expr</code> y llega <code class="inline">POR</code>. ¿<strong>Reduce</strong> (agrupa la suma primero → <code class="inline">(2+3)*4</code>) o <strong>shift</strong> (sigue leyendo, el POR agrupa primero → <code class="inline">2+(3*4)</code>)? Las dos son legales según la gramática → <strong>conflicto shift-reduce</strong>. CUP te lo dice así al compilar:</p>
+        <pre class="code">Warning : *** Shift/Reduce conflict found in state #7
+  between expr ::= expr MAS expr (*)
+  and     expr ::= expr (*) POR expr
+  under symbol POR</pre>
+        <div class="cards">
+          <div class="card"><h3>Shift-reduce</h3><p>«¿Reduzco lo que tengo o sigo leyendo?» El clásico de las gramáticas <strong>ambiguas</strong> (¡es la diapositiva de 10−4−3, vista desde la pila!). Se cura declarando <strong>precedencia</strong> — siguiente diapositiva.</p></div>
+          <div class="card"><h3>Reduce-reduce</h3><p>«Dos producciones distintas calzan completas en el tope.» Casi siempre síntoma de <strong>gramática mal diseñada</strong> (dos reglas que generan lo mismo). No se cura con precedencia: se rediseña.</p></div>
+        </div>
+        <div class="callout"><p><strong>Regla de supervivencia:</strong> los warnings de conflicto de CUP NUNCA se ignoran — CUP «resuelve» solo (shift por defecto) y el parser hace algo que quizás no sea lo esperado, sin avisar más. Warning de conflicto = gramática con deuda.</p></div>
+      </div>
+    </section>
+
+    <!-- CONF 2 · Precedencia en CUP -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">La cura · Dragón §4.8.1</p>
+        <h2>Precedencia y asociatividad en CUP</h2>
+        <p>Para gramáticas infijas, en vez de reescribir producciones se le <strong>declara al generador</strong> cómo desempatar:</p>
+        <pre class="code">precedence left MAS, MENOS;    <span class="tk-sym">// menor precedencia (arriba)</span>
+precedence left POR, DIVIDIDO; <span class="tk-sym">// MAYOR precedencia (abajo)</span>
+
+expr ::= expr MAS expr   {: ... :}
+       | expr POR expr   {: ... :}
+       | NUMERO          {: ... :} ;</pre>
+        <ul style="line-height:1.9">
+          <li><strong>Entre líneas distintas:</strong> gana la de más abajo → ante <code class="inline">2+3*4</code>, el <code class="inline">POR</code> puede shiftear sobre la suma: <code class="inline">2+(3*4)</code> ✓.</li>
+          <li><strong><code class="inline">left</code></strong> (asociatividad): ante empate del mismo nivel — <code class="inline">10-4-3</code> — reduce primero lo de la izquierda: <code class="inline">(10-4)-3</code> ✓. <code class="inline">right</code> haría lo contrario; <code class="inline">nonassoc</code> convierte el empate en error (útil para <code class="inline">a &lt; b &lt; c</code>).</li>
+        </ul>
+        <div class="callout"><p><strong>El mapa de los proyectos:</strong> DataForge no necesita nada de esto (funciones con paréntesis = sin ambigüedad, por eso nuestro .cup no tiene ni un <code class="inline">precedence</code>). Pero <strong>CompInterpreter</strong> tendrá expresiones infijas (<code class="inline">a+b*c</code>) — ahí se escribirá exactamente este bloque, en la sección <code class="inline">%left</code> de [[Jison]]. Conviene recordar esta diapositiva.</p></div>
+      </div>
+    </section>
+
+    <!-- LL/LR 7 · Quiz -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">Chequeo rápido · LL y LR</p>
+        <h2>¿Distinguís las familias?</h2>
+        <div class="quiz">
+          <div class="q">
+            <p class="question">1 · En el método <code class="inline">tipo()</code> del descenso recursivo, ¿qué significa exactamente el «(1)» de LL(1)?</p>
+            <button type="button" onclick="this.parentElement.classList.add('revealed')">Revelar respuesta</button>
+            <div class="answer"><p>Que la decisión entre alternativas se toma mirando <strong>un solo token de anticipación</strong> (<code class="inline">tokenActual</code>). Funciona porque los conjuntos PRIMERO de las alternativas son disjuntos: <code class="inline">DOUBLE</code> solo puede empezar una, <code class="inline">CHAR</code> solo la otra.</p></div>
+          </div>
+          <div class="q">
+            <p class="question">2 · ¿Por qué <code class="inline">lista_instr ::= lista_instr instruccion</code> funciona perfecto en nuestro <code class="inline">parser.cup</code> pero reventaría en un parser a mano?</p>
+            <button type="button" onclick="this.parentElement.classList.add('revealed')">Revelar respuesta</button>
+            <div class="answer"><p>Porque CUP es <strong>LALR (familia LR)</strong>: no predice, consume y reduce, así que la recursión izquierda no lo cicla. Un parser a mano es <strong>LL</strong>: el método se llamaría a sí mismo sin consumir ningún token → recursión infinita. Para LL habría que reescribirla (recursión derecha o un <code class="inline">while</code>).</p></div>
+          </div>
+          <div class="q">
+            <p class="question">3 · En la Demo 6, ¿qué operación del shift-reduce corresponde a "cerrar una caja" de la Demo 3?</p>
+            <button type="button" onclick="this.parentElement.classList.add('revealed')">Revelar respuesta</button>
+            <div class="answer"><p>El <strong>reduce</strong>: toma las piezas de arriba de la pila que forman el lado derecho completo de una producción y las reemplaza por su no terminal — exactamente dibujar la caja alrededor y ponerle etiqueta. Los shift solo van juntando piezas hasta que un patrón se completa.</p></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 9 · Ambigüedad -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">El peligro clásico (pregunta de parcial)</p>
+        <h2>Ambigüedad: una frase, dos árboles</h2>
+        <p>Una gramática es <strong>ambigua</strong> si alguna frase tiene <strong>más de una</strong> derivación posible. ¿Por qué es grave? Porque el árbol decide el <em>significado</em>. Clásico con resta infija <code class="inline">10 - 4 - 3</code>:</p>
+        <div class="dos">
+          <div class="card">
+            <h3>Agrupando a la izquierda</h3>
+            <div class="cajas" style="line-height:3.2"><span class="caja shown" data-nombre="⟨expr⟩"><span class="caja shown" data-nombre="⟨expr⟩"><span class="t">10</span> <span class="t">-</span> <span class="t">4</span></span> <span class="t">-</span> <span class="t">3</span></span></div>
+            <p>(10−4)−3 = <strong>3</strong> ✓ lo esperado</p>
+          </div>
+          <div class="card">
+            <h3>Agrupando a la derecha</h3>
+            <div class="cajas" style="line-height:3.2"><span class="caja shown" data-nombre="⟨expr⟩"><span class="t">10</span> <span class="t">-</span> <span class="caja shown" data-nombre="⟨expr⟩"><span class="t">4</span> <span class="t">-</span> <span class="t">3</span></span></span></div>
+            <p>10−(4−3) = <strong>9</strong> ✗ ¡otro resultado!</p>
+          </div>
+        </div>
+        <p>Misma frase, dos árboles, dos resultados: la gramática ambigua no sirve para un compilador. Se arregla con reglas de <strong>precedencia y asociatividad</strong> (en CUP: <code class="inline">precedence left</code>…).</p>
+        <div class="callout"><p><strong>Por eso DataForge lo tiene fácil:</strong> como sus operaciones son funciones — <code class="inline">RES(RES(10,4),3)</code> — los paréntesis explícitos hacen que <em>solo exista un árbol posible</em>. La ambigüedad quedó eliminada por diseño del lenguaje. (En CompInterpreter, con operadores infijos, sí se enfrenta esta situación.)</p></div>
+      </div>
+    </section>
+
+    <!-- 10 · Quiz -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">Chequeo rápido</p>
+        <h2>¿Lo ves en movimiento ya?</h2>
+        <div class="quiz">
+          <div class="q">
+            <p class="question">1 · Con la gramática de la Demo 1, ¿es válida «El perro corre»? ¿Y «El gato el perro»?</p>
+            <button type="button" onclick="this.parentElement.classList.add('revealed')">Revelar respuesta</button>
+            <div class="answer"><p><strong>«El perro corre» sí</strong>: ⟨animal⟩→"perro" y ⟨predicado⟩→"corre" son alternativas legales. <strong>«El gato el perro» no</strong>: después de ⟨sujeto⟩ la única producción exige ⟨predicado⟩, y ningún camino produce "el" ahí. No hay derivación → inválida.</p></div>
+          </div>
+          <div class="q">
+            <p class="question">2 · En la gramática de DataForge, ¿cuántas veces está "escrita" la posibilidad de anidar 100 SUM? ¿100 producciones?</p>
+            <button type="button" onclick="this.parentElement.classList.add('revealed')">Revelar respuesta</button>
+            <div class="answer"><p><strong>Cero producciones extra</strong>: alcanza con el ciclo ⟨expresion⟩ → ⟨aritmetica⟩ → SUM(⟨expresion⟩,…). La recursión genera la profundidad 100 (y la 1000) con las mismas 2 reglas. Reglas finitas, lenguaje infinito — la idea completa de esta presentación.</p></div>
+          </div>
+          <div class="q">
+            <p class="question">3 · ¿Por qué la gramática usa el terminal <code class="inline">ID</code> y no la palabra <code class="inline">numero</code>?</p>
+            <button type="button" onclick="this.parentElement.classList.add('revealed')">Revelar respuesta</button>
+            <div class="answer"><p>Porque la gramática trabaja sobre <strong>categorías</strong> (tokens), no sobre lexemas. Que el usuario llame <code class="inline">numero</code>, <code class="inline">edad</code> o <code class="inline">x</code> a su variable le da igual al parser — de distinguir textos concretos ya se encargó el lexer. Es la frontera exacta entre las capas léxica y sintáctica.</p></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 11 · Cierre -->
+    <section class="slide">
+      <div class="inner titleslide">
+        <p class="eyebrow">Resumen en una pantalla</p>
+        <h1>Gramática = reglas de sustitución</h1>
+        <p class="lead"><span class="nt">&lt;conceptos&gt;</span> que se sustituyen hasta quedar solo <span class="t">tokens</span> · válido = existe derivación · la derivación dibuja un árbol · la recursión da lo infinito · <strong>LL predice</strong> desde la raíz (descenso recursivo, PRIMERO/SIGUIENTE) · <strong>LR reduce</strong> desde las hojas (shift-reduce, CUP) · la ambigüedad se evita por diseño.</p>
+        <p class="kicker"><a class="btn primary" href="etapa2.html">Ver la gramática aplicada: Etapa 2 →</a>&nbsp;&nbsp;<a class="btn" href="index.html">⌂ Volver al índice</a></p>
+      </div>
+    </section>
+
+  </div>
+
+  <div class="navbar">
+    <button id="prev" type="button">← Anterior</button>
+    <button id="next" type="button">Siguiente →</button>
+    <span class="hint">flechas ← → para las diapositivas · «▶ Paso» para las demos</span>
+  </div>
+</div>
+
+<script src="assets/deck.js"></script>
+<script>
+/* ---- steppers de las demos: cada clic revela el siguiente paso ---- */
+document.querySelectorAll('.demo').forEach((demo) => {
+  const pasos = Array.from(demo.querySelectorAll('[data-step]'));
+  if (!pasos.length) return;
+  const max = Math.max(...pasos.map(e => +e.dataset.step));
+  const btn = demo.querySelector('.step-btn');
+  const reset = demo.querySelector('.reset-btn');
+  const counter = demo.querySelector('.step-counter');
+  const explica = demo.querySelector('.explica');
+  const textos = explica ? JSON.parse(explica.dataset.textos || '[]') : [];
+  let cur = 0;
+
+  function render() {
+    pasos.forEach(e => {
+      const n = +e.dataset.step;
+      e.classList.toggle('shown', n <= cur);
+      e.classList.toggle('current', n === cur);
+    });
+    if (counter) counter.textContent = 'paso ' + cur + ' de ' + max;
+    if (explica) explica.textContent = textos[cur] || '';
+    btn.disabled = cur >= max;
+    reset.disabled = cur === 0;
+  }
+  btn.addEventListener('click', () => { if (cur < max) { cur++; render(); } });
+  reset.addEventListener('click', () => { cur = 0; render(); });
+  render();
+});
+</script>
+</body>
+</html>

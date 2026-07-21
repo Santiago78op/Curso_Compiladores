@@ -1,0 +1,206 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Etapa 3 · Ejecución — ConjAnalyzer</title>
+<link rel="stylesheet" href="assets/estilo.css">
+</head>
+<body>
+
+<div class="deck">
+  <div class="topbar">
+    <a class="brand" href="index.html" title="Volver al índice">Conj<em>Analyzer</em> · curso guiado</a>
+    <span class="chip">Etapa 3 · Ejecución</span>
+    <span class="counter"><span id="cur">1</span> / <span id="tot">?</span></span>
+    <button id="theme" type="button" title="Cambiar tema claro/oscuro" aria-label="Cambiar tema claro/oscuro">◐</button>
+  </div>
+  <div class="progress"><div id="bar"></div></div>
+
+  <div class="stage">
+
+    <!-- 1 · Intro -->
+    <section class="slide">
+      <div class="inner titleslide">
+        <p class="eyebrow">Etapa 3 · Parte 1</p>
+        <h1>Ejecución: por qué esta vez sí hace falta un árbol</h1>
+        <p class="lead">DataForge no necesitó AST: cada instrucción corre exactamente una vez, en la propia acción del <code class="inline">.cup</code>. ConjAnalyzer rompe esa comodidad — y la razón exacta es el tema de esta etapa.</p>
+        <p class="kicker">Paquete <code class="inline">conjanalyzer.interprete</code>: <code class="inline">Entorno</code>, <code class="inline">Conjunto</code>, <code class="inline">NodoOperacion</code>, <code class="inline">Operacion</code>.</p>
+      </div>
+    </section>
+
+    <!-- 2 · La pregunta central -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">La pregunta que decide la arquitectura</p>
+        <h2>¿Cuántas veces se necesita recorrer una operación?</h2>
+        <p>Definir un conjunto (<code class="inline">CONJ</code>) es una acción de una sola vez: se calcula el <code class="inline">Set&lt;Character&gt;</code> y se guarda. Pero una operación (<code class="inline">OPERA</code>) tiene que servir para <strong>tres</strong> cosas distintas, después de que el parser terminó de leerla:</p>
+        <div class="cards three">
+          <div class="card"><div class="step">1</div><h3>Evaluarse</h3><p>Calcular el <code class="inline">Set&lt;Character&gt;</code> resultante contra los conjuntos base y el universo.</p></div>
+          <div class="card"><div class="step">2</div><h3>Simplificarse</h3><p>El <code class="inline">Simplificador</code> (Etapa 4) necesita <strong>reescribir</strong> su estructura aplicando leyes algebraicas — no puede hacerlo sobre un resultado ya aplanado a un <code class="inline">Set</code>.</p></div>
+          <div class="card"><div class="step">3</div><h3>Servir al diagrama de Venn</h3><p>La Etapa 5 necesita evaluar la operación como <strong>función booleana</strong> punto por punto — otra pasada distinta, sobre la misma estructura.</p></div>
+        </div>
+        <div class="callout"><p><strong>Ahí está la diferencia con DataForge:</strong> si algo se recorre una sola vez, ejecutarlo directo en la acción del <code class="inline">.cup</code> alcanza y sobra. Si algo se recorre <strong>más de una vez, de formas distintas</strong>, hace falta materializarlo como estructura de datos — un árbol — para no repetir el parseo.</p></div>
+      </div>
+    </section>
+
+    <!-- 3 · NodoOperacion -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">La única estructura de tipo árbol del proyecto</p>
+        <h2><code class="inline">NodoOperacion</code>: hoja, unario o binario</h2>
+        <pre class="code">public static NodoOperacion hoja(String nombre)             // {A}
+public static NodoOperacion unario(char op, NodoOperacion hijo)   // ^X
+public static NodoOperacion binario(char op, NodoOperacion a, NodoOperacion b)  // X op Y</pre>
+        <p>Tres formas posibles, exactamente las tres alternativas no-hoja/hoja de la gramática de la Etapa 2. El campo <code class="inline">op</code> vale <code class="inline">'\0'</code> en una hoja, <code class="inline">'^'</code> en el único operador unario, o uno de <code class="inline">'U' '&amp;' '-'</code> en un binario.</p>
+        <div class="callout"><p><strong>Acotado, no un AST del programa completo:</strong> las sentencias <code class="inline">CONJ</code> y <code class="inline">EVALUAR</code> se siguen ejecutando directo en las acciones del <code class="inline">.cup</code>, sin árbol propio — igual que en DataForge. Solo <code class="inline">OPERA</code> necesita esta estructura, porque es la única construcción del lenguaje que se reescribe y se recorre repetidamente.</p></div>
+      </div>
+    </section>
+
+    <!-- 4 · evaluar() -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">Recorrido nº 1: evaluación</p>
+        <h2>Postorden: primero los hijos, luego el nodo</h2>
+        <pre class="code">public Set&lt;Character&gt; evaluar(Map&lt;String, Set&lt;Character&gt;&gt; conjuntos, Set&lt;Character&gt; universo) {
+    if (esHoja()) { ... }                       <span class="tk-sym">// busca el conjunto por nombre</span>
+    Set&lt;Character&gt; a = izq.evaluar(conjuntos, universo);
+    if (esUnario()) {                           <span class="tk-sym">// complemento: universo menos A</span>
+        Set&lt;Character&gt; r = new LinkedHashSet&lt;&gt;(universo);
+        r.removeAll(a);
+        return r;
+    }
+    Set&lt;Character&gt; b = der.evaluar(conjuntos, universo);
+    switch (op) {
+        case 'U' -&gt; r.addAll(b);        <span class="tk-sym">// union (6.1)</span>
+        case '&amp;' -&gt; r.retainAll(b);    <span class="tk-sym">// interseccion (6.2)</span>
+        case '-' -&gt; r.removeAll(b);     <span class="tk-sym">// diferencia (6.3)</span>
+    }
+    return r;
+}</pre>
+        <p>Se recorre en <strong>postorden</strong> (primero se resuelven los hijos, después el nodo actual) porque el resultado de un operador depende de los resultados YA calculados de sus operandos — no se puede calcular una unión sin conocer antes ambos conjuntos que se unen.</p>
+      </div>
+    </section>
+
+    <!-- 5 · pertenenciaRegion -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">El mismo árbol, otra forma de recorrerlo</p>
+        <h2><code class="inline">pertenenciaRegion</code>: la operación como función booleana</h2>
+        <pre class="code">public boolean pertenenciaRegion(Map&lt;String, Boolean&gt; region) {
+    if (esHoja()) return region.getOrDefault(nombreConj, false);
+    if (esUnario()) return !izq.pertenenciaRegion(region);
+    boolean a = izq.pertenenciaRegion(region), b = der.pertenenciaRegion(region);
+    return switch (op) {
+        case 'U' -&gt; a || b;
+        case '&amp;' -&gt; a &amp;&amp; b;
+        case '-' -&gt; a &amp;&amp; !b;
+        default  -&gt; false;
+    };
+}</pre>
+        <p>En vez de recibir conjuntos completos, recibe un <strong>mapa de booleanos</strong>: "¿un elemento hipotético pertenece a cada conjunto base?". Es exacto porque unión/intersección/diferencia/complemento operan punto a punto sobre las funciones indicadoras (∪ es <code class="inline">||</code>, ∩ es <code class="inline">&amp;&amp;</code>). Esta es la función que la Etapa 5 llama <strong>por cada píxel</strong> del diagrama de Venn — sin tener que recorrer el universo entero.</p>
+      </div>
+    </section>
+
+    <!-- 6 · toPrefijo, copia, Entorno -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">Las utilidades que cierran el círculo</p>
+        <h2><code class="inline">toPrefijo()</code>, <code class="inline">copia()</code> y el <code class="inline">Entorno</code></h2>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>Método</th><th>Para qué sirve</th></tr></thead>
+            <tbody>
+              <tr><td><code>toPrefijo()</code></td><td>Serializa el árbol de vuelta a texto (<code class="inline">"U &amp; {A} {B} {C}"</code>) — lo usan el reporte y el JSON de simplificación (Etapa 6).</td></tr>
+              <tr><td><code>copia()</code></td><td>Copia profunda; el <code class="inline">Simplificador</code> (Etapa 4) trabaja sobre una copia para no mutar el árbol original de la operación.</td></tr>
+              <tr><td><code>referencias(Set&lt;String&gt;)</code></td><td>Junta los nombres de los conjuntos base que la operación menciona — el diagrama de Venn los usa para saber cuántos círculos dibujar.</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p>Todo ese estado — conjuntos, operaciones ya evaluadas y simplificadas, consola, errores, tokens — vive en <code class="inline">Entorno</code>, exactamente <strong>una instancia nueva por ejecución</strong> (mismo criterio que DataForge): así los reportes de la sección 5 nunca mezclan datos de una corrida anterior.</p>
+      </div>
+    </section>
+
+    <!-- 7 · El caso de estudio: 4.8 -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">Caso de estudio · leer el enunciado con sentido crítico</p>
+        <h2>Cuando el propio enunciado se equivoca (4.8)</h2>
+        <p>El ejemplo de la sección 4.8 define <code class="inline">conjuntoA -> 1,2,3,a,b</code> y <code class="inline">conjuntoB -> a~z</code>, con <code class="inline">operacion1 = conjuntoA &amp; conjuntoB</code>. Para <code class="inline">EVALUAR({1, b}, operacion1)</code>, el PDF muestra:</p>
+        <pre class="code">1 -> exitoso
+b -> exitoso</pre>
+        <div class="callout"><p><strong>Pero la intersección real es <code class="inline">{a, b}</code>:</strong> <code class="inline">conjuntoA</code> tiene el carácter <code class="inline">1</code>, pero <code class="inline">conjuntoB</code> (rango <code class="inline">a~z</code>) no lo tiene — <code class="inline">1</code> NO pertenece a la intersección. La salida correcta, y la que produce ConjAnalyzer, es:</p></div>
+        <pre class="code">1 -> fallo
+b -> exitoso</pre>
+        <p>El código respeta la <strong>semántica real</strong> (pertenencia efectiva al conjunto resultante evaluado) y documenta la inconsistencia explícitamente en <code class="inline">Entorno.evaluar</code> — no es un bug del proyecto, es un error del propio enunciado, defendible en la revisión oral con la evidencia matemática en mano.</p>
+      </div>
+    </section>
+
+    <!-- 8 · Errores semánticos -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">Semántica y manejo de errores</p>
+        <h2>Errores que se detectan al ejecutar, no antes</h2>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>Error semántico</th><th>Ejemplo</th></tr></thead>
+            <tbody>
+              <tr><td>Conjunto u operación redefinidos</td><td>declarar <code>conjA</code> dos veces</td></tr>
+              <tr><td>Elemento que no es un único carácter</td><td>un token de más de 1 carácter donde se espera <code>&lt;elemento&gt;</code></td></tr>
+              <tr><td>Elemento fuera del universo</td><td>fuera de ASCII 33–126</td></tr>
+              <tr><td>Rango inválido</td><td><code>a</code> mayor que <code>b</code> en <code>a~b</code></td></tr>
+              <tr><td>Referencia a conjunto inexistente</td><td><code>OPERA : fantasma -> &amp; {vocales} {noExiste};</code></td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p>Ninguno detiene la ejecución: se acumulan en <code class="inline">errores</code> y el análisis sigue — verificado con <code class="inline">ejemplo2_errores.ca</code>, que reporta los 3 tipos de error (léxico, sintáctico, semántico) en una sola corrida y aun así define y evalúa <code class="inline">buena</code> al final.</p>
+      </div>
+    </section>
+
+    <!-- 9 · Quiz -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">Chequeo rápido</p>
+        <h2>¿Quedó clara la necesidad del árbol?</h2>
+        <div class="quiz">
+          <div class="q">
+            <p class="question">1 · Si ConjAnalyzer no tuviera que simplificar ni dibujar el Venn — solo evaluar y mostrar el resultado —, ¿seguiría haciendo falta <code class="inline">NodoOperacion</code>?</p>
+            <button type="button" onclick="this.parentElement.classList.add('revealed')">Revelar respuesta</button>
+            <div class="answer"><p><strong>No necesariamente.</strong> Con un solo recorrido (evaluar y listo), se podría ejecutar directo en las acciones del <code class="inline">.cup</code>, exactamente como hace DataForge con sus expresiones. El árbol se vuelve necesario justo cuando aparece un SEGUNDO uso de la misma estructura (simplificar) que no puede reconstruirse a partir del resultado ya evaluado.</p></div>
+          </div>
+          <div class="q">
+            <p class="question">2 · ¿Por qué <code class="inline">evaluar()</code> recorre en postorden y no al revés (nodo primero, hijos después)?</p>
+            <button type="button" onclick="this.parentElement.classList.add('revealed')">Revelar respuesta</button>
+            <div class="answer"><p>Porque el resultado de un nodo <strong>depende</strong> del resultado de sus hijos: no se puede calcular <code class="inline">A ∪ B</code> sin tener antes los conjuntos evaluados de <code class="inline">A</code> y de <code class="inline">B</code>. Postorden = "resolvé lo de abajo antes de combinar arriba".</p></div>
+          </div>
+          <div class="q">
+            <p class="question">3 · La salida del enunciado (4.8) dice "1 -&gt; exitoso". ¿Por qué el código no la reproduce tal cual?</p>
+            <button type="button" onclick="this.parentElement.classList.add('revealed')">Revelar respuesta</button>
+            <div class="answer"><p>Porque esa salida es <strong>matemáticamente incorrecta</strong> dado cómo el propio enunciado definió los conjuntos: <code class="inline">1</code> no pertenece a la intersección real. Copiarla ciegamente habría introducido un bug real solo para "coincidir con el PDF" — se prioriza la semántica correcta y se documenta la discrepancia.</p></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 10 · Cierre -->
+    <section class="slide">
+      <div class="inner titleslide">
+        <p class="eyebrow">Etapa 3 · construida</p>
+        <h1>Queda construido el motor de ejecución</h1>
+        <p class="lead"><code class="inline">Entorno</code>, <code class="inline">Conjunto</code> y un mini-AST (<code class="inline">NodoOperacion</code>) acotado a lo único que de verdad lo necesita: las operaciones. El "por qué" de ese árbol es la clave arquitectónica de todo el proyecto.</p>
+        <p class="kicker">Próxima: <strong>Etapa 4 — el Simplificador</strong>, el segundo recorrido del árbol en acción.<br><a class="btn" href="index.html" style="margin-top:14px">⌂ Volver al índice</a></p>
+      </div>
+    </section>
+
+  </div>
+
+  <div class="navbar">
+    <button id="prev" type="button">← Anterior</button>
+    <button id="next" type="button">Siguiente →</button>
+    <span class="hint">también se pueden usar las flechas del teclado</span>
+  </div>
+</div>
+
+<script src="assets/deck.js"></script>
+</body>
+</html>

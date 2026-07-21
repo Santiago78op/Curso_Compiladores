@@ -1,0 +1,186 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Etapa 6 · Funciones y recursión — CompScript</title>
+<link rel="stylesheet" href="assets/estilo.css">
+</head>
+<body>
+
+<div class="deck">
+  <div class="topbar">
+    <a class="brand" href="index.html" title="Volver al índice">Comp<em>Script</em> · curso guiado</a>
+    <span class="chip">Etapa 6 · Funciones y recursión</span>
+    <span class="counter"><span id="cur">1</span> / <span id="tot">?</span></span>
+    <button id="theme" type="button" title="Cambiar tema claro/oscuro" aria-label="Cambiar tema claro/oscuro">◐</button>
+  </div>
+  <div class="progress"><div id="bar"></div></div>
+
+  <div class="stage">
+
+    <!-- 1 · Intro -->
+    <section class="slide">
+      <div class="inner titleslide">
+        <p class="eyebrow">Etapa 6 · Parte 1</p>
+        <h1>Funciones: el árbol se recorre desde cualquier punto</h1>
+        <p class="lead">Si el flujo de control (Etapa 5) demostraba que el árbol se puede recorrer N veces, las funciones demuestran algo más fuerte: se puede recorrer <strong>el mismo árbol desde adentro del propio recorrido</strong> — eso es la recursión.</p>
+        <p class="kicker">Fuente: <code class="inline">ast/A.java</code> (método privado <code class="inline">invocar</code>) + <code class="inline">interprete/Interprete.java</code>.</p>
+      </div>
+    </section>
+
+    <!-- 2 · Tres pasadas -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">La recomendación del enunciado (§5.23), aplicada</p>
+        <h2>Ejecutar en tres pasadas resuelve las referencias hacia adelante</h2>
+        <pre class="code"><span class="tk-sym">// Interprete.ejecutar(String codigo)</span>
+<span class="tk-sym">// 1a pasada: registro de funciones/metodos/structs (permite forward-reference)</span>
+<span class="tk-res">for</span> (A.Instruccion i : raiz) {
+    <span class="tk-res">if</span> (i <span class="tk-res">instanceof</span> A.DeclaracionFuncion f) ctx.registrarFuncion(f);
+    <span class="tk-res">else if</span> (i <span class="tk-res">instanceof</span> A.DeclaracionStruct s) ctx.registrarStruct(s);
+}
+<span class="tk-sym">// 2a pasada: declaraciones y asignaciones globales
+// 3a pasada: RUN_MAIN (punto de entrada)</span></pre>
+        <p>Gracias a la primera pasada, <code class="inline">ejemplo2.cs</code> puede llamar a <code class="inline">clasificar(...)</code> desde <code class="inline">main()</code> aunque <code class="inline">clasificar</code> esté declarada ANTES que <code class="inline">main</code> en el archivo — el registro de funciones ya ocurrió, en una pasada previa a cualquier ejecución real.</p>
+      </div>
+    </section>
+
+    <!-- 3 · Argumentos por nombre -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">Una decisión de diseño explícita del enunciado (§5.23)</p>
+        <h2>Los argumentos se asocian por identificador, no por posición</h2>
+        <pre class="code">&lt;llamada&gt;    ::= ID "(" &lt;lista-argumentos&gt; ")"
+&lt;argumento&gt;  ::= ID "=" &lt;expresion&gt;      <span class="tk-sym">// SIEMPRE nombre = valor</span></pre>
+        <pre class="code"><span class="tk-sym">// entradas/ejemplo5.cs</span>
+<span class="tk-res">int</span> potencia(base: <span class="tk-res">int</span>, exp: <span class="tk-res">int</span> = 2) { <span class="tk-res">return</span> base ^ exp; }
+...
+console.log(potencia(base = 4));               <span class="tk-sym">// 16 (usa exp por defecto = 2)</span>
+console.log(potencia(base = 2, exp = 5));      <span class="tk-sym">// 32</span></pre>
+        <p>Esto significa que el orden de los argumentos en la llamada NO importa — <code class="inline">potencia(exp = 5, base = 2)</code> sería idéntico. <code class="inline">A.invocar(...)</code> valida además que no haya argumentos repetidos ni desconocidos antes de resolver ningún valor por defecto.</p>
+      </div>
+    </section>
+
+    <!-- 4 · Resolución de argumentos -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">La lógica real, paso a paso</p>
+        <h2>Cómo se resuelve cada parámetro</h2>
+        <pre class="code"><span class="tk-res">for</span> (Parametro p : f.params) {
+    Argumento a = mapaArgs.get(p.id.toLowerCase());
+    Valor v;
+    <span class="tk-res">if</span> (a != <span class="tk-res">null</span>) v = a.expr.evaluar(caller);          <span class="tk-sym">// 1: vino en la llamada</span>
+    <span class="tk-res">else if</span> (p.defecto != <span class="tk-res">null</span>) v = p.defecto.evaluar(caller); <span class="tk-sym">// 2: valor por defecto declarado</span>
+    <span class="tk-res">else</span> { caller.errorSemantico("falta el argumento '" + p.id + "'...", l, c); <span class="tk-res">return null</span>; } <span class="tk-sym">// 3: error</span>
+    <span class="tk-sym">// ... comprobacion de tipo contra p.tipo, luego:</span>
+    local.declarar(<span class="tk-res">new</span> Simbolo(p.id, ..., v, ...), l, c);
+}</pre>
+        <p>Nótese algo sutil: <code class="inline">a.expr.evaluar(caller)</code> evalúa la EXPRESIÓN del argumento en el entorno del <strong>llamador</strong> (<code class="inline">caller</code>) — porque ahí es donde viven las variables que el llamador está pasando — pero <code class="inline">local.declarar(...)</code> las registra en el entorno NUEVO de la función. Los dos entornos coexisten solo durante esta resolución.</p>
+      </div>
+    </section>
+
+    <!-- 5 · Recursión: factorial -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">Verificación real — <code class="inline">ejemplo5.cs</code></p>
+        <h2>Recursión: cada llamada, su propio <code class="inline">Entorno</code></h2>
+        <pre class="code"><span class="tk-res">int</span> factorial(n: <span class="tk-res">int</span>) {
+    <span class="tk-res">if</span> (n &lt;= 1) { <span class="tk-res">return</span> 1; }
+    <span class="tk-res">return</span> n * factorial(n = n - 1);
+}
+console.log(factorial(n = 5));    <span class="tk-sym">// 120</span></pre>
+        <p>Cada llamada recursiva a <code class="inline">factorial</code> ejecuta <code class="inline">A.invocar("factorial", ...)</code>, que crea un <code class="inline">Entorno</code> NUEVO colgado del global (Etapa 4) con su propio valor de <code class="inline">n</code>. Cinco llamadas anidadas significan cinco copias distintas de <code class="inline">n</code> vivas simultáneamente en la pila de Java — cada una en su propio <code class="inline">Entorno</code>, sin pisarse.</p>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>Llamada</th><th>Resultado real</th></tr></thead>
+            <tbody>
+              <tr><td><code>factorial(n=5)</code></td><td>120</td></tr>
+              <tr><td><code>fib(n=10)</code></td><td>55</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- 6 · Retorno vía excepción -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">El mismo mecanismo de la Etapa 5, reutilizado</p>
+        <h2><code class="inline">return</code>: el valor viaja dentro de la excepción</h2>
+        <pre class="code"><span class="tk-sym">// A.Return.ejecutar(...)</span>
+<span class="tk-res">public void</span> ejecutar(Entorno e) {
+    Valor v = (expr == <span class="tk-res">null</span>) ? <span class="tk-res">null</span> : expr.evaluar(e);
+    <span class="tk-res">throw new</span> Senales.Retorno(v, linea, columna);   <span class="tk-sym">// el valor viaja adentro de la excepcion</span>
+}
+
+<span class="tk-sym">// A.invocar(...) la atrapa:</span>
+Valor retorno = <span class="tk-res">null</span>;
+<span class="tk-res">try</span> { A.ejecutar(f.cuerpo, local); }
+<span class="tk-res">catch</span> (Senales.Retorno r) { retorno = r.valor; }</pre>
+        <p>Un <code class="inline">return</code> puede estar anidado dentro de un <code class="inline">if</code>, dentro de un <code class="inline">for</code>, dentro de un <code class="inline">match</code>... el mecanismo de excepción atraviesa todos esos niveles de anidamiento sin que ninguno de ellos tenga que "reenviar" manualmente el valor de retorno hacia arriba.</p>
+      </div>
+    </section>
+
+    <!-- 7 · Compatibilidad de tipos en el retorno -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">Comprobación de tipos completa alrededor de la llamada</p>
+        <h2>Argumentos Y retorno, ambos validados</h2>
+        <p><code class="inline">A.invocar(...)</code> comprueba la compatibilidad de tipos en dos puntos: cada argumento contra el tipo declarado del parámetro correspondiente, y el valor de <code class="inline">return</code> contra <code class="inline">f.tipoRetorno</code>. Una función declarada <code class="inline">void</code> que intenta retornar un valor es un error semántico:</p>
+        <pre class="code"><span class="tk-res">if</span> (f.tipoRetorno.cat == Tipo.Cat.VOID) {
+    <span class="tk-res">if</span> (retorno != <span class="tk-res">null</span> &amp;&amp; retorno.tipo.cat != Tipo.Cat.VOID)
+        caller.errorSemantico("el metodo '" + id + "' es void y no puede retornar un valor", l, c);
+    <span class="tk-res">return</span> Valor.VOID;
+}</pre>
+        <p class="muted">Sin sobrecarga: el enunciado exige que un mismo identificador no pueda nombrar más de una función/método/struct — error semántico si se repite.</p>
+      </div>
+    </section>
+
+    <!-- 8 · Quiz -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">Chequeo rápido</p>
+        <h2>Sobre funciones y recursión reales</h2>
+        <div class="quiz">
+          <div class="q">
+            <p class="question">1 · ¿Por qué la primera pasada de <code class="inline">Interprete.ejecutar(...)</code> es necesaria antes de ejecutar cualquier instrucción global?</p>
+            <button type="button" onclick="this.parentElement.classList.add('revealed')">Revelar respuesta</button>
+            <div class="answer"><p>Para permitir referencias hacia adelante: una función puede llamar a otra que aparece más abajo en el archivo. Si el registro de funciones ocurriera durante la misma pasada que la ejecución, llamar a una función "todavía no vista" fallaría.</p></div>
+          </div>
+          <div class="q">
+            <p class="question">2 · En <code class="inline">potencia(base = 4)</code>, ¿de dónde sale el valor de <code class="inline">exp</code>?</p>
+            <button type="button" onclick="this.parentElement.classList.add('revealed')">Revelar respuesta</button>
+            <div class="answer"><p>Del valor por defecto declarado en el parámetro (<code class="inline">exp: int = 2</code>), evaluado en <code class="inline">A.invocar(...)</code> cuando no aparece ningún argumento <code class="inline">exp = ...</code> en la llamada. El resultado es <code class="inline">4^2 = 16</code>.</p></div>
+          </div>
+          <div class="q">
+            <p class="question">3 · ¿Qué evidencia concreta (de un reporte real) demuestra que cada llamada recursiva tiene su propio <code class="inline">Entorno</code>?</p>
+            <button type="button" onclick="this.parentElement.classList.add('revealed')">Revelar respuesta</button>
+            <div class="answer"><p>El reporte de símbolos (6.4) de <code class="inline">ejemplo5.cs</code> muestra <strong>186 entradas</strong> del parámetro <code class="inline">n</code> en distintos ámbitos de <code class="inline">fib</code> — una por cada activación recursiva, no una sola entrada final (ver Etapa 4).</p></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 9 · Cierre -->
+    <section class="slide">
+      <div class="inner titleslide">
+        <p class="eyebrow">Etapa 6 · construida</p>
+        <h1>Queda construida la ejecución de funciones y la recursión</h1>
+        <p class="lead">Tres pasadas para permitir referencias hacia adelante, argumentos asociados por nombre con valores por defecto, retorno viajando dentro de una excepción, y un <code class="inline">Entorno</code> nuevo por cada activación — verificado con <code class="inline">factorial</code> y <code class="inline">fibonacci</code> reales.</p>
+        <p class="kicker">Próxima: <strong>Etapa 7 — el editor JavaFX y los 5 reportes</strong> (tokens, errores, símbolos, AST en HTML y Graphviz).<br><a class="btn" href="index.html" style="margin-top:14px">⌂ Volver al índice</a></p>
+      </div>
+    </section>
+
+  </div>
+
+  <div class="navbar">
+    <button id="prev" type="button">← Anterior</button>
+    <button id="next" type="button">Siguiente →</button>
+    <span class="hint">también se pueden usar las flechas del teclado</span>
+  </div>
+</div>
+
+<script src="assets/deck.js"></script>
+</body>
+</html>

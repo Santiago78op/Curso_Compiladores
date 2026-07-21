@@ -1,0 +1,171 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Etapa 2 · Análisis sintáctico — CompScript</title>
+<link rel="stylesheet" href="assets/estilo.css">
+</head>
+<body>
+
+<div class="deck">
+  <div class="topbar">
+    <a class="brand" href="index.html" title="Volver al índice">Comp<em>Script</em> · curso guiado</a>
+    <span class="chip">Etapa 2 · Análisis sintáctico</span>
+    <span class="counter"><span id="cur">1</span> / <span id="tot">?</span></span>
+    <button id="theme" type="button" title="Cambiar tema claro/oscuro" aria-label="Cambiar tema claro/oscuro">◐</button>
+  </div>
+  <div class="progress"><div id="bar"></div></div>
+
+  <div class="stage">
+
+    <!-- 1 · Intro -->
+    <section class="slide">
+      <div class="inner titleslide">
+        <p class="eyebrow">Etapa 2 · Parte 1</p>
+        <h1>La gramática de CompScript: expresiones infijas de verdad</h1>
+        <p class="lead">DataForge llamaba a sus operaciones como funciones (<code class="inline">SUM(a,b)</code>): sin ambigüedad. CompScript, en cambio, usa <strong>notación infija</strong> (<code class="inline">a + b * c</code>) como cualquier lenguaje de propósito general — y eso significa que su BNF de <code class="inline">&lt;expresion&gt;</code> es ambigua por diseño.</p>
+        <p class="kicker">Fuente: <code class="inline">docs/gramatica.txt</code> (BNF entregable, no copia del <code class="inline">.cup</code>) + <code class="inline">src/main/cup/parser.cup</code> real.</p>
+      </div>
+    </section>
+
+    <!-- 2 · La ambigüedad -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">El problema clásico de las expresiones infijas</p>
+        <h2>Una sola producción, todas las operaciones</h2>
+        <p>La BNF entregable declara <code class="inline">&lt;expresion&gt;</code> como una única producción recursiva con TODOS los operadores al mismo nivel:</p>
+        <pre class="code">&lt;expresion&gt;   ::= &lt;expresion&gt; "+" &lt;expresion&gt;
+               | &lt;expresion&gt; "*" &lt;expresion&gt;
+               | &lt;expresion&gt; "&amp;&amp;" &lt;expresion&gt;
+               | "!" &lt;expresion&gt;
+               | "-" &lt;expresion&gt;
+               | ...
+               | ENTERO | DECIMAL | CADENA | ID | ...</pre>
+        <p>Una gramática "de libro" partiría esto en niveles <code class="inline">expr → termino → factor</code> para forzar la precedencia estructuralmente ([[Ambigüedad, precedencia y asociatividad]] del Dragón, §4.3). CompScript, en cambio, se desambigua con la <strong>tabla de precedencia y asociatividad de CUP</strong> — exactamente como lo hace el propio enunciado en su §5.9.</p>
+      </div>
+    </section>
+
+    <!-- 3 · La tabla de precedencia -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">La tabla real del <code class="inline">.cup</code></p>
+        <h2>Ocho niveles, de más débil a más fuerte</h2>
+        <pre class="code">precedence left  OR;                                              <span class="tk-sym">// nivel 7 (mas debil)</span>
+precedence left  AND;                                             <span class="tk-sym">// nivel 6</span>
+precedence right NOT;                                             <span class="tk-sym">// nivel 5</span>
+precedence left  IGUAL_IGUAL, DIFERENTE, MENOR, MENOR_IGUAL,
+                 MAYOR, MAYOR_IGUAL;                               <span class="tk-sym">// nivel 4</span>
+precedence left  MAS, MENOS;                                      <span class="tk-sym">// nivel 3</span>
+precedence left  POR, DIV, MOD;                                   <span class="tk-sym">// nivel 2</span>
+precedence nonassoc POT, RAIZ;                                    <span class="tk-sym">// nivel 1</span>
+precedence right UMENOS;                                          <span class="tk-sym">// nivel 0 (mas fuerte)</span></pre>
+        <p>En CUP, cada línea posterior liga <strong>más fuerte</strong> que la anterior. Así <code class="inline">a || b &amp;&amp; c</code> se agrupa como <code class="inline">a || (b &amp;&amp; c)</code> sin que la gramática necesite un no-terminal extra por nivel: la tabla resuelve el conflicto shift-reduce por sí sola en tiempo de generación.</p>
+        <div class="callout"><p><strong>Contraste con DataForge:</strong> ahí no hacía falta ninguna tabla de precedencia — las llamadas tipo <code class="inline">SUM(a, b)</code> ya delimitan sus operandos con paréntesis, sin ambigüedad posible.</p></div>
+      </div>
+    </section>
+
+    <!-- 4 · UMENOS -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">El truco del pseudo-terminal</p>
+        <h2><code class="inline">UMENOS</code>: un token que nunca aparece en el código fuente</h2>
+        <p>El símbolo <code class="inline">-</code> tiene dos significados: resta binaria (<code class="inline">a - b</code>) y negación unaria (<code class="inline">-a</code>). Ambos usan el mismo token léxico <code class="inline">MENOS</code>, pero necesitan precedencias distintas — la negación unaria debe ligar MÁS fuerte que cualquier operador binario.</p>
+        <pre class="code"><span class="tk-sym">// parser.cup</span>
+<span class="tk-res">terminal</span> UMENOS;   <span class="tk-sym">// pseudo-terminal: SIN lexema, solo existe para dar precedencia</span>
+
+expr ::= MENOS expr:e   {: RESULT = new A.Unaria("NEG", e, ...); :}  %prec UMENOS
+       | expr:a MENOS expr:b {: RESULT = new A.Binaria("-", a, b, ...); :}
+       ;</pre>
+        <p>La cláusula <code class="inline">%prec UMENOS</code> le dice a CUP: «trata esta producción específica como si tuviera la precedencia de <code class="inline">UMENOS</code> (la más alta), aunque use el símbolo <code class="inline">MENOS</code>». Es el truco estándar de CUP/Yacc para el problema clásico «unario vs. binario» sobre el mismo símbolo léxico.</p>
+        <div class="callout"><p><strong>Error común documentado:</strong> si se olvida el <code class="inline">%prec UMENOS</code>, CUP no sabe que la negación debe ligar distinto de la resta — y reporta un conflicto shift-reduce al generar el parser.</p></div>
+      </div>
+    </section>
+
+    <!-- 5 · Dangling else -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">El otro conflicto clásico</p>
+        <h2>El <code class="inline">else</code> colgante</h2>
+        <p>Con <code class="inline">if (a) if (b) x; else y;</code>, ¿el <code class="inline">else</code> pertenece al <code class="inline">if (a)</code> o al <code class="inline">if (b)</code>? CompScript lo resuelve estructuralmente, con el orden de las producciones de <code class="inline">if_stmt</code>:</p>
+        <pre class="code">&lt;if&gt;  ::= "if" "(" &lt;expresion&gt; ")" &lt;bloque&gt;
+       | "if" "(" &lt;expresion&gt; ")" &lt;bloque&gt; "else" &lt;bloque&gt;
+       | "if" "(" &lt;expresion&gt; ")" &lt;bloque&gt; "else" &lt;if&gt;</pre>
+        <p>CUP no reportó ningún conflicto shift-reduce al generar este parser: por diseño de la gramática, un <code class="inline">else</code> siempre se asocia con el <code class="inline">if</code> abierto más cercano — la resolución clásica del Dragón §4.8.2, lograda sin necesitar ninguna directiva de precedencia especial para <code class="inline">if</code>/<code class="inline">else</code>.</p>
+      </div>
+    </section>
+
+    <!-- 6 · Construye AST, no ejecuta -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">La decisión de diseño central de todo el proyecto</p>
+        <h2>Cada acción del <code class="inline">.cup</code> construye un nodo</h2>
+        <p>Esto es lo que distingue a CompScript de DataForge y ConjAnalyzer (ambos S-atribuidos, ejecutan directo en las acciones). Acá, ninguna acción calcula un resultado final — todas arman objetos del paquete <code class="inline">ast</code>:</p>
+        <pre class="code">expr ::= expr:a MAS expr:b  {: RESULT = new A.Binaria("+", a, b, aleft, aright); :}
+       | ID:id              {: RESULT = new A.AccesoVariable(id, idleft, idright); :}
+       ;</pre>
+        <p><code class="inline">parser.raiz</code> termina siendo un <code class="inline">ArrayList</code> (tipo <em>raw</em>, por la misma restricción de CUP sobre no-terminales que ya existía en DataForge) con la lista de instrucciones de nivel superior — el <code class="inline">Interprete</code> lo recorre después, en las etapas siguientes.</p>
+      </div>
+    </section>
+
+    <!-- 7 · Recuperación de errores -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">Modo pánico, igual patrón que DataForge</p>
+        <h2>Recuperación ante errores sintácticos</h2>
+        <pre class="code">&lt;instruccion&gt; ::= &lt;sentencia-simple&gt; ";"
+                | ... | "error" ";"        <span class="tk-sym">// produccion de panico</span></pre>
+        <p>Ante un token inesperado, <code class="inline">syntax_error(Symbol s)</code> registra el error en el <code class="inline">Contexto</code> compartido con la posición exacta, y la producción de pánico descarta símbolos hasta el próximo <code class="inline">;</code>, permitiendo seguir analizando la instrucción siguiente en la misma pasada.</p>
+        <pre class="code"><span class="tk-sym">// entradas/ejemplo6_errores.cs, linea 8</span>
+<span class="tk-res">let</span> w: <span class="tk-res">int</span> = ;   <span class="tk-sym">// [Sintactico] no se esperaba ';' (linea 8, columna 14)</span></pre>
+        <div class="callout"><p><strong>Ojo con el pánico y los bloques:</strong> si el error ocurre dentro de un bloque sin <code class="inline">;</code> cercano (por ejemplo un <code class="inline">if</code> mal cerrado), la recuperación puede descartar más código del esperado — vale la pena probarlo con casos reales, como se hizo en la verificación de este proyecto.</p></div>
+      </div>
+    </section>
+
+    <!-- 8 · Quiz -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">Chequeo rápido</p>
+        <h2>Sobre la gramática real</h2>
+        <div class="quiz">
+          <div class="q">
+            <p class="question">1 · ¿Cómo se agrupa <code class="inline">2 + 3 * 4</code> según la tabla de precedencia?</p>
+            <button type="button" onclick="this.parentElement.classList.add('revealed')">Revelar respuesta</button>
+            <div class="answer"><p><code class="inline">2 + (3 * 4)</code>. <code class="inline">POR</code> está en un nivel de precedencia más alto (ligado más fuerte) que <code class="inline">MAS</code> en la tabla del <code class="inline">.cup</code>.</p></div>
+          </div>
+          <div class="q">
+            <p class="question">2 · ¿Por qué <code class="inline">UMENOS</code> no aparece nunca como lexema en un archivo <code class="inline">.cs</code>?</p>
+            <button type="button" onclick="this.parentElement.classList.add('revealed')">Revelar respuesta</button>
+            <div class="answer"><p>Porque es un <strong>pseudo-terminal</strong>: se declara en el <code class="inline">.cup</code> solo para asignarle una precedencia distinta a la negación unaria mediante <code class="inline">%prec UMENOS</code>. El lexer nunca produce ese token — el símbolo léxico real siempre es <code class="inline">MENOS</code>.</p></div>
+          </div>
+          <div class="q">
+            <p class="question">3 · ¿Qué construye la acción de <code class="inline">expr ::= expr MAS expr</code> — un valor numérico o un objeto?</p>
+            <button type="button" onclick="this.parentElement.classList.add('revealed')">Revelar respuesta</button>
+            <div class="answer"><p>Un objeto: <code class="inline">new A.Binaria("+", a, b, ...)</code>. La suma NO se calcula durante el análisis sintáctico — el nodo se limita a recordar la operación y sus dos operandos; el cálculo ocurre después, cuando el árbol se recorre (Etapa 3).</p></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 9 · Cierre -->
+    <section class="slide">
+      <div class="inner titleslide">
+        <p class="eyebrow">Etapa 2 · construida</p>
+        <h1>Queda construido el analizador sintáctico</h1>
+        <p class="lead">Expresiones infijas desambiguadas por tabla de precedencia, el pseudo-terminal <code class="inline">UMENOS</code>, el <em>dangling else</em> resuelto por orden de producciones, y cada acción construyendo un nodo del AST en vez de calcular un valor.</p>
+        <p class="kicker">Próxima: <strong>Etapa 3 — el árbol mismo, <code class="inline">ast/A.java</code></strong>, la pieza que no tienen los proyectos hermanos.<br><a class="btn" href="index.html" style="margin-top:14px">⌂ Volver al índice</a></p>
+      </div>
+    </section>
+
+  </div>
+
+  <div class="navbar">
+    <button id="prev" type="button">← Anterior</button>
+    <button id="next" type="button">Siguiente →</button>
+    <span class="hint">también se pueden usar las flechas del teclado</span>
+  </div>
+</div>
+
+<script src="assets/deck.js"></script>
+</body>
+</html>

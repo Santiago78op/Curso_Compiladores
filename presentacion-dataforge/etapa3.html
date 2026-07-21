@@ -1,0 +1,229 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Etapa 3 · Ejecución — DataForge</title>
+<link rel="stylesheet" href="assets/estilo.css">
+</head>
+<body>
+
+<div class="deck">
+  <div class="topbar">
+    <a class="brand" href="index.html" title="Volver al índice">Data<em>Forge</em> · curso guiado</a>
+    <span class="chip">Etapa 3 · Ejecución</span>
+    <span class="counter"><span id="cur">1</span> / <span id="tot">?</span></span>
+    <button id="theme" type="button" title="Cambiar tema claro/oscuro" aria-label="Cambiar tema claro/oscuro">◐</button>
+  </div>
+  <div class="progress"><div id="bar"></div></div>
+
+  <div class="stage">
+
+    <!-- 1 · Portada -->
+    <section class="slide">
+      <div class="inner titleslide">
+        <p class="eyebrow">Etapa 3 · La capa que le da significado</p>
+        <h1>Que el programa haga cosas</h1>
+        <p class="lead">Hasta la etapa anterior, el intérprete decía «válido / inválido». Hoy <code class="inline">Media(@datos)</code> va a <strong>calcular</strong>, <code class="inline">console::print</code> va a <strong>imprimir</strong> y las variables van a <strong>existir</strong> en una tabla de símbolos de verdad.</p>
+        <p class="kicker">La teoría detrás: Cap. 5 del Dragón — traducción dirigida por la sintaxis.</p>
+      </div>
+    </section>
+
+    <!-- 2 · Puente Cap 5 -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">El puente teórico · Dragón §5.1–5.3</p>
+        <h2>Atributos sintetizados: los valores SUBEN por el árbol</h2>
+        <p>Retomando las <strong>cajas anidadas</strong> (Demo 3 de Gramáticas): la idea del Cap. 5 es simple — cada caja, al cerrarse, <strong>calcula un valor con los valores de sus cajas internas</strong>. El valor "sube" — por eso se llama atributo <em>sintetizado</em>:</p>
+        <pre class="code">SUM( SUM(1,2) , 3 )
+     └── 3 ──┘            la caja interna se cierra: vale 3
+└────── 6 ──────┘         la externa usa ese 3: vale 3+3 = 6</pre>
+        <p>Una gramática donde <strong>todos</strong> los atributos se calculan así (de hijos a padres, al cerrar cada caja) se llama <strong>S-atribuida</strong> — y es la pareja perfecta de un parser LR: el momento de la <strong>reducción</strong> (cuando la caja se cierra) es exactamente el momento de calcular.</p>
+        <div class="callout"><p><strong>Traducción dirigida por la sintaxis</strong> = pegarle a cada producción un fragmento de código que se ejecuta al reducirla. La gramática deja de describir solo <em>forma</em> y pasa a producir <em>significado</em>. DataForge no necesita atributos heredados (los que "bajan") — eso llega recién con lenguajes con contexto más complejo.</p></div>
+      </div>
+    </section>
+
+    <!-- 3 · RESULT en CUP -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">La sintaxis de CUP para esto</p>
+        <h2><code class="inline">RESULT</code>: el valor que sube</h2>
+        <p>En CUP, cada símbolo de una producción puede llevar <strong>etiqueta</strong> (<code class="inline">:a</code>), y <code class="inline">RESULT</code> es el valor que esa reducción le entrega a su caja padre. La aritmética real del proyecto:</p>
+        <pre class="code">aritmetica ::= op_arit:op PAR_IZQ expr:a COMA expr:b PAR_DER
+               {: RESULT = Operaciones.aritmetica(op, a, b,
+                               parser.entorno, opleft, opright); :} ;
+
+expr ::= NUMERO:n      {: RESULT = n; :}                <span class="tk-sym">// la hoja: su valor es el token</span>
+       | ID:id         {: RESULT = parser.entorno.valorDe(id, idleft, idright); :}
+       | aritmetica:a  {: RESULT = a; :} ;              <span class="tk-sym">// el valor sigue subiendo</span></pre>
+        <ul style="line-height:1.9">
+          <li><code class="inline">expr:a</code> — «llamale <code class="inline">a</code> al valor que sintetizó ese hijo».</li>
+          <li><code class="inline">opleft, opright</code> — línea/columna del símbolo etiquetado: gratis, para los errores.</li>
+          <li><code class="inline">parser.entorno</code> — el estado compartido de la ejecución (siguiente diapositiva).</li>
+        </ul>
+        <div class="callout"><p>Para <code class="inline">SUM(SUM(1,2),3)</code>, CUP reduce la caja interna primero (Demo 6 de Gramáticas: ¡el orden de las reducciones!) → su acción calcula 3 → ese 3 llega como <code class="inline">a</code> a la acción de la externa → 6. <strong>El orden de evaluación lo regala el parser LR.</strong></p></div>
+      </div>
+    </section>
+
+    <!-- 4 · Entorno -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">La arquitectura del intérprete</p>
+        <h2>El Entorno: donde vive el programa que corre</h2>
+        <p>Las acciones son código chiquito; el trabajo pesado vive en un paquete nuevo <code class="inline">dataforge.interprete</code>. La pieza central es <code class="inline">Entorno</code> — el estado completo de la ejecución:</p>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>Componente</th><th>Qué guarda</th><th>Para qué reporte/etapa</th></tr></thead>
+            <tbody>
+              <tr><td><strong>Tabla de símbolos</strong><br><code>LinkedHashMap&lt;String, Simbolo&gt;</code></td><td>cada variable/arreglo: nombre, categoría, tipo, valor, línea, columna. Clave en minúsculas (¡case insensitive!)</td><td>Reporte §6.3 · toda consulta <code>valorDe(id)</code></td></tr>
+              <tr><td><strong>Consola</strong> <code>StringBuilder</code></td><td>lo que producen <code>console::print</code> y <code>::column</code></td><td>el área de consola de la GUI (Etapa 4)</td></tr>
+              <tr><td><strong>Errores</strong> <code>List&lt;String&gt;</code></td><td>semánticos y sintácticos, con línea/columna</td><td>Reporte §6.2</td></tr>
+              <tr><td><strong>Gráficas</strong> <code>List&lt;Grafica&gt;</code></td><td>cada bloque con EXEC: tipo + atributos resueltos</td><td>JavaFX Charts (Etapa 5)</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p>El reparto de responsabilidades quedó nítido: <strong>el parser valida la forma</strong> y sus acciones delegan; <strong>el Entorno da significado</strong> (declarar, buscar, imprimir, registrar); <strong><code class="inline">Operaciones</code> calcula</strong> (aritmética y las 6 estadísticas, con chequeo de tipos).</p>
+      </div>
+    </section>
+
+    <!-- 5 · Errores semánticos -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">La tercera familia de errores</p>
+        <h2>Errores semánticos: forma perfecta, significado roto</h2>
+        <p><code class="inline">var:double:: malo &lt;- SUM("hola", 5) end;</code> — el lexer feliz (tokens válidos), el parser feliz (estructura válida)… pero sumar una cadena <strong>no significa nada</strong>. Eso es un error <strong>semántico</strong>, y lo detecta la ejecución:</p>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>Error semántico</th><th>Quién lo detecta</th></tr></thead>
+            <tbody>
+              <tr><td>Variable usada sin declarar</td><td><code>Entorno.valorDe()</code></td></tr>
+              <tr><td>Tipos incompatibles (<code>SUM("hola", 5)</code>, asignar cadena a double…)</td><td><code>Operaciones</code> / <code>declararVariable()</code></td></tr>
+              <tr><td>División entre cero</td><td><code>Operaciones.aritmetica()</code></td></tr>
+              <tr><td>Redeclaración de variable/arreglo</td><td><code>declararVariable()</code></td></tr>
+              <tr><td>Atributo de gráfica inexistente</td><td><code>registrarGrafica()</code> (¡la decisión de diseño nº 2 por fin paga!)</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="callout"><p><strong>Dos reglas de diseño importantes:</strong> (1) un error semántico <strong>NO detiene la ejecución</strong> — se registra con línea/columna y se sigue (el reporte §6.2 quiere TODOS los errores). (2) Una expresión fallida devuelve <code class="inline">null</code>, y las operaciones que reciben null <strong>callan y propagan</strong> — así <code class="inline">MUL(SUM("a",1), 2)</code> produce UN error, no una cascada de tres.</p></div>
+      </div>
+    </section>
+
+    <!-- 6 · Gráficas -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">El caso especial</p>
+        <h2>Gráficas: acumular, «la última gana», y EXEC</h2>
+        <p>El bloque de gráfica del enunciado (5.10) tiene una semántica curiosa: los atributos repetidos se pisan y solo la <strong>última</strong> aparición vale, y sin <code class="inline">EXEC</code> la gráfica no se muestra. La solución adoptada, en dos tiempos:</p>
+        <pre class="code"><span class="tk-sym">// 1. la gramática ACUMULA los atributos en una lista (pares nombre-valor)</span>
+attr ::= ID:n DOBLE_DOS_PUNTOS tipo IGUAL valor_attr:v END PUNTO_COMA
+         {: RESULT = new Object[]{ n, v }; :}
+       | EXEC tipo_graf END PUNTO_COMA
+         {: RESULT = new Object[]{ "EXEC", null }; :} ;
+
+<span class="tk-sym">// 2. al cerrar el bloque, el Entorno resuelve la semántica</span>
+grafica ::= tipo_graf:g PAR_IZQ lista_attr:l PAR_DER END PUNTO_COMA
+            {: parser.entorno.registrarGrafica(g, l, gleft, gright); :} ;</pre>
+        <p>Dentro de <code class="inline">registrarGrafica</code>: un <code class="inline">LinkedHashMap</code> donde cada <code class="inline">put</code> repetido pisa al anterior (= la última gana, gratis), un booleano para el EXEC, y la validación de nombres de atributo (<code class="inline">titulo</code>, <code class="inline">ejeX</code>… — conviene recordar: son <code class="inline">ID</code> en la gramática, la validación es semántica).</p>
+        <p class="muted">La gráfica registrada queda en <code class="inline">List&lt;Grafica&gt;</code> esperando a JavaFX Charts (Etapa 5). Esta etapa solo la deja lista.</p>
+      </div>
+    </section>
+
+    <!-- 7 · Cambios -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">Manos al proyecto</p>
+        <h2>Qué cambió en <code class="inline">DataForge/</code></h2>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>Archivo</th><th>Cambio</th></tr></thead>
+            <tbody>
+              <tr><td><code>src/main/java/dataforge/interprete/Entorno.java</code></td><td><strong>NUEVO</strong> ★ — símbolos + consola + errores + gráficas</td></tr>
+              <tr><td><code>…/interprete/Operaciones.java</code></td><td><strong>NUEVO</strong> — SUM/RES/MUL/DIV/MOD + las 6 estadísticas, con tipos</td></tr>
+              <tr><td><code>…/interprete/Simbolo.java</code> · <code>Grafica.java</code></td><td><strong>NUEVOS</strong> — las fichas de la tabla §6.3 y de cada gráfica</td></tr>
+              <tr><td><code>src/main/cup/parser.cup</code></td><td>producciones ahora <strong>tipadas</strong> + acciones <code>{: RESULT … :}</code></td></tr>
+              <tr><td><code>…/dataforge/TestInterprete.java</code></td><td><strong>NUEVO</strong> — corre y muestra consola, símbolos, errores, gráficas</td></tr>
+              <tr><td><code>entradas/ejemplo3_errores.df</code></td><td><strong>NUEVO</strong> — 5 errores semánticos a propósito</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p><strong>En IDEA:</strong> Maven → <code class="inline">compile</code> → ▶ Run sobre <code class="inline">TestInterprete</code>. Hay que correr los tres ejemplos (cambiando el argumento en Run → Edit Configurations):</p>
+        <ul style="line-height:1.9">
+          <li><code class="inline">ejemplo1.df</code> → la media 3.5 impresa y la columna de datos</li>
+          <li><code class="inline">ejemplo2.df</code> → el punto medio y 3 gráficas registradas</li>
+          <li><code class="inline">ejemplo3_errores.df</code> → 5 errores semánticos CON línea/columna, y la ejecución sobrevive</li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- 8 · Salida esperada -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">Qué se espera ver</p>
+        <h2>La salida de <code class="inline">ejemplo1.df</code></h2>
+        <pre class="code">=== CONSOLA ===
+la media es:, 3.5
+--------------
+Datos
+--------------
+1
+2.5
+7
+
+=== TABLA DE SÍMBOLOS ===
+#   Nombre         Categoría Tipo    Valor                      Línea Col
+1   numero         variable  double  2.5                        4     18
+2   saludo         variable  char[]  hola mundo                 5     18
+3   @datos         arreglo   double  [1.0, 2.5, 7.0]            9     17
+4   m              variable  double  3.5                        11    18</pre>
+        <p>Conviene fijarse en los detalles que ya resuelve el intérprete: <code class="inline">SUM(3,4)</code> dentro del arreglo se evaluó a 7 <em>antes</em> de guardarse (atributo sintetizado subiendo), la media se calculó sobre el arreglo por nombre, y los enteros se imprimen sin <code class="inline">.0</code> como pide el enunciado.</p>
+        <div class="callout"><p>Con esto quedan cubiertos, de una vez, dos requisitos mínimos del enunciado (§7): «manejo de string, double y variables» y «funciones para mostrar en consola» — más la materia prima de los tres reportes.</p></div>
+      </div>
+    </section>
+
+    <!-- 9 · Quiz -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">Chequeo rápido · Etapa 3</p>
+        <h2>¿Ya se piensa en las tres capas?</h2>
+        <div class="quiz">
+          <div class="q">
+            <p class="question">1 · <code class="inline">console::print = fantasma end;</code> con <code class="inline">fantasma</code> sin declarar. ¿Qué capa se queja: léxica, sintáctica o semántica? ¿Y en qué momento?</p>
+            <button type="button" onclick="this.parentElement.classList.add('revealed')">Revelar respuesta</button>
+            <div class="answer"><p><strong>Semántica, en ejecución.</strong> <code class="inline">fantasma</code> es un ID perfecto (léxico ✓) en posición de expresión válida (sintáctico ✓). Recién cuando la acción llama a <code class="inline">valorDe("fantasma")</code> y la tabla de símbolos no lo tiene, nace el error — con la línea/columna que venía viajando en el Symbol desde el lexer.</p></div>
+          </div>
+          <div class="q">
+            <p class="question">2 · ¿Por qué la acción de <code class="inline">aritmetica</code> puede confiar en que <code class="inline">a</code> y <code class="inline">b</code> ya tienen sus valores calculados?</p>
+            <button type="button" onclick="this.parentElement.classList.add('revealed')">Revelar respuesta</button>
+            <div class="answer"><p>Porque las acciones corren <strong>al reducir</strong>, y un parser LR reduce las cajas internas ANTES que las externas (lo viste en la Demo 6 de Gramáticas). Cuando le toca a la caja externa, sus hijos ya sintetizaron sus RESULT. Gramática S-atribuida + parser LR = orden de evaluación garantizado gratis.</p></div>
+          </div>
+          <div class="q">
+            <p class="question">3 · ¿Por qué las operaciones devuelven <code class="inline">null</code> en error, en vez de lanzar una excepción?</p>
+            <button type="button" onclick="this.parentElement.classList.add('revealed')">Revelar respuesta</button>
+            <div class="answer"><p>Porque una excepción abortaría el parse y el enunciado quiere <strong>todos los errores del programa</strong> en su reporte (§6.2). El null se propaga en silencio (las operaciones que lo reciben no re-reportan) y la ejecución continúa con la siguiente instrucción: un error por causa, sin cascadas, sin abortar.</p></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 10 · Cierre -->
+    <section class="slide">
+      <div class="inner titleslide">
+        <p class="eyebrow">Etapa 3 · lista para probar</p>
+        <h1>Ya es un intérprete de verdad</h1>
+        <p class="lead">Lee, valida, <strong>ejecuta</strong>: variables, arreglos, aritmética anidada, estadísticas, consola y errores de las tres familias con línea/columna. Falta ponerle cara: la Etapa 4 es el editor JavaFX.</p>
+        <p class="kicker"><a class="btn" href="index.html">⌂ Volver al índice</a></p>
+      </div>
+    </section>
+
+  </div>
+
+  <div class="navbar">
+    <button id="prev" type="button">← Anterior</button>
+    <button id="next" type="button">Siguiente →</button>
+    <span class="hint">también se pueden usar las flechas del teclado</span>
+  </div>
+</div>
+
+<script src="assets/deck.js"></script>
+</body>
+</html>

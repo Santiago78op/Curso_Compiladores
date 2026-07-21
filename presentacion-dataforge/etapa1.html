@@ -1,0 +1,406 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Etapa 1 · Análisis léxico — DataForge</title>
+<link rel="stylesheet" href="assets/estilo.css">
+</head>
+<body>
+
+<div class="deck">
+  <div class="topbar">
+    <a class="brand" href="index.html" title="Volver al índice">Data<em>Forge</em> · curso guiado</a>
+    <span class="chip">Etapa 1 · Análisis léxico</span>
+    <span class="counter"><span id="cur">1</span> / <span id="tot">?</span></span>
+    <button id="theme" type="button" title="Cambiar tema claro/oscuro" aria-label="Cambiar tema claro/oscuro">◐</button>
+  </div>
+  <div class="progress"><div id="bar"></div></div>
+
+  <div class="stage">
+
+    <!-- 1 · Intro -->
+    <section class="slide">
+      <div class="inner titleslide">
+        <p class="eyebrow">Etapa 1 · Parte 1</p>
+        <h1>La tabla de tokens de DataForge</h1>
+        <p class="lead">Antes de escribir el archivo <code class="inline">.flex</code>, se necesita el <strong>vocabulario completo</strong> del lenguaje: cada palabra, símbolo y patrón que el analizador léxico debe reconocer.</p>
+        <p class="kicker">Método: recorrer el enunciado sección por sección (5.1 → 5.10) preguntando siempre lo mismo:<br><em>«¿qué piezas nuevas aparecen acá que todavía no están en la tabla?»</em></p>
+      </div>
+    </section>
+
+    <!-- 2 · Palabras reservadas -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">Grupo 1 de 3</p>
+        <h2>Palabras reservadas — el idioma fijo</h2>
+        <p>Texto exacto (sin distinguir mayúsculas): con verlas, ya están clasificadas. Salen 24, agrupadas por la sección del enunciado de donde vienen:</p>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>Grupo</th><th>Tokens</th><th>Sección</th></tr></thead>
+            <tbody>
+              <tr><td>Estructura</td><td><code>program</code> · <code>end</code></td><td>5.2</td></tr>
+              <tr><td>Declaración</td><td><code>var</code> · <code>arr</code></td><td>5.5, 5.6</td></tr>
+              <tr><td>Tipos</td><td><code>double</code> · <code>char</code></td><td>5.4</td></tr>
+              <tr><td>Aritmética</td><td><code>sum</code> · <code>res</code> · <code>mul</code> · <code>div</code> · <code>mod</code></td><td>5.7</td></tr>
+              <tr><td>Estadística</td><td><code>media</code> · <code>mediana</code> · <code>moda</code> · <code>varianza</code> · <code>max</code> · <code>min</code></td><td>5.8</td></tr>
+              <tr><td>Consola</td><td><code>console</code> · <code>print</code> · <code>column</code></td><td>5.9</td></tr>
+              <tr><td>Gráficas</td><td><code>graphBar</code> · <code>graphPie</code> · <code>graphLine</code> · <code>histogram</code> · <code>exec</code></td><td>5.10</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="callout"><p><strong>Ojo:</strong> <code class="inline">end</code> aparece en dos contextos — cerrando sentencias (<code class="inline">end;</code>) y en <code class="inline">END PROGRAM</code>. Para el léxico es <strong>un solo token END</strong>: distinguir el contexto es trabajo de la capa sintáctica.</p></div>
+      </div>
+    </section>
+
+    <!-- 3 · Símbolos -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">Grupo 2 de 3</p>
+        <h2>Símbolos y operadores</h2>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>Token</th><th>Lexema</th><th>Dónde aparece</th></tr></thead>
+            <tbody>
+              <tr><td><code>DOS_PUNTOS</code></td><td><code>:</code></td><td><code>var:double</code></td></tr>
+              <tr><td><code>DOBLE_DOS_PUNTOS</code></td><td><code>::</code></td><td><code>double:: numero</code>, <code>console::print</code></td></tr>
+              <tr><td><code>ASIGNACION</code></td><td><code>&lt;-</code></td><td>declaraciones de variables y arreglos</td></tr>
+              <tr><td><code>IGUAL</code></td><td><code>=</code></td><td><code>console::print = …</code>, atributos de gráficas</td></tr>
+              <tr><td><code>FLECHA</code></td><td><code>-&gt;</code></td><td><code>console::column = titulo -&gt; @arreglo</code></td></tr>
+              <tr><td><code>PUNTO_COMA</code></td><td><code>;</code></td><td>después de cada <code>end</code></td></tr>
+              <tr><td><code>COMA</code></td><td><code>,</code></td><td>listas: <code>[1, 2, 3]</code>, <code>SUM(5, 2)</code></td></tr>
+              <tr><td><code>PAR_IZQ</code> / <code>PAR_DER</code></td><td><code>(</code> <code>)</code></td><td>funciones y bloques de gráfica</td></tr>
+              <tr><td><code>COR_IZQ</code> / <code>COR_DER</code></td><td><code>[</code> <code>]</code></td><td>listas de valores y <code>char[]</code></td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="callout"><p><strong>Regla del match más largo:</strong> ante <code class="inline">::</code>, el analizador NO devuelve dos veces <code class="inline">:</code> — siempre prefiere el lexema más largo posible. Igual con <code class="inline">&lt;-</code>. JFlex lo hace automáticamente.</p></div>
+      </div>
+    </section>
+
+    <!-- 4 · Patrones -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">Grupo 3 de 3</p>
+        <h2>Tokens con patrón — infinitos lexemas</h2>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>Token</th><th>Patrón (informal)</th><th>Lexemas de ejemplo</th></tr></thead>
+            <tbody>
+              <tr><td><code>ID</code></td><td>letra, seguida de letras o dígitos</td><td><code>numero</code>, <code>copia</code>, <code>med1</code></td></tr>
+              <tr><td><code>ID_ARREGLO</code></td><td><code>@</code> seguido de un identificador</td><td><code>@darray</code>, <code>@arreglo</code></td></tr>
+              <tr><td><code>NUMERO</code></td><td>dígitos, opcionalmente <code>.</code> y más dígitos</td><td><code>0</code>, <code>2.5</code>, <code>57.75</code></td></tr>
+              <tr><td><code>CADENA</code></td><td>cualquier cosa entre comillas dobles</td><td><code>"hola"</code>, <code>"Enteros"</code></td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p>Y hay texto que el léxico <strong>reconoce pero descarta</strong> — nunca llega al parser:</p>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>Se descarta</th><th>Patrón</th></tr></thead>
+            <tbody>
+              <tr><td>Comentario de línea</td><td><code>!</code> hasta el salto de línea (5.3.1)</td></tr>
+              <tr><td>Comentario multilínea</td><td>de <code>&lt;!</code> a <code>!&gt;</code> (5.3.2)</td></tr>
+              <tr><td>Espacios, tabs, saltos de línea</td><td>separan tokens, no significan nada</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- 5 · Decisiones de diseño -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">Decisiones que el enunciado deja abiertas</p>
+        <h2>Cuatro decisiones de diseño</h2>
+        <div class="cards">
+          <div class="card">
+            <h3>1 · ¿<code>@</code> es un token aparte?</h3>
+            <p>Podría ser símbolo <code>@</code> + token <code>ID</code>. Se decide <strong>un solo token <code>ID_ARREGLO</code></strong> (<code>@darray</code> completo): el <code>@</code> nunca aparece solo en el lenguaje, y así la gramática queda más simple.</p>
+          </div>
+          <div class="card">
+            <h3>2 · Los atributos de gráfica NO son reservados</h3>
+            <p><code>titulo</code>, <code>ejeX</code>, <code>ejeY</code>, <code>tituloX</code>, <code>tituloY</code>, <code>values</code>, <code>label</code> serán <strong>ID comunes</strong>. Prueba del enunciado: en §5.9.2 declara <code>var:char[]:: titulo &lt;- "Enteros"</code> — si <code>titulo</code> fuera reservada, ¡su propio ejemplo no compilaría! La gramática validará esos nombres.</p>
+          </div>
+          <div class="card">
+            <h3>3 · <code>graphBar</code> vs <code>grapBar</code></h3>
+            <p>El enunciado escribe <code>graphBar(</code> al abrir pero <code>EXEC grapBar</code> (sin h) al ejecutar — en los 3 tipos. Es un typo sistemático del enunciado: el patrón aceptará <strong>ambas formas</strong> para el mismo token.</p>
+          </div>
+          <div class="card">
+            <h3>4 · Case insensitive, ¿dónde?</h3>
+            <p>En el patrón: cada palabra reservada se escribe aceptando mayúsculas y minúsculas (JFlex tiene la directiva <code>%ignorecase</code>). El lexema original se conserva para los reportes.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 6 · Quiz parte 1 -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">Chequeo rápido · Parte 1</p>
+        <h2>Contá tokens</h2>
+        <div class="quiz">
+          <div class="q">
+            <p class="question">1 · ¿Cuántos tokens produce <code class="inline">console::print = "hola", 15 end;</code>?</p>
+            <button type="button" onclick="this.parentElement.classList.add('revealed')">Revelar respuesta</button>
+            <div class="answer"><p><strong>9:</strong> <code class="inline">console</code> · <code class="inline">::</code> · <code class="inline">print</code> · <code class="inline">=</code> · <code class="inline">"hola"</code> · <code class="inline">,</code> · <code class="inline">15</code> · <code class="inline">end</code> · <code class="inline">;</code>. Los espacios no cuentan: separan y se descartan.</p></div>
+          </div>
+          <div class="q">
+            <p class="question">2 · Con nuestras decisiones, ¿cuántos tokens es <code class="inline">@datos</code>?</p>
+            <button type="button" onclick="this.parentElement.classList.add('revealed')">Revelar respuesta</button>
+            <div class="answer"><p><strong>1:</strong> el token <code class="inline">ID_ARREGLO</code> con lexema <code class="inline">@datos</code> (decisión de diseño nº 1). Con la otra decisión válida habrían sido 2 (<code class="inline">@</code> + <code class="inline">ID</code>).</p></div>
+          </div>
+          <div class="q">
+            <p class="question">3 · ¿Por qué <code class="inline">titulo</code> no puede ser palabra reservada?</p>
+            <button type="button" onclick="this.parentElement.classList.add('revealed')">Revelar respuesta</button>
+            <div class="answer"><p>Porque el propio enunciado (§5.9.2) lo usa como <strong>nombre de variable</strong>: <code class="inline">var:char[]:: titulo &lt;- "Enteros" end;</code>. Una palabra reservada no puede ser nombre de variable — por eso los atributos de gráfica se tokenizan como <code class="inline">ID</code>.</p></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 7 · Parte 2: anatomía del .flex -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">Etapa 1 · Parte 2</p>
+        <h2>Del papel al código: anatomía del <code class="inline">.flex</code></h2>
+        <p>Un archivo JFlex tiene <strong>tres secciones separadas por <code class="inline">%%</code></strong>. La tabla de tokens se reparte entre las dos últimas:</p>
+        <div class="cards three">
+          <div class="card">
+            <div class="step">1</div>
+            <h3>Código de usuario</h3>
+            <p>Se copia tal cual arriba de la clase generada: el <code>package</code> y los <code>import</code> (usamos <code>Symbol</code> de CUP).</p>
+          </div>
+          <div class="card">
+            <div class="step">2</div>
+            <h3>Opciones y macros</h3>
+            <p>Directivas (<code>%class</code>, <code>%cup</code>, <code>%line</code>, <code>%ignorecase</code>…) y las <strong>definiciones regulares</strong>: la columna «Patrón» de la tabla, con nombre.</p>
+          </div>
+          <div class="card">
+            <div class="step">3</div>
+            <h3>Reglas</h3>
+            <p>La tabla hecha código: <em>«cuando se vea esto → se devuelve este token»</em>. Una regla por fila.</p>
+          </div>
+        </div>
+        <pre class="code"><span class="tk-sym">// sección 2 — así se ve una definición regular con nombre:</span>
+Id        = {Letra}({Letra}|{Digito})*
+Numero    = {Digito}+("."{Digito}+)?
+Cadena    = \"[^\"]*\"</pre>
+        <p class="muted">Fuente: nota [[JFlex]] del vault · manual jflex.de.</p>
+      </div>
+    </section>
+
+    <!-- 8 · Las reglas -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">Etapa 1 · Parte 2</p>
+        <h2>Las reglas: la tabla hecha código</h2>
+        <p>Extracto real del <code class="inline">Lexer.flex</code> del proyecto — se compara cada línea con la tabla de tokens:</p>
+        <pre class="code"><span class="tk-sym">/* descartar: comentarios y blancos */</span>
+{ComentLinea}   { }
+{ComentMulti}   { }
+{Blancos}       { }
+
+<span class="tk-sym">/* reservadas — SIEMPRE antes que {Id} */</span>
+"var"       { <span class="tk-res">return</span> symbol(sym.VAR); }
+"media"     { <span class="tk-res">return</span> symbol(sym.MEDIA); }
+
+<span class="tk-sym">/* símbolos */</span>
+"::"        { <span class="tk-res">return</span> symbol(sym.DOBLE_DOS_PUNTOS); }
+"&lt;-"        { <span class="tk-res">return</span> symbol(sym.ASIGNACION); }
+
+<span class="tk-sym">/* patrones — al final */</span>
+{Numero}    { <span class="tk-res">return</span> symbol(sym.NUMERO, Double.valueOf(yytext())); }
+{Id}        { <span class="tk-res">return</span> symbol(sym.ID); }
+
+<span class="tk-sym">/* cualquier otra cosa = error léxico */</span>
+[^]         { <span class="tk-sym">/* reportar carácter desconocido */</span> }</pre>
+        <div class="callout"><p><strong>¿Por qué las reservadas van antes que <code class="inline">{Id}</code>?</strong> <code class="inline">media</code> calza con ambas reglas y con el mismo largo. A igual longitud de match, JFlex elige <strong>la regla escrita primero</strong>. Si <code class="inline">{Id}</code> estuviera arriba, ¡ninguna palabra reservada se reconocería jamás!</p></div>
+      </div>
+    </section>
+
+    <!-- 9 · El proyecto Maven -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">Etapa 1 · Parte 2</p>
+        <h2>El proyecto: 5 archivos y a correr</h2>
+        <pre class="code">DataForge/
+├── pom.xml                       ← build: plugin de JFlex + runtime de CUP
+├── entradas/ejemplo1.df          ← programa de prueba en DataForge
+└── src/main/
+    ├── jflex/Lexer.flex          ← ★ el analizador léxico (nuestra tabla)
+    └── java/dataforge/
+        ├── analisis/sym.java     ← constantes de tokens (TEMPORAL: en la
+        │                            Etapa 2 la genera CUP y esta se borra)
+        └── TestLexer.java        ← lee un .df e imprime la tabla de tokens</pre>
+        <p>El flujo del build: <code class="inline">mvn compile</code> ejecuta primero el plugin de JFlex, que convierte <code class="inline">Lexer.flex</code> en un <code class="inline">Lexer.java</code> (dentro de <code class="inline">target/generated-sources</code>), y luego compila todo junto.</p>
+        <pre class="code"><span class="tk-sym"># requisitos (una sola vez): JDK 17+ y Maven</span>
+mvn clean compile exec:java
+
+<span class="tk-sym"># salida esperada (fragmento):</span>
+#    Lexema        Token       Línea  Columna
+1    PROGRAM       PROGRAM     2      1
+2    var           VAR         4      5
+3    :             DOS_PUNTOS  4      8
+4    double        DOUBLE      4      9
+...</pre>
+      </div>
+    </section>
+
+    <!-- 10a · IntelliJ 1/2 -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">Puesta en marcha · Opción A: IntelliJ IDEA</p>
+        <h2>Abrir y configurar el proyecto</h2>
+        <p>IntelliJ IDEA trae <strong>Maven embebido</strong> y puede <strong>descargar el JDK 17</strong> desde el propio IDE — no hace falta instalar nada por terminal.</p>
+        <div class="cards">
+          <div class="card">
+            <h3>1 · Instalar IDEA (edición Community, gratuita)</h3>
+            <p>Desde <code>jetbrains.com/idea</code> o con: <code>winget install JetBrains.IntelliJIDEA.Community</code></p>
+          </div>
+          <div class="card">
+            <h3>2 · Abrir el proyecto</h3>
+            <p><strong>Open</strong> → hay que seleccionar la carpeta <code>DataForge</code> (la que contiene el <code>pom.xml</code>) → <strong>Trust Project</strong>. IDEA detecta el <code>pom.xml</code> y lo importa como proyecto Maven automáticamente (conviene esperar a que termine de indexar, barra inferior).</p>
+          </div>
+          <div class="card">
+            <h3>3 · Configurar el JDK 17</h3>
+            <p><strong>File → Project Structure → Project → SDK</strong>. Si no aparece ningún 17: <strong>Add SDK → Download JDK…</strong> → Version <code>17</code>, Vendor <code>Eclipse Temurin</code> → Download. IDEA lo instala y lo asocia solo.</p>
+          </div>
+        </div>
+        <div class="callout"><p><strong>¿Por qué no molesta el Java 8 que ya está instalado?</strong> Porque IDEA usa el SDK configurado en el proyecto, no el del PATH del sistema. Cada proyecto elige su Java.</p></div>
+      </div>
+    </section>
+
+    <!-- 10b · IntelliJ 2/2 -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">Puesta en marcha · Opción A: IntelliJ IDEA</p>
+        <h2>Generar el lexer y correrlo</h2>
+        <div class="cards">
+          <div class="card">
+            <h3>4 · Generar el lexer con Maven</h3>
+            <p>Hay que abrir la ventana <strong>Maven</strong> (barra lateral <em>derecha</em>, ícono <code>m</code>) → <code>dataforge</code> → <strong>Lifecycle</strong> → doble clic en <strong><code>compile</code></strong>. Eso corre JFlex: aparece <code>target/generated-sources/jflex/…/Lexer.java</code> y IDEA lo marca como código generado automáticamente.</p>
+          </div>
+          <div class="card">
+            <h3>5 · Ejecutar</h3>
+            <p>Hay que abrir <code>TestLexer.java</code> → botón <strong>▶ verde</strong> junto a <code>main</code> → <strong>Run</strong>. La tabla de tokens sale en la pestaña Run de abajo.</p>
+          </div>
+          <div class="card">
+            <h3>6 · El ciclo de trabajo de aquí en adelante</h3>
+            <p>Cada vez que se edite <code>Lexer.flex</code>: <strong>compile</strong> en la ventana Maven (regenera el Lexer.java) → ▶ Run. Ese par de clics es el ciclo editar-probar.</p>
+          </div>
+        </div>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>Si ves…</th><th>Causa y arreglo</th></tr></thead>
+            <tbody>
+              <tr><td><code>Cannot resolve symbol 'Lexer'</code></td><td>Todavía no se generó: hay que correr <code>compile</code> en la ventana Maven. Si persiste, botón de recarga (🔄 <em>Reload All Maven Projects</em>) en esa misma ventana.</td></tr>
+              <tr><td><code>'Lexer' is not public … cannot be accessed from outside package</code></td><td>Falta la directiva <code>%public</code> en la sección 2 del <code>Lexer.flex</code> (JFlex genera la clase package-private por defecto, y <code>TestLexer</code> vive en otro paquete). Hay que agregarla debajo de <code>%class Lexer</code> y correr <code>compile</code> de nuevo.</td></tr>
+              <tr><td><code>FileNotFoundException: entradas\ejemplo1.df</code></td><td>El working directory no es la raíz del proyecto: <em>Run → Edit Configurations → Working directory</em> → carpeta <code>DataForge</code>.</td></tr>
+              <tr><td>El .flex se ve sin colores</td><td>Opcional: hay que instalar el plugin <strong>«JFlex Support»</strong> (Settings → Plugins) para resaltado de sintaxis.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- 10 · Puesta en marcha 1/2 -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">Puesta en marcha · Opción B: terminal</p>
+        <h2>Instalar las herramientas (una sola vez)</h2>
+        <p class="muted">Alternativa para quienes prefieran trabajar sin IDE — quienes usen IntelliJ IDEA (opción A, diapositivas anteriores) pueden saltarse estas dos.</p>
+        <p>El proyecto necesita <strong>JDK 17</strong> (Java moderno; tener Java 8 instalado no alcanza) y <strong>Maven</strong>. En Windows se instalan con dos comandos en PowerShell:</p>
+        <pre class="code"><span class="tk-sym"># 1. el JDK 17 (distribución Temurin, gratuita)</span>
+winget install EclipseAdoptium.Temurin.17.JDK
+
+<span class="tk-sym"># 2. Maven (el gestor de build)</span>
+winget install Apache.Maven</pre>
+        <div class="callout"><p><strong>Paso obligatorio:</strong> al terminar, <strong>hay que cerrar y volver a abrir la terminal</strong>. Los instaladores modifican el PATH, pero la terminal abierta sigue usando el viejo.</p></div>
+        <p>En la terminal nueva, hay que verificar que quedaron bien:</p>
+        <pre class="code">java -version    <span class="tk-sym"># debe decir: openjdk version "17.x..."</span>
+mvn -version     <span class="tk-sym"># debe decir: Apache Maven 3.x + Java version: 17</span></pre>
+        <p class="muted">Si <code class="inline">java -version</code> todavía dice <code class="inline">1.8</code>, hay que mirar la tabla de problemas de la siguiente diapositiva.</p>
+      </div>
+    </section>
+
+    <!-- 11 · Puesta en marcha 2/2 -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">Puesta en marcha · Opción B: terminal</p>
+        <h2>Correr el lexer desde la terminal</h2>
+        <p>Desde la carpeta del proyecto (la que tiene el <code class="inline">pom.xml</code>):</p>
+        <pre class="code">cd Desktop\Hades\DataForge
+mvn clean compile exec:java</pre>
+        <p>¿Qué está pasando ahí? <code class="inline">clean</code> borra lo generado antes · <code class="inline">compile</code> corre el plugin de JFlex (convierte <code class="inline">Lexer.flex</code> → <code class="inline">Lexer.java</code>) y compila todo · <code class="inline">exec:java</code> ejecuta <code class="inline">TestLexer</code>, que lee <code class="inline">entradas/ejemplo1.df</code> e imprime:</p>
+        <pre class="code">#    Lexema            Token              Línea  Columna
+--------------------------------------------------------------
+1    PROGRAM           PROGRAM            2      1
+2    var               VAR                4      5
+3    :                 DOS_PUNTOS         4      8
+4    double            DOUBLE             4      9
+5    ::                DOBLE_DOS_PUNTOS   4      15
+6    numero            ID                 4      18
+...</pre>
+        <p class="muted">La primera vez tarda: Maven descarga los plugins y dependencias a <code class="inline">~/.m2</code>. Las siguientes son rápidas. Para probar otro archivo: <code class="inline">mvn compile exec:java -Dexec.args="entradas/otro.df"</code></p>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>Si ves…</th><th>Causa y arreglo</th></tr></thead>
+            <tbody>
+              <tr><td><code>mvn no se reconoce…</code></td><td>Terminal vieja: hay que cerrarla y abrir una nueva.</td></tr>
+              <tr><td><code>java -version</code> sigue en <code>1.8</code></td><td>El Java 8 viejo va primero en el PATH. Hay que definir <code>JAVA_HOME</code> apuntando a la carpeta del JDK 17 (<code>C:\Program Files\Eclipse Adoptium\jdk-17...</code>) — Maven usa <code>JAVA_HOME</code>, así que con eso alcanza.</td></tr>
+              <tr><td><code>invalid target release: 17</code></td><td>Mismo problema: Maven está compilando con el Java 8. Hay que revisar <code>JAVA_HOME</code> y confirmar con <code>mvn -version</code>.</td></tr>
+              <tr><td><code>BUILD FAILURE</code> en el .flex</td><td>Error de sintaxis en <code>Lexer.flex</code> — el mensaje dice línea exacta. Compará con el archivo de referencia.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- 12 · Quiz parte 2 -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">Chequeo rápido · Parte 2</p>
+        <h2>Sobre el lexer real</h2>
+        <div class="quiz">
+          <div class="q">
+            <p class="question">1 · Si movieras la regla <code class="inline">{Id}</code> ARRIBA de las palabras reservadas, ¿qué token produciría <code class="inline">var</code>?</p>
+            <button type="button" onclick="this.parentElement.classList.add('revealed')">Revelar respuesta</button>
+            <div class="answer"><p><strong><code class="inline">ID</code>.</strong> Mismo largo de match (3) → gana la regla escrita primero. El lenguaje entero dejaría de tener palabras reservadas. Por eso el orden de las reglas ES parte del diseño.</p></div>
+          </div>
+          <div class="q">
+            <p class="question">2 · ¿Para qué escribimos <code class="inline">sym.java</code> a mano si CUP la va a generar en la Etapa 2?</p>
+            <button type="button" onclick="this.parentElement.classList.add('revealed')">Revelar respuesta</button>
+            <div class="answer"><p>Para poder <strong>compilar y probar el lexer HOY</strong> sin tener parser. El <code class="inline">Lexer.flex</code> ya quedó en su forma final (devuelve <code class="inline">Symbol</code> con constantes de <code class="inline">sym</code>); cuando CUP genere la clase real, borramos la temporal y nada más cambia.</p></div>
+          </div>
+          <div class="q">
+            <p class="question">3 · ¿Qué hace nuestro lexer si encuentra un <code class="inline">$</code> en el código fuente?</p>
+            <button type="button" onclick="this.parentElement.classList.add('revealed')">Revelar respuesta</button>
+            <div class="answer"><p>Cae en la última regla <code class="inline">[^]</code> (cualquier carácter no reconocido): se reporta como <strong>error léxico</strong> con línea y columna — «El carácter "$" no pertenece al lenguaje», exactamente el ejemplo de la tabla de errores del enunciado (§6.2) — y el análisis continúa.</p></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 11 · Cierre -->
+    <section class="slide">
+      <div class="inner titleslide">
+        <p class="eyebrow">Etapa 1 · construida</p>
+        <h1>Queda construido un analizador léxico</h1>
+        <p class="lead">Tabla de tokens → definiciones regulares → reglas JFlex → proyecto Maven que corre y muestra los tokens de cualquier <code class="inline">.df</code>. La primera capa del intérprete está viva.</p>
+        <p class="kicker">Próxima: <strong>Etapa 2 — la gramática BNF y el parser con CUP</strong> (la capa que valida el orden).<br><a class="btn" href="index.html" style="margin-top:14px">⌂ Volver al índice</a></p>
+      </div>
+    </section>
+
+  </div>
+
+  <div class="navbar">
+    <button id="prev" type="button">← Anterior</button>
+    <button id="next" type="button">Siguiente →</button>
+    <span class="hint">también se pueden usar las flechas del teclado</span>
+  </div>
+</div>
+
+<script src="assets/deck.js"></script>
+</body>
+</html>

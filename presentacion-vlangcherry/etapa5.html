@@ -1,0 +1,277 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Etapa 5 · Control de flujo y auditoría — VLangCherry</title>
+<link rel="stylesheet" href="assets/estilo.css">
+</head>
+<body>
+
+<div class="deck">
+  <div class="topbar">
+    <a class="brand" href="index.html" title="Volver al índice">VLang<em>Cherry</em> · curso guiado</a>
+    <span class="chip">Etapa 5 · Control de flujo</span>
+    <span class="counter"><span id="cur">1</span> / <span id="tot">?</span></span>
+    <button id="theme" type="button" title="Cambiar tema claro/oscuro" aria-label="Cambiar tema claro/oscuro">◐</button>
+  </div>
+  <div class="progress"><div id="bar"></div></div>
+
+  <div class="stage">
+
+    <!-- 1 · Intro -->
+    <section class="slide">
+      <div class="inner titleslide">
+        <p class="eyebrow">Etapa 5 · Parte 1</p>
+        <h1>Todo el control de flujo, y lo que casi se escapa de un análisis semántico</h1>
+        <p class="lead"><code class="inline">if/else if/else</code>, <code class="inline">switch</code> sin fall-through, tres formas de <code class="inline">for</code>, recursión — y una auditoría de código real (2026-07-21) que encontró y corrigió cuatro problemas de validación semántica en esta misma zona del intérprete.</p>
+      </div>
+    </section>
+
+    <!-- 2 · if/else -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">Ejemplo real — <code class="inline">entradas/ejemplo4_control.vch</code></p>
+        <h2><code class="inline">if / else if / else</code></h2>
+        <pre class="code">func clasificar(n int) string {
+    if n &lt; 0 {
+        return "negativo"
+    } else if n == 0 {
+        return "cero"
+    } else {
+        return "positivo"
+    }
+}</pre>
+        <p>Gramática (Etapa 1): <code class="inline">'if' expr bloque ('else' 'if' expr bloque)* ('else' bloque)?</code>. La condición de cada rama debe evaluar a <code class="inline">bool</code> — el intérprete reporta error semántico si no (retomado en la diapositiva de la auditoría).</p>
+      </div>
+    </section>
+
+    <!-- 3 · switch -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">Ejemplo real — <code class="inline">entradas/ejemplo4_control.vch</code></p>
+        <h2><code class="inline">switch</code> sin fall-through</h2>
+        <pre class="code">mut dia := 3
+switch dia {
+case 1:
+    print("lunes")
+case 2:
+    print("martes")
+case 3:
+    print("miercoles")
+default:
+    print("otro dia")
+}</pre>
+        <div class="callout"><p><strong>Diferencia real con CompInterpreter (OLC1, Jison):</strong> la sección 4.7.2 del enunciado indica explícitamente que "el break implícito está incluido al final de cada case". Es una decisión de diseño del lenguaje V-Lang Cherry, no una limitación: no hay fall-through entre casos, a diferencia de otro lenguaje del curso que sí lo implementa. Dos lenguajes distintos, semántica de switch distinta a propósito.</p></div>
+      </div>
+    </section>
+
+    <!-- 4 · for -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">Tres formas de <code class="inline">for</code>, una sola sentencia</p>
+        <h2><code class="inline">for</code>: condición, clásico y rango</h2>
+        <pre class="code">sentenciaFor
+    : 'for' expr bloque                                        # forCondicion
+    | 'for' forInit? ';' expr? ';' forActualizacion? bloque     # forClasico
+    | 'for' ID ',' ID 'in' expr bloque                          # forRango
+    ;</pre>
+        <pre class="code">mut i := 0
+for i &lt; 5 {                    // forCondicion: equivalente a "while"
+    print("while-like:", i)
+    i++
+}
+
+for j := 0; j &lt; 100; j++ {      // forClasico
+    if j == 3 { break }
+    print("clasico:", j)
+}
+
+for _, v in valores {           // forRango: indice, valor
+    if v % 2 == 0 { continue }
+    print("impar:", v)
+}</pre>
+        <p>Las tres alternativas etiquetadas (<code class="inline">#forCondicion</code>, <code class="inline">#forClasico</code>, <code class="inline">#forRango</code>) generan, otra vez, tipos de contexto Go distintos — el traductor (Etapa 2) las distingue con su <code class="inline">type-switch</code> igual que hace con <code class="inline">expr</code>.</p>
+      </div>
+    </section>
+
+    <!-- 5 · Recursión -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">Ejemplo real — <code class="inline">entradas/ejemplo5_funciones.vch</code></p>
+        <h2>Recursión y llamada hacia adelante</h2>
+        <pre class="code">func main() {
+    // llamada a una funcion declarada MAS ABAJO en el archivo
+    print("factorial(5) =", factorial(5))
+    print("fibonacci(8) =", fibonacci(8))
+}
+
+func factorial(n int) int {
+    if n &lt;= 1 { return 1 }
+    return n * factorial(n - 1)
+}
+
+func fibonacci(n int) int {
+    if n &lt; 2 { return n }
+    return fibonacci(n - 1) + fibonacci(n - 2)
+}</pre>
+        <p><code class="inline">main</code> llama a <code class="inline">factorial</code>, declarada más abajo en el archivo — funciona porque el intérprete de dos pasadas (Etapa 0, retomada en la próxima diapositiva) ya registró <strong>todas</strong> las funciones antes de ejecutar el cuerpo de ninguna. <code class="inline">factorial</code> y <code class="inline">fibonacci</code> se llaman a sí mismas: cada invocación crea su propio entorno local (<code class="inline">NuevoEntorno</code>), con <code class="inline">n</code> resuelto en la cadena de entornos correcta.</p>
+      </div>
+    </section>
+
+    <!-- 6 · profLoop/profSwitch -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">Cómo se rastrea "estar dentro de un ciclo o switch"</p>
+        <h2>Dos contadores: <code class="inline">profLoop</code> y <code class="inline">profSwitch</code></h2>
+        <pre class="code">// profLoop/profSwitch cuentan cuantos "for"/"switch" anidados rodean la
+// sentencia que se esta ejecutando ahora mismo (4.8.1/4.8.2: break solo
+// es valido dentro de un ciclo o un switch, continue solo dentro de un
+// ciclo). invocarFuncion los resetea a 0 al entrar a una funcion/metodo
+// nuevo, para que un break/continue "perdido" en el cuerpo de una funcion
+// llamada desde dentro de un ciclo no "herede" el contexto del llamador.
+profLoop   int
+profSwitch int</pre>
+        <p>Antes de ejecutar el cuerpo de un <code class="inline">for</code>, se incrementa <code class="inline">profLoop</code>; antes de un <code class="inline">switch</code>, <code class="inline">profSwitch</code>. Al invocar una función, ambos se guardan y se resetean a 0, y se restauran al volver — así un <code class="inline">break</code> dentro de una función invocada desde un <code class="inline">for</code> no se vuelve válido "por herencia" del contexto del llamador.</p>
+      </div>
+    </section>
+
+    <!-- 7 · Auditoría intro -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">Caso de estudio: auditoría de código real, 2026-07-21</p>
+        <h2>Cuatro correcciones de validación semántica</h2>
+        <p>Este mismo tramo del intérprete (control de flujo y declaración global) pasó por una auditoría que encontró cuatro casos donde el análisis semántico era incompleto o inconsistente frente al enunciado. Ninguno rompía los ejemplos existentes — por eso pasaron desapercibidos hasta revisarlos a propósito.</p>
+        <div class="callout"><p><strong>Por qué importa para la defensa oral:</strong> son ejemplos concretos de la diferencia entre "el programa corre" y "el programa valida lo que el enunciado exige validar" — un análisis semántico incompleto puede dejar pasar silenciosamente errores que sí deberían reportarse (sección 8.1).</p></div>
+      </div>
+    </section>
+
+    <!-- 8 · Fix 1: break/continue -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">Hallazgo 1 de 4</p>
+        <h2><code class="inline">break</code>/<code class="inline">continue</code> fuera de ciclo o switch</h2>
+        <p>El enunciado (4.8.1/4.8.2) exige reportar error si <code class="inline">break</code> aparece fuera de un ciclo o switch, o si <code class="inline">continue</code> aparece fuera de un ciclo — antes de la corrección, este caso no se detectaba. Ahora <code class="inline">profLoop</code>/<code class="inline">profSwitch</code> (diapositiva anterior) lo validan directamente:</p>
+        <pre class="code">case *ast.SentenciaBreak:
+    // 4.8.1: "la sentencia break solo se puede usar dentro de un bucle
+    // (for) o un switch... si se encuentra fuera se considerara un error".
+    if in.profLoop == 0 &amp;&amp; in.profSwitch == 0 {
+        in.errorSemantico("la sentencia \"break\" no puede usarse fuera de un ciclo o un switch", n.Linea, n.Columna)
+        return Senal{Tipo: SenalNinguna}
+    }</pre>
+        <p class="muted">Fuente: <code class="inline">internal/runtime/interprete.go</code>.</p>
+      </div>
+    </section>
+
+    <!-- 9 · Fix 2: comparación de strings -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">Hallazgo 2 de 4</p>
+        <h2>Comparación relacional (<code class="inline">&lt;</code>, <code class="inline">&lt;=</code>, …) entre strings</h2>
+        <p>La sección 4.4 dice, en general, que "los operandos pueden ser numéricos, Strings o lógicos" para las comparaciones, y la 4.4.1 agrega que "las comparaciones entre cadenas se hacen lexicográficamente" — una nota que, pese a aparecer bajo el título de igualdad/desigualdad, describe un criterio de <strong>orden</strong>, no de igualdad. Faltaba aplicarlo también a los operadores relacionales:</p>
+        <pre class="code">func Relacional(op string, a, b Valor) (Valor, error) {
+    var cmp int
+    switch {
+    case EsNumerico(a.Tipo) &amp;&amp; EsNumerico(b.Tipo):
+        fa, fb := aFloat(a), aFloat(b)
+        cmp = compararFloats(fa, fb)
+    case a.Tipo.Base == TRune &amp;&amp; b.Tipo.Base == TRune:
+        cmp = int(a.R) - int(b.R)
+    case a.Tipo.Base == TString &amp;&amp; b.Tipo.Base == TString:
+        cmp = strings.Compare(a.S, b.S)
+    default:
+        return Valor{}, fmt.Errorf("no se puede comparar (%s) entre %s y %s", op, a.Tipo, b.Tipo)
+    }
+    // ...
+}</pre>
+        <p class="muted">Fuente: <code class="inline">internal/runtime/operaciones.go</code>, función <code class="inline">Relacional</code>. Este es el punto 8 de <code class="inline">docs/gramatica.txt</code> (decisiones de diseño).</p>
+      </div>
+    </section>
+
+    <!-- 10 · Fix 3: colisión de nombres -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">Hallazgo 3 de 4</p>
+        <h2>Colisión de nombres en ámbito global (7.1)</h2>
+        <p>El enunciado exige que función, variable y struct no compartan nombre en el ámbito global. Faltaba validar la colisión entre las tres categorías — no solo la redeclaración dentro de la misma categoría:</p>
+        <pre class="code">// una variable global no puede llamarse igual que un struct o funcion ya
+// registrados (7.1: "no podra existir una funcion, variable o struct con el
+// mismo nombre") - los structs y funciones ya estan completamente
+// registrados quando esto corre (dos pasadas).
+if _, existe := in.global.Structs[n.Nombre]; existe {
+    in.errorSemantico("el nombre \""+n.Nombre+"\" ya está en uso por un struct", n.Linea, n.Columna)
+}
+if _, existe := in.global.Funciones[n.Nombre]; existe {
+    in.errorSemantico("el nombre \""+n.Nombre+"\" ya está en uso por una función", n.Linea, n.Columna)
+}</pre>
+        <p class="muted">Fuente: <code class="inline">internal/runtime/interprete.go</code>. Simétricamente, al registrar una función se valida que su nombre no coincida con un struct ya registrado.</p>
+      </div>
+    </section>
+
+    <!-- 11 · Fix 4: switch silencioso -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">Hallazgo 4 de 4</p>
+        <h2>El <code class="inline">switch</code> que silenciaba errores de tipo</h2>
+        <p>Al comparar la expresión del <code class="inline">switch</code> contra cada <code class="inline">case</code>, una combinación de tipos inválida (por ejemplo comparar un <code class="inline">int</code> contra un <code class="inline">struct</code>) se descartaba en silencio, como si el caso simplemente no coincidiera — inconsistente con cómo <code class="inline">==</code> reporta ese mismo error fuera de un <code class="inline">switch</code>:</p>
+        <pre class="code">igual, err := valoresIguales(val, cv)
+if err != nil {
+    // 4.4.1: "cualquier otra combinacion sera invalida y se debera
+    // reportar el error" - antes este caso se descartaba en silencio
+    // (como si simplemente no coincidiera), inconsistente con como
+    // evaluarBinaria reporta el mismo error para == fuera de un switch.
+    l, c := caso.Valor.Pos()
+    in.errorSemantico(err.Error(), l, c)
+    continue
+}</pre>
+        <p class="muted">Fuente: <code class="inline">internal/runtime/interprete.go</code>, función <code class="inline">ejecutarSwitch</code>.</p>
+      </div>
+    </section>
+
+    <!-- 12 · Quiz -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">Chequeo rápido</p>
+        <h2>Sobre control de flujo, recursión y la auditoría</h2>
+        <div class="quiz">
+          <div class="q">
+            <p class="question">1 · ¿Por qué <code class="inline">factorial</code> puede invocarse desde <code class="inline">main</code> aunque se declara más abajo en el archivo?</p>
+            <button type="button" onclick="this.parentElement.classList.add('revealed')">Revelar respuesta</button>
+            <div class="answer"><p>Por el intérprete de dos pasadas: TODAS las funciones se registran en <code class="inline">global.Funciones</code> antes de ejecutar el cuerpo de ninguna. Para cuando <code class="inline">main()</code> corre, <code class="inline">factorial</code> ya está disponible.</p></div>
+          </div>
+          <div class="q">
+            <p class="question">2 · Un <code class="inline">break</code> dentro de una función <code class="inline">f()</code>, invocada desde dentro de un <code class="inline">for</code> en <code class="inline">main</code>, ¿es válido?</p>
+            <button type="button" onclick="this.parentElement.classList.add('revealed')">Revelar respuesta</button>
+            <div class="answer"><p>No, es un error semántico. <code class="inline">invocarFuncion</code> resetea <code class="inline">profLoop</code>/<code class="inline">profSwitch</code> a 0 al entrar a <code class="inline">f()</code> — el <code class="inline">for</code> del llamador no cuenta como contexto válido dentro del cuerpo de la función invocada.</p></div>
+          </div>
+          <div class="q">
+            <p class="question">3 · ¿Qué tienen en común los 4 hallazgos de la auditoría?</p>
+            <button type="button" onclick="this.parentElement.classList.add('revealed')">Revelar respuesta</button>
+            <div class="answer"><p>Los cuatro son casos donde el análisis semántico dejaba pasar (o descartaba en silencio) algo que el enunciado exige reportar como error: <code class="inline">break</code>/<code class="inline">continue</code> fuera de contexto (4.8), comparación relacional de strings (4.4.1), colisión de nombres global (7.1) y errores de tipo en casos de <code class="inline">switch</code> (4.4.1). Ninguno es un fallo de ejecución — todos son huecos de validación.</p></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 13 · Cierre -->
+    <section class="slide">
+      <div class="inner titleslide">
+        <p class="eyebrow">Etapa 5 · construida</p>
+        <h1>El control de flujo queda completo, y mejor validado</h1>
+        <p class="lead">If/else, switch sin fall-through, tres formas de for, recursión con llamadas hacia adelante — y cuatro correcciones reales de validación semántica que cierran huecos frente al enunciado sin cambiar el comportamiento de los ejemplos que ya funcionaban.</p>
+        <p class="kicker">Próxima: <strong>Etapa 6 — el servidor REST con <code>net/http</code></strong>.<br><a class="btn" href="index.html" style="margin-top:14px">⌂ Volver al índice</a></p>
+      </div>
+    </section>
+
+  </div>
+
+  <div class="navbar">
+    <button id="prev" type="button">← Anterior</button>
+    <button id="next" type="button">Siguiente →</button>
+    <span class="hint">también se pueden usar las flechas del teclado</span>
+  </div>
+</div>
+
+<script src="assets/deck.js"></script>
+</body>
+</html>

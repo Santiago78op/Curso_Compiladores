@@ -1,0 +1,163 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Etapa 4 · Tabla de símbolos y ámbitos — CompScript</title>
+<link rel="stylesheet" href="assets/estilo.css">
+</head>
+<body>
+
+<div class="deck">
+  <div class="topbar">
+    <a class="brand" href="index.html" title="Volver al índice">Comp<em>Script</em> · curso guiado</a>
+    <span class="chip">Etapa 4 · Tabla de símbolos</span>
+    <span class="counter"><span id="cur">1</span> / <span id="tot">?</span></span>
+    <button id="theme" type="button" title="Cambiar tema claro/oscuro" aria-label="Cambiar tema claro/oscuro">◐</button>
+  </div>
+  <div class="progress"><div id="bar"></div></div>
+
+  <div class="stage">
+
+    <!-- 1 · Intro -->
+    <section class="slide">
+      <div class="inner titleslide">
+        <p class="eyebrow">Etapa 4 · Parte 1</p>
+        <h1><code class="inline" style="font-size:.7em">Contexto</code> y <code class="inline" style="font-size:.7em">Entorno</code>: dos objetos, dos responsabilidades</h1>
+        <p class="lead">DataForge tenía un único <code class="inline">Entorno</code> con un solo mapa de símbolos, porque no hay bloques anidados ni funciones. CompScript necesita algo más: una <strong>pila de ámbitos enlazados</strong> — porque cada <code class="inline">if</code>, cada ciclo y cada llamada a función abre su propio espacio de nombres.</p>
+        <p class="kicker">Fuente: <code class="inline">interprete/Contexto.java</code>, <code class="inline">interprete/Entorno.java</code>.</p>
+      </div>
+    </section>
+
+    <!-- 2 · Contexto -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">Lo único, compartido por toda la ejecución</p>
+        <h2><code class="inline">Contexto</code>: el estado global de una corrida</h2>
+        <p>Se instancia UNA vez por llamada a <code class="inline">Interprete.ejecutar(...)</code> — igual que el <code class="inline">Entorno</code> fresco de DataForge, garantiza que cada ejecución parta de cero:</p>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>Campo de <code>Contexto</code></th><th>Para qué se usa</th></tr></thead>
+            <tbody>
+              <tr><td><code>StringBuilder consola</code></td><td>acumula la salida de <code class="inline">console.log</code></td></tr>
+              <tr><td><code>List&lt;RegistroError&gt; errores</code></td><td>los 3 tipos de error, con línea y columna — reporte 6.2</td></tr>
+              <tr><td><code>List&lt;Object[]&gt; tokens</code></td><td>todos los tokens reconocidos — reporte 6.1</td></tr>
+              <tr><td><code>List&lt;Simbolo&gt; simbolos</code></td><td>registro PLANO de cada símbolo alguna vez declarado — reporte 6.4</td></tr>
+              <tr><td><code>funciones</code> / <code>structs</code></td><td>mapas <code>LinkedHashMap</code> registrados en la 1ª pasada (Etapa 6)</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- 3 · Entorno -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">Lo que SÍ se anida</p>
+        <h2><code class="inline">Entorno</code>: un ámbito, con un padre</h2>
+        <pre class="code"><span class="tk-res">public class</span> Entorno {
+    <span class="tk-res">public final</span> Contexto contexto;
+    <span class="tk-res">public final</span> Entorno padre;             <span class="tk-sym">// null = entorno global</span>
+    <span class="tk-res">private final</span> LinkedHashMap&lt;String, Simbolo&gt; tabla = <span class="tk-res">new</span> LinkedHashMap&lt;&gt;();
+
+    <span class="tk-res">public</span> Entorno crearHijo(String nombre) {
+        <span class="tk-res">return new</span> Entorno(contexto, <span class="tk-res">this</span>, nombre);
+    }
+    <span class="tk-res">public</span> Simbolo buscar(String id) {
+        <span class="tk-res">for</span> (Entorno e = <span class="tk-res">this</span>; e != <span class="tk-res">null</span>; e = e.padre) {
+            <span class="tk-sym">// busca en e.tabla; si no esta, sube a e.padre</span>
+        }
+    }
+}</pre>
+        <p><strong>Un</strong> <code class="inline">Contexto</code> por ejecución, pero <strong>muchos</strong> <code class="inline">Entorno</code>: cada <code class="inline">if</code>, <code class="inline">while</code>, <code class="inline">for</code>, <code class="inline">match</code>, cuerpo de función crea un hijo con <code class="inline">e.crearHijo("nombre")</code>. <code class="inline">buscar()</code> sube por la cadena de padres hasta encontrar el identificador o llegar al ámbito global — <strong>alcance estático anidado</strong>, tal como lo describe el Dragón (§2.7, entornos y ámbitos).</p>
+      </div>
+    </section>
+
+    <!-- 4 · Registro de activación -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">La decisión de diseño más importante de este capítulo</p>
+        <h2>¿De quién cuelga el entorno de una función?</h2>
+        <pre class="code"><span class="tk-sym">// A.invocar(...) — el entorno de la funcion SIEMPRE cuelga del global:</span>
+Entorno local = ctx.global.crearHijo(f.id);   <span class="tk-sym">// NO: caller.crearHijo(f.id)</span></pre>
+        <p>Cada llamada a función crea un <strong>nuevo registro de activación</strong> ([[Registro de activación y pila de control]], Dragón cap. 7) cuyo padre es siempre el entorno global — nunca el entorno de quien la invoca. Esto es lo que hace que CompScript tenga <strong>alcance estático</strong>: una función no ve las variables locales de quien la llama, sin importar desde dónde se invoque.</p>
+        <div class="callout"><p><strong>Error común documentado:</strong> si por accidente se cuelga del entorno del invocador (<code class="inline">caller.crearHijo(...)</code>), las funciones dejarían de tener alcance estático y empezarían a ver variables locales de quien las invoca — el clásico bug de <em>dynamic scoping</em> no deseado.</p></div>
+      </div>
+    </section>
+
+    <!-- 5 · Tipo con igualdad estructural -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">Comprobación de tipos para tipos compuestos</p>
+        <h2><code class="inline">Tipo</code>: igualdad estructural, no solo por nombre</h2>
+        <pre class="code"><span class="tk-res">enum</span> Cat { INT, DOUBLE, BOOL, CHAR, STRING, VOID, NULL, VECTOR, LIST, STRUCT }</pre>
+        <p>Para los tipos primitivos, comparar es trivial. Pero <code class="inline">Tipo</code> también modela vectores (con <code class="inline">elemento</code> y <code class="inline">dimensiones</code>) y structs (con <code class="inline">structName</code>), e implementa <code class="inline">equals()</code> con <strong>igualdad estructural</strong>: dos vectores son el mismo tipo si tienen igual elemento base y dimensiones; dos structs, si comparten el mismo nombre declarado. Esto permite validar, por ejemplo, que <code class="inline">int[][]</code> no se pueda asignar donde se espera <code class="inline">int[]</code>.</p>
+      </div>
+    </section>
+
+    <!-- 6 · Simbolo y el reporte 6.4 -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">Una decisión que sorprende la primera vez</p>
+        <h2>La tabla de símbolos del reporte NO es el estado final</h2>
+        <p><code class="inline">Simbolo</code> guarda nombre, categoría (<code class="inline">Variable</code>/<code class="inline">Vector</code>/<code class="inline">Lista</code>/<code class="inline">Struct</code>), tipo, mutabilidad (<code class="inline">let</code> vs. <code class="inline">const</code>), ámbito, valor y posición. <code class="inline">ctx.simbolos</code> es un registro <strong>histórico acumulativo</strong>: cada vez que <code class="inline">e.declarar(...)</code> registra una variable, se agrega una entrada nueva — nunca se sobrescribe ni se limpia.</p>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>Caso real</th><th>Lo que muestra el reporte 6.4</th></tr></thead>
+            <tbody>
+              <tr><td><code>ejemplo2.cs</code> — <code>clasificar()</code> llamada 3 veces</td><td><code>n</code> y <code>r</code> aparecen re-declarados en CADA invocación (ámbito distinto por llamada)</td></tr>
+              <tr><td><code>ejemplo5.cs</code> — <code>fib(10)</code> recursivo</td><td><strong>186 entradas</strong> para el parámetro <code>n</code>, una por cada activación recursiva de <code>fib</code></td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="callout"><p><strong>Por qué es un log y no un snapshot:</strong> es evidencia directa de que cada llamada a función — recursiva o no — crea su propio <code class="inline">Entorno</code> hijo, con su propia copia de cada parámetro. El reporte no muestra "el valor final de <code class="inline">n</code>"; muestra la historia completa de cuántas veces se declaró.</p></div>
+      </div>
+    </section>
+
+    <!-- 7 · Quiz -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">Chequeo rápido</p>
+        <h2>Sobre ámbitos y símbolos</h2>
+        <div class="quiz">
+          <div class="q">
+            <p class="question">1 · ¿Por qué DataForge no necesitaba una pila de <code class="inline">Entorno</code>s como CompScript?</p>
+            <button type="button" onclick="this.parentElement.classList.add('revealed')">Revelar respuesta</button>
+            <div class="answer"><p>Porque DataForge no tiene bloques anidados ni funciones: todas sus variables viven en un único ámbito plano. CompScript, con <code class="inline">if</code>/ciclos/funciones, necesita que cada uno de esos bloques pueda declarar variables propias sin chocar con las de afuera — de ahí la cadena de padres.</p></div>
+          </div>
+          <div class="q">
+            <p class="question">2 · Si <code class="inline">fibonacci(n=10)</code> hace 177 llamadas recursivas, ¿cuántos <code class="inline">Entorno</code>s distintos existieron durante esa ejecución (aproximadamente)?</p>
+            <button type="button" onclick="this.parentElement.classList.add('revealed')">Revelar respuesta</button>
+            <div class="answer"><p>Uno por cada llamada — cada invocación de <code class="inline">fib</code> crea su propio <code class="inline">Entorno</code> hijo del global vía <code class="inline">ctx.global.crearHijo("fib")</code>. Esto coincide con las 186 entradas de <code class="inline">n</code> que aparecen en el reporte de símbolos de <code class="inline">ejemplo5.cs</code>.</p></div>
+          </div>
+          <div class="q">
+            <p class="question">3 · ¿Qué pasaría si el entorno de una función colgara del entorno del llamador en vez del global?</p>
+            <button type="button" onclick="this.parentElement.classList.add('revealed')">Revelar respuesta</button>
+            <div class="answer"><p>La función podría ver (y potencialmente modificar) variables locales de quien la invoca — <em>dynamic scoping</em> en vez de <em>static scoping</em>. Rompería el modelo mental esperado de un lenguaje con bloques: una función debería depender solo de sus parámetros y del ámbito global, nunca de dónde fue llamada.</p></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 8 · Cierre -->
+    <section class="slide">
+      <div class="inner titleslide">
+        <p class="eyebrow">Etapa 4 · construida</p>
+        <h1>Queda construida la pila de ámbitos</h1>
+        <p class="lead"><code class="inline">Contexto</code> (uno por ejecución, estado global) + <code class="inline">Entorno</code> (una cadena de ámbitos enlazados, uno por bloque/función) implementan alcance estático anidado. El entorno de una función cuelga siempre del global, nunca del invocador.</p>
+        <p class="kicker">Próxima: <strong>Etapa 5 — flujo de control</strong>: cómo <code class="inline">if</code>/<code class="inline">while</code>/<code class="inline">for</code> aprovechan que el árbol se puede recorrer más de una vez.<br><a class="btn" href="index.html" style="margin-top:14px">⌂ Volver al índice</a></p>
+      </div>
+    </section>
+
+  </div>
+
+  <div class="navbar">
+    <button id="prev" type="button">← Anterior</button>
+    <button id="next" type="button">Siguiente →</button>
+    <span class="hint">también se pueden usar las flechas del teclado</span>
+  </div>
+</div>
+
+<script src="assets/deck.js"></script>
+</body>
+</html>

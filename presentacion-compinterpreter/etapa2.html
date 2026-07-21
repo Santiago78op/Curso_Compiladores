@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Etapa 2 · El parser y el AST — CompInterpreter</title>
+<link rel="stylesheet" href="assets/estilo.css">
+</head>
+<body>
+
+<div class="deck">
+  <div class="topbar">
+    <a class="brand" href="index.html" title="Volver al índice">Comp<em>Interpreter</em> · curso guiado</a>
+    <span class="chip">Etapa 2 · El parser y el AST</span>
+    <span class="counter"><span id="cur">1</span> / <span id="tot">?</span></span>
+    <button id="theme" type="button" title="Cambiar tema claro/oscuro" aria-label="Cambiar tema claro/oscuro">◐</button>
+  </div>
+  <div class="progress"><div id="bar"></div></div>
+
+  <div class="stage">
+
+    <!-- 1 · Intro -->
+    <section class="slide">
+      <div class="inner titleslide">
+        <p class="eyebrow">Etapa 2 · Parte 1</p>
+        <h1>De la secuencia de tokens al árbol</h1>
+        <p class="lead">La segunda mitad de <code class="inline">grammar.jison</code> (después del <code class="inline">%%</code>) declara la gramática de producciones. Es LALR(1), igual clase de analizador que CUP — la diferencia frente a DataForge no está en la teoría, está en que acá cada producción construye explícitamente un nodo de árbol en vez de ejecutar la instrucción de una vez.</p>
+      </div>
+    </section>
+
+    <!-- 2 · Precedencia declarada -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">Resolviendo ambigüedad antes de escribir una sola producción</p>
+        <h2>La tabla 5.10 del enunciado, en directivas de Jison</h2>
+        <pre class="code"><span class="tk-sym">/* de MENOR a MAYOR precedencia — asi las declara Jison */</span>
+%right IF DOSPUNTOS          <span class="tk-sym">/* ternario: mas bajo que todo */</span>
+%left OR                     <span class="tk-sym">/* nivel 7 */</span>
+%left AND                    <span class="tk-sym">/* nivel 6 */</span>
+%right NOT                   <span class="tk-sym">/* nivel 5 */</span>
+%left IGUAL DIFERENTE MENOR MENORIGUAL MAYOR MAYORIGUAL IS   <span class="tk-sym">/* nivel 4 */</span>
+%left MAS MENOS              <span class="tk-sym">/* nivel 3 */</span>
+%left POR DIV MODULO         <span class="tk-sym">/* nivel 2 */</span>
+%nonassoc POTENCIA RAIZ      <span class="tk-sym">/* nivel 1 */</span>
+%right UMINUS                <span class="tk-sym">/* nivel 0: la mas alta */</span></pre>
+        <p>Coincide, nivel por nivel, con la tabla de precedencia del enunciado (sección 5.10). <code class="inline">%nonassoc</code> en potencia/raíz es la forma en que Jison expresa la nota del enunciado de que <strong>no son asociativos</strong>: <code class="inline">2^3^2</code> sin paréntesis es directamente un error de gramática, no una ambigüedad que se resuelve a la izquierda o a la derecha.</p>
+        <div class="callout"><p><strong>Ojo con el entregable:</strong> esta tabla de precedencia es un mecanismo de la herramienta Jison, no forma parte de la gramática BNF que exige el enunciado (sección 8, «no debe ser una copia del archivo de Jison»). Por eso <code class="inline">docs/gramatica.txt</code> reescribe las expresiones en <strong>capas</strong> (<code class="inline">expresion-or → expresion-and → ... → expresion-unaria</code>) para quedar libre de ambigüedad por construcción, sin usar <code class="inline">%left</code>/<code class="inline">%right</code>. Ver la profundización ★ para el paralelo completo.</p></div>
+      </div>
+    </section>
+
+    <!-- 3 · La fábrica de nodos -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">La pieza que hace posible un AST genérico</p>
+        <h2>Una sola función construye cualquier nodo</h2>
+        <pre class="code"><span class="tk-sym">/* codigo de soporte, al final de grammar.jison */</span>
+function nodo(tipo, props, loc) {
+  var n = { tipo: tipo };
+  if (props) { for (var k in props) { if (props.hasOwnProperty(k)) n[k] = props[k]; } }
+  if (loc) { n.linea = loc.first_line; n.columna = loc.first_column + 1; }
+  return n;
+}</pre>
+        <p>Todo nodo del árbol, sin excepción, tiene la propiedad <code class="inline">tipo</code> (una cadena: <code class="inline">'IF'</code>, <code class="inline">'BINARIA'</code>, <code class="inline">'LLAMADA'</code>...), y casi todos tienen <code class="inline">linea</code>/<code class="inline">columna</code> (usadas por el reporte de errores). El resto de las propiedades depende de la producción.</p>
+        <pre class="code"><span class="tk-sym">// una asignacion binaria real, tal como la arma el parser</span>
+expresion : expresion MAS expresion
+    { $$ = nodo('BINARIA', { op: '+', izq: $1, der: $3 }, @2); }
+    ;
+
+<span class="tk-sym">// el nodo IF, con su cadena opcional de else-if</span>
+if_stmt : IF PARIZQ expresion PARDER bloque ELSE if_stmt
+    { $$ = nodo('IF', { cond: $3, entonces: $5, sino: [$7] }, @1); }
+    ;</pre>
+        <div class="callout"><p><strong>Por qué importa esta uniformidad:</strong> el módulo que dibuja el AST como grafo (Etapa 6) recorre cualquier nodo sin conocer de antemano sus tipos — le basta con la convención <code class="inline">{ tipo, ... }</code>. Agregar una construcción nueva al lenguaje nunca obliga a tocar el código de visualización.</p></div>
+      </div>
+    </section>
+
+    <!-- 4 · Extensión propia documentada -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">Una decisión de diseño anotada en el propio código</p>
+        <h2>Inicializar un vector con el resultado de una nativa</h2>
+        <p>El enunciado (5.15.1) solo contempla dos formas de inicializar un vector: <code class="inline">new vector tipo[n]</code> o una lista literal <code class="inline">[1, 2, 3]</code>. Pero varias funciones nativas —<code class="inline">reverse</code>, <code class="inline">toCharArray</code>— devuelven precisamente un vector, y se necesita poder guardar ese resultado:</p>
+        <pre class="code">let v: int[] = reverse(otro);   <span class="tk-sym">// no aparece literal en 5.15.1</span></pre>
+        <p>La gramática agrega una tercera alternativa, documentada en el propio archivo como extensión propia:</p>
+        <pre class="code">vector_init1
+    : NEW VECTOR tipo CORIZQ expresion CORDER
+        { $$ = nodo('VECTOR_NEW', { tipoBase: $3, tam: $5 }, @1); }
+    | CORIZQ lista_expresiones CORDER
+        { $$ = nodo('VECTOR_LISTA', { valores: $2 }, @1); }
+    | expresion
+        { $$ = nodo('VECTOR_EXPR', { expr: $1 }, @1); }
+    ;</pre>
+        <p class="muted">Sin conflicto de gramática: una <code class="inline">expresion</code> nunca empieza con <code class="inline">NEW</code> ni con <code class="inline">CORIZQ</code> en las posiciones donde estas tres alternativas compiten, así que el parser LALR(1) puede decidir con un solo token de anticipación cuál regla aplica.</p>
+      </div>
+    </section>
+
+    <!-- 5 · Recuperación sintáctica -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">Modo pánico, versión Jison</p>
+        <h2>La producción <code>error</code> no detiene todo el análisis</h2>
+        <pre class="code">elemento_global
+    : declaracion PUNTOCOMA          { $$ = $1; }
+    | funcion                        { $$ = $1; }
+    | ejecutar_stmt                  { $$ = $1; }
+    | error PUNTOCOMA                { $$ = nodo('ERROR', {}); }
+    ;</pre>
+        <p>Igual que <code class="inline">instruccion ::= error PUNTOCOMA</code> en el <code class="inline">.cup</code> de DataForge: cuando el parser no puede continuar con las reglas normales, la producción especial <code class="inline">error</code> descarta tokens hasta encontrar el punto de sincronización (<code class="inline">;</code>) y sigue analizando el resto del archivo desde ahí, en vez de abortar en el primer error sintáctico.</p>
+        <div class="callout"><p><strong>Los errores no se pierden en el camino:</strong> <code class="inline">parser.yy.parseError</code> (ver Etapa 5) registra la descripción del error en el arreglo compartido <strong>antes</strong> de que la recuperación entre en juego, así que el reporte final los conserva todos aunque el parseo termine relanzando una excepción no recuperable.</p></div>
+      </div>
+    </section>
+
+    <!-- 6 · Verificación real -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">Verificado con un caso real del proyecto</p>
+        <h2>106 nodos, 105 aristas — un árbol de verdad</h2>
+        <p>Corriendo <code class="inline">analizar()</code> sobre <code class="inline">entradas/ejemplo_vectores2d.ci</code> (vectores de una y dos dimensiones, con <code class="inline">reverse</code>/<code class="inline">max</code>/<code class="inline">min</code>/<code class="inline">sum</code>/<code class="inline">average</code>), el AST resultante tiene <strong>106 nodos y 105 aristas</strong>: exactamente <code class="inline">nodos − 1</code>, la propiedad que cualquier árbol (sin ciclos) debe cumplir.</p>
+        <pre class="code">Nodos: 106
+Aristas: 105
+Errores: 0</pre>
+        <p class="muted">Esta verificación aritmética simple (aristas = nodos − 1) es una forma barata de confirmar que la fábrica de nodos y el recorrido del grafo (Etapa 6) están construyendo un árbol y no, por error de alguna referencia compartida, un grafo con ciclos.</p>
+      </div>
+    </section>
+
+    <!-- 7 · Quiz -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">Chequeo rápido</p>
+        <h2>Sobre el parser y el AST</h2>
+        <div class="quiz">
+          <div class="q">
+            <p class="question">1 · ¿Por qué <code class="inline">POTENCIA</code> y <code class="inline">RAIZ</code> se declaran con <code class="inline">%nonassoc</code> en vez de <code class="inline">%left</code> o <code class="inline">%right</code>?</p>
+            <button type="button" onclick="this.parentElement.classList.add('revealed')">Revelar respuesta</button>
+            <div class="answer"><p>Porque el enunciado (5.10) indica que no son asociativos: encadenar dos veces seguidas sin paréntesis (<code class="inline">2^3^2</code>) debe ser un error de gramática, no algo que se resuelva a la izquierda o a la derecha por defecto. <code class="inline">%nonassoc</code> es la directiva de Jison que expresa exactamente esa restricción.</p></div>
+          </div>
+          <div class="q">
+            <p class="question">2 · La gramática BNF entregable (<code class="inline">docs/gramatica.txt</code>) no usa <code class="inline">%left</code>/<code class="inline">%right</code>. ¿Cómo resuelve entonces la precedencia de operadores?</p>
+            <button type="button" onclick="this.parentElement.classList.add('revealed')">Revelar respuesta</button>
+            <div class="answer"><p>Reescribiendo las expresiones en capas anidadas (<code class="inline">expresion-or → expresion-and → expresion-not → expresion-relacional → expresion-suma → expresion-termino → expresion-potencia → expresion-unaria → expresion-primaria</code>), donde cada capa solo puede combinar elementos de la capa inmediatamente inferior. Es una gramática libre de ambigüedad por construcción, sin depender de ningún mecanismo de la herramienta.</p></div>
+          </div>
+          <div class="q">
+            <p class="question">3 · ¿Qué permite que el módulo de reporte del AST (Etapa 6) no necesite actualizarse cada vez que se agrega un tipo de nodo nuevo?</p>
+            <button type="button" onclick="this.parentElement.classList.add('revealed')">Revelar respuesta</button>
+            <div class="answer"><p>Que todos los nodos, sin excepción, se construyen con la misma fábrica <code class="inline">nodo(tipo, props, loc)</code> y respetan la convención <code class="inline">{ tipo: string, ...propiedades }</code>. El recorrido del grafo detecta hijos con una sola condición genérica (<code class="inline">typeof x.tipo === 'string'</code>), sin una lista de casos por tipo de nodo.</p></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 8 · Cierre -->
+    <section class="slide">
+      <div class="inner titleslide">
+        <p class="eyebrow">Etapa 2 · construida</p>
+        <h1>El AST queda en pie</h1>
+        <p class="lead">Precedencia declarada en 9 líneas que reproducen la tabla 5.10, una fábrica de nodos que uniforma todo el árbol, una extensión propia documentada para inicializar vectores desde nativas, y recuperación de errores en modo pánico. El árbol está listo para ser recorrido — eso es trabajo del intérprete.</p>
+        <p class="kicker">Próxima: <strong>Etapa 3 — el intérprete: entorno, tipos y el recorrido en dos pasadas</strong>.<br><a class="btn" href="index.html" style="margin-top:14px">⌂ Volver al índice</a></p>
+      </div>
+    </section>
+
+  </div>
+
+  <div class="navbar">
+    <button id="prev" type="button">← Anterior</button>
+    <button id="next" type="button">Siguiente →</button>
+    <span class="hint">también se pueden usar las flechas del teclado</span>
+  </div>
+</div>
+
+<script src="assets/deck.js"></script>
+</body>
+</html>

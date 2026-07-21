@@ -1,0 +1,196 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Etapa 5 · Flujo de control — CompScript</title>
+<link rel="stylesheet" href="assets/estilo.css">
+</head>
+<body>
+
+<div class="deck">
+  <div class="topbar">
+    <a class="brand" href="index.html" title="Volver al índice">Comp<em>Script</em> · curso guiado</a>
+    <span class="chip">Etapa 5 · Flujo de control</span>
+    <span class="counter"><span id="cur">1</span> / <span id="tot">?</span></span>
+    <button id="theme" type="button" title="Cambiar tema claro/oscuro" aria-label="Cambiar tema claro/oscuro">◐</button>
+  </div>
+  <div class="progress"><div id="bar"></div></div>
+
+  <div class="stage">
+
+    <!-- 1 · Intro -->
+    <section class="slide">
+      <div class="inner titleslide">
+        <p class="eyebrow">Etapa 5 · Parte 1</p>
+        <h1>Cero, una o N veces: el momento en que el árbol se justifica</h1>
+        <p class="lead">Con el AST y la pila de <code class="inline">Entorno</code>s ya construidos (Etapas 3 y 4), <code class="inline">if/else</code>, <code class="inline">match</code>, <code class="inline">while</code>, <code class="inline">for</code> y <code class="inline">do-while</code> se implementan como código Java normal — cada nodo re-evalúa su condición y vuelve a recorrer su cuerpo tantas veces como haga falta.</p>
+        <p class="kicker">Fuente: <code class="inline">ast/A.java</code> (clases <code class="inline">If</code>, <code class="inline">Match</code>, <code class="inline">While</code>, <code class="inline">For</code>, <code class="inline">DoWhile</code>) + <code class="inline">interprete/Senales.java</code>.</p>
+      </div>
+    </section>
+
+    <!-- 2 · If -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">La construcción más simple</p>
+        <h2><code class="inline">If</code>: un ámbito nuevo por rama</h2>
+        <pre class="code"><span class="tk-res">public void</span> ejecutar(Entorno e) {
+    Valor v = cond.evaluar(e);
+    <span class="tk-res">if</span> (v.tipo.cat != Tipo.Cat.BOOL)
+        e.errorSemantico("la condicion del if debe ser Booleana", linea, columna);
+    <span class="tk-res">if</span> ((Boolean) v.valor) A.ejecutar(cuerpo, e.crearHijo("if"));
+    <span class="tk-res">else if</span> (sinoIf != <span class="tk-res">null</span>) sinoIf.ejecutar(e);
+    <span class="tk-res">else if</span> (!sino.isEmpty()) A.ejecutar(sino, e.crearHijo("else"));
+}</pre>
+        <p>Cada rama (<code class="inline">if</code>, <code class="inline">else</code>) crea su propio <code class="inline">Entorno</code> hijo: una variable declarada dentro del bloque <code class="inline">if</code> no existe fuera de él. La comprobación de tipo de la condición (<code class="inline">debe ser Booleana</code>) es semántica en tiempo de ejecución — no la valida la gramática, la valida el propio nodo al evaluarse.</p>
+      </div>
+    </section>
+
+    <!-- 3 · While/For/DoWhile -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">Los tres ciclos, lado a lado</p>
+        <h2>La condición se re-evalúa en cada vuelta</h2>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>Ciclo</th><th>Cuándo evalúa la condición</th><th>Ámbito</th></tr></thead>
+            <tbody>
+              <tr><td><code>while</code></td><td>ANTES de cada iteración (0 o más veces)</td><td>un hijo nuevo por iteración</td></tr>
+              <tr><td><code>for</code></td><td>ANTES de cada iteración, tras ejecutar <code>init</code> una sola vez</td><td>un hijo del <code>for</code> por el <code>init</code>, y otro anidado por iteración</td></tr>
+              <tr><td><code>do-while</code></td><td>DESPUÉS de cada iteración (mínimo 1 vez)</td><td>un hijo nuevo por iteración</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <pre class="code"><span class="tk-sym">// A.While.ejecutar(...) — el patron que se repite en For y DoWhile:</span>
+<span class="tk-res">while</span> (<span class="tk-res">true</span>) {
+    Valor v = cond.evaluar(e);
+    <span class="tk-res">if</span> (!(Boolean) v.valor) <span class="tk-res">break</span>;
+    <span class="tk-res">try</span> { A.ejecutar(cuerpo, e.crearHijo("while")); }
+    <span class="tk-res">catch</span> (Senales.Break b) { <span class="tk-res">break</span>; }
+    <span class="tk-res">catch</span> (Senales.Continue ct) { <span class="tk-sym">/* siguiente iteracion */</span> }
+}</pre>
+        <p>Este <code class="inline">while (true)</code> de Java es, literalmente, el mecanismo que hace posible ejecutar el mismo subárbol N veces — algo que la evaluación directa de DataForge no puede reproducir, porque ahí cada acción del parser corre exactamente una vez, al reducir.</p>
+      </div>
+    </section>
+
+    <!-- 4 · Verificación real -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">Verificación real — <code class="inline">ejemplo3.cs</code></p>
+        <h2><code class="inline">continue</code> y <code class="inline">break</code> sobre el mismo <code class="inline">for</code></h2>
+        <pre class="code"><span class="tk-res">for</span> (i = 0; i &lt; 10; i++) {
+    <span class="tk-res">if</span> (i == 2) { <span class="tk-res">continue</span>; }
+    <span class="tk-res">if</span> (i == 4) { <span class="tk-res">break</span>; }
+    console.log(i * 10);     <span class="tk-sym">// 0 10 30</span>
+}</pre>
+        <p>Consola real obtenida al correr <code class="inline">ejemplo3.cs</code>: <code class="inline">0 10 30</code>. Confirma que <code class="inline">continue</code> en <code class="inline">i==2</code> saltó el <code class="inline">console.log</code> de esa vuelta (no imprimió <code class="inline">20</code>) y que <code class="inline">break</code> en <code class="inline">i==4</code> cortó el ciclo antes de imprimir <code class="inline">40</code>.</p>
+      </div>
+    </section>
+
+    <!-- 5 · break/continue/return como excepciones -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">Una decisión de diseño elegante</p>
+        <h2><code class="inline">break</code>/<code class="inline">continue</code>/<code class="inline">return</code> son excepciones de control</h2>
+        <pre class="code"><span class="tk-sym">// Senales.java</span>
+<span class="tk-res">public static class</span> Break <span class="tk-res">extends</span> RuntimeException {
+    <span class="tk-res">public</span> Break(<span class="tk-res">int</span> l, <span class="tk-res">int</span> c) {
+        <span class="tk-res">super</span>(<span class="tk-res">null</span>, <span class="tk-res">null</span>, <span class="tk-res">false</span>, <span class="tk-res">false</span>);  <span class="tk-sym">// sin stacktrace: es control de flujo, no un error</span>
+    }
+}</pre>
+        <p>En vez de que cada ciclo lleve una bandera booleana <code class="inline">detener</code> que haya que revisar manualmente después de cada instrucción del cuerpo, <code class="inline">A.Break.ejecutar()</code> simplemente lanza <code class="inline">Senales.Break</code> — y el <code class="inline">while</code>/<code class="inline">for</code>/<code class="inline">do-while</code> más cercano la atrapa con un <code class="inline">catch</code>. Java se encarga de "saltar" fuera del cuerpo aunque el <code class="inline">break</code> esté anidado dentro de varios <code class="inline">if</code>.</p>
+        <p><code class="inline">A.Return</code> usa el mismo mecanismo, pero <code class="inline">Senales.Retorno</code> viaja con el valor adentro: <code class="inline">A.invocar(...)</code> (Etapa 6) la atrapa para recuperar el resultado de la función.</p>
+        <div class="callout"><p><strong>Qué pasa si se escapa:</strong> un <code class="inline">break</code> fuera de cualquier ciclo no tiene quién lo atrape — llega hasta <code class="inline">Interprete.ejecutar(...)</code>, que lo convierte en un error semántico: <code class="inline">'break' fuera de un ciclo</code>.</p></div>
+      </div>
+    </section>
+
+    <!-- 6 · Match -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">El <code class="inline">switch</code> de CompScript</p>
+        <h2><code class="inline">match</code>: sin fall-through, por diseño explícito</h2>
+        <pre class="code"><span class="tk-res">for</span> (CasoMatch cm : casos) {
+    Valor cv = cm.valor.evaluar(e);
+    Valor eq = Operaciones.relacional("==", sel, cv, e, linea, columna);
+    <span class="tk-res">if</span> (eq != <span class="tk-res">null</span> &amp;&amp; (Boolean) eq.valor) {
+        A.ejecutar(cm.cuerpo, e.crearHijo("match"));
+        <span class="tk-res">return</span>;   <span class="tk-sym">// sin fall-through (5.15.2)</span>
+    }
+}
+<span class="tk-res">if</span> (defecto != <span class="tk-res">null</span> &amp;&amp; !defecto.isEmpty())
+    A.ejecutar(defecto, e.crearHijo("match-default"));</pre>
+        <p>El <code class="inline">return</code> explícito dentro del bucle de casos ES la implementación literal de "no requiere <code class="inline">break</code>, no hay fall-through" del enunciado (§5.15.2): apenas un caso coincide, se ejecuta su cuerpo y se sale del método sin mirar los casos restantes.</p>
+        <pre class="code"><span class="tk-sym">// entradas/ejemplo2.cs</span>
+console.log(clasificar(n = 1));   <span class="tk-sym">// uno</span>
+console.log(clasificar(n = 9));   <span class="tk-sym">// otro numero (cae en default)</span></pre>
+      </div>
+    </section>
+
+    <!-- 7 · && y || con cortocircuito -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">Un bug real, encontrado en auditoría y corregido</p>
+        <h2><code class="inline">&amp;&amp;</code> y <code class="inline">||</code> evalúan con cortocircuito</h2>
+        <pre class="code"><span class="tk-sym">// A.Binaria.evaluar() — der solo se evalua si izq no decide ya el resultado:</span>
+<span class="tk-res">case</span> "&amp;&amp;": {
+    Valor a = izq.evaluar(e);
+    <span class="tk-res">if</span> (a.tipo.cat == Tipo.Cat.BOOL &amp;&amp; !(Boolean) a.valor) <span class="tk-res">return</span> Valor.vBool(<span class="tk-res">false</span>);
+    <span class="tk-res">return</span> Operaciones.logica(op, a, der.evaluar(e), e, linea, columna);
+}
+<span class="tk-res">case</span> "||": {
+    Valor a = izq.evaluar(e);
+    <span class="tk-res">if</span> (a.tipo.cat == Tipo.Cat.BOOL &amp;&amp; (Boolean) a.valor) <span class="tk-res">return</span> Valor.vBool(<span class="tk-res">true</span>);
+    <span class="tk-res">return</span> Operaciones.logica(op, a, der.evaluar(e), e, linea, columna);
+}</pre>
+        <p>La versión original de <code class="inline">A.Binaria.evaluar()</code> evaluaba <code class="inline">izq</code> y <code class="inline">der</code> ANTES de entrar al <code class="inline">switch</code> que decide qué operador aplicar — es decir, evaluaba siempre ambos lados de <code class="inline">&amp;&amp;</code>/<code class="inline">||</code>, sin cortocircuito. Una auditoría posterior lo señaló como bug real (no una decisión de diseño documentada): el enunciado no lo exige explícitamente, pero la falta de cortocircuito SÍ es observable semánticamente, no solo una optimización perdida — una guarda típica como <code class="inline">x != 0 &amp;&amp; 10/x &gt; 1</code> explotaba con división entre cero en vez de evitarla. La corrección: <code class="inline">izq</code> se evalúa primero; si ya determina el resultado (<code class="inline">false</code> para <code class="inline">&amp;&amp;</code>, <code class="inline">true</code> para <code class="inline">||</code>), <code class="inline">der</code> ya no se evalúa.</p>
+        <div class="callout"><p><strong>Por qué importa:</strong> el cortocircuito no es solo un ahorro de cómputo — evita ejecutar <code class="inline">der</code> cuando podría fallar (división entre cero, índice fuera de rango) o tener efectos secundarios (llamada a función con <code class="inline">push</code>/<code class="inline">pop</code> sobre una lista) que no deberían ocurrir. Se verificó contra los 6 ejemplos de <code class="inline">entradas/</code> sin regresiones, y con un caso ad-hoc de guarda (<code class="inline">x = 0; x != 0 &amp;&amp; 10/x &gt; 1</code>) que ya no lanza error de división entre cero.</p></div>
+      </div>
+    </section>
+
+    <!-- 8 · Quiz -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">Chequeo rápido</p>
+        <h2>Sobre el flujo de control real</h2>
+        <div class="quiz">
+          <div class="q">
+            <p class="question">1 · ¿Qué diferencia de comportamiento hay entre <code class="inline">while</code> y <code class="inline">do-while</code> en cuanto al número mínimo de ejecuciones del cuerpo?</p>
+            <button type="button" onclick="this.parentElement.classList.add('revealed')">Revelar respuesta</button>
+            <div class="answer"><p><code class="inline">while</code> puede ejecutar su cuerpo CERO veces si la condición es falsa desde el inicio (se evalúa ANTES). <code class="inline">do-while</code> ejecuta su cuerpo AL MENOS una vez, porque la condición se evalúa DESPUÉS de la primera pasada — así lo confirma <code class="inline">ejemplo3.cs</code> con <code class="inline">k</code> imprimiendo <code class="inline">0 1</code>.</p></div>
+          </div>
+          <div class="q">
+            <p class="question">2 · ¿Por qué <code class="inline">Senales.Break</code> extiende <code class="inline">RuntimeException</code> en vez de usar una variable booleana de control?</p>
+            <button type="button" onclick="this.parentElement.classList.add('revealed')">Revelar respuesta</button>
+            <div class="answer"><p>Porque un <code class="inline">break</code> puede estar anidado dentro de varios niveles de <code class="inline">if</code> o incluso otro ciclo interno — usar una excepción permite que Java "desenrolle" automáticamente todas esas capas intermedias hasta el ciclo que la atrapa, sin tener que revisar manualmente una bandera después de cada instrucción del cuerpo.</p></div>
+          </div>
+          <div class="q">
+            <p class="question">3 · Si <code class="inline">verificar()</code> tiene efectos secundarios (por ejemplo, hace <code class="inline">contador.push(1)</code>) y se evalúa <code class="inline">false &amp;&amp; verificar()</code>, ¿se ejecuta <code class="inline">verificar()</code> en CompScript?</p>
+            <button type="button" onclick="this.parentElement.classList.add('revealed')">Revelar respuesta</button>
+            <div class="answer"><p>No. <code class="inline">A.Binaria.evaluar()</code> evalúa <code class="inline">izq</code> primero; como ya es <code class="inline">false</code> (un Booleano), el resultado de <code class="inline">&amp;&amp;</code> queda decidido sin necesidad de evaluar <code class="inline">der</code>, así que <code class="inline">verificar()</code> nunca corre — el mismo cortocircuito de la mayoría de lenguajes de propósito general. (Antes de la corrección de esta etapa, sí se ejecutaba siempre; era un bug real, no una decisión de diseño.)</p></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 9 · Cierre -->
+    <section class="slide">
+      <div class="inner titleslide">
+        <p class="eyebrow">Etapa 5 · construida</p>
+        <h1>Queda construido el flujo de control</h1>
+        <p class="lead"><code class="inline">if</code>/<code class="inline">match</code>/<code class="inline">while</code>/<code class="inline">for</code>/<code class="inline">do-while</code> re-evalúan sus condiciones cuantas veces haga falta; <code class="inline">break</code>/<code class="inline">continue</code>/<code class="inline">return</code> viajan como excepciones de control. Esta es exactamente la razón por la que el proyecto necesitaba un árbol (Etapa 0).</p>
+        <p class="kicker">Próxima: <strong>Etapa 6 — funciones, argumentos por nombre y recursión</strong>.<br><a class="btn" href="index.html" style="margin-top:14px">⌂ Volver al índice</a></p>
+      </div>
+    </section>
+
+  </div>
+
+  <div class="navbar">
+    <button id="prev" type="button">← Anterior</button>
+    <button id="next" type="button">Siguiente →</button>
+    <span class="hint">también se pueden usar las flechas del teclado</span>
+  </div>
+</div>
+
+<script src="assets/deck.js"></script>
+</body>
+</html>

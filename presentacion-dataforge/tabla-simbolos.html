@@ -1,0 +1,309 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>La tabla de símbolos, a fondo — DataForge</title>
+<link rel="stylesheet" href="assets/estilo.css">
+<style>
+  .demo { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; box-shadow: var(--shadow); padding: 20px 22px; margin: 22px 0; }
+  .demo .controls { display: flex; align-items: center; gap: 12px; margin-top: 16px; padding-top: 14px; border-top: 1px dashed var(--line); }
+  .demo .controls button { font: inherit; font-size: 14.5px; font-weight: 600; background: var(--accent); color: var(--accent-ink); border: none; border-radius: 8px; padding: 7px 18px; cursor: pointer; }
+  .demo .controls button.reset-btn { background: var(--surface); color: var(--muted); border: 1px solid var(--line); }
+  .demo .controls button:disabled { opacity: .35; cursor: default; }
+  .demo .controls .step-counter { margin-left: auto; color: var(--muted); font-variant-numeric: tabular-nums; font-size: 13.5px; }
+  .demo .explica { font-size: 14px; color: var(--muted); margin: 4px 0 0; min-height: 3em; }
+  .demo [data-step]:not(.solo) { opacity: 0; transition: opacity .45s ease; }
+  .demo [data-step].shown:not(.solo) { opacity: 1; }
+  .solo { opacity: 0; transition: opacity .3s ease; }
+  .solo.current { opacity: 1; }
+
+  /* escena: código a la izquierda, entornos a la derecha */
+  .escena { display: grid; grid-template-columns: minmax(260px, 1fr) minmax(280px, 1.2fr); gap: 18px; align-items: start; }
+  @media (max-width: 700px) { .escena { grid-template-columns: 1fr; } }
+  .escena pre.code { margin: 0; }
+  .escena .lineacode { display: block; border-radius: 6px; padding: 0 6px; }
+  .escena .lineacode.hoy { background: color-mix(in srgb, var(--accent) 18%, transparent); }
+
+  .env {
+    border: 1.6px solid var(--accent); border-radius: 10px;
+    padding: 10px 14px; margin-bottom: 26px; position: relative;
+    background: color-mix(in srgb, var(--accent) 5%, transparent);
+  }
+  .env h4 { margin: 0 0 8px; font-size: 13px; font-family: "Cascadia Code", Consolas, monospace; color: var(--accent); }
+  .env table { font-size: 13px; font-family: "Cascadia Code", Consolas, monospace; }
+  .env th, .env td { padding: 4px 10px; }
+  .env .flecha-padre {
+    position: absolute; top: 100%; left: 42px; height: 26px;
+    color: var(--muted); font-size: 12px; display: flex; align-items: center; gap: 5px;
+  }
+  .env tr.hit td { background: color-mix(in srgb, var(--accent) 22%, transparent); font-weight: 700; }
+  .nt { display: inline-block; font-family: "Cascadia Code", Consolas, monospace; color: var(--accent); border: 1.5px dashed var(--accent); border-radius: 6px; padding: 0 7px; font-size: .95em; }
+  .ok { color: var(--tk-str); font-weight: 700; }
+  .mal { color: #C43A3A; font-weight: 700; }
+
+  @media (prefers-reduced-motion: reduce) { .demo [data-step], .solo { transition: none; } }
+</style>
+</head>
+<body>
+
+<div class="deck">
+  <div class="topbar">
+    <a class="brand" href="index.html" title="Volver al índice">Data<em>Forge</em> · curso guiado</a>
+    <span class="chip">Especial · Tabla de símbolos</span>
+    <span class="counter"><span id="cur">1</span> / <span id="tot">?</span></span>
+    <button id="theme" type="button" title="Cambiar tema claro/oscuro" aria-label="Cambiar tema claro/oscuro">◐</button>
+  </div>
+  <div class="progress"><div id="bar"></div></div>
+
+  <div class="stage">
+
+    <!-- 1 · Portada -->
+    <section class="slide">
+      <div class="inner titleslide">
+        <p class="eyebrow">Profundización · Dragón §2.7 (y §6.5)</p>
+        <h1>La tabla de símbolos, a fondo</h1>
+        <p class="lead">La memoria del compilador: dónde viven las variables, cómo se buscan, y el concepto que el libro considera central — los <strong>ámbitos anidados</strong>. Incluye la comparación honesta: ¿la de nuestro DataForge está «bien» según la teoría?</p>
+        <p class="kicker">Spoiler: sí — como caso particular. Esta presentación muestra el caso general, que será necesario en CompScript.</p>
+      </div>
+    </section>
+
+    <!-- 2 · Qué es -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">La definición del libro</p>
+        <h2>Un diccionario con dos operaciones</h2>
+        <p>El Dragón la define sin misterio (§2.7): una estructura donde el compilador guarda información sobre cada <strong>nombre declarado</strong>, con dos operaciones esenciales:</p>
+        <div class="cards">
+          <div class="card"><h3><code class="inline">put(nombre, info)</code> — al DECLARAR</h3><p>Cuando el parser procesa <code>var:double:: numero &lt;- 2.5</code>, inserta la ficha de <code>numero</code>. En nuestro Entorno: <code>declararVariable(...)</code>.</p></div>
+          <div class="card"><h3><code class="inline">get(nombre)</code> — al USAR</h3><p>Cuando aparece <code>numero</code> en una expresión, busca su ficha (¿existe? ¿de qué tipo es? ¿qué vale?). En nuestro Entorno: <code>valorDe(...)</code>.</p></div>
+        </div>
+        <p>¿Y qué lleva la «ficha»? El libro dice: <em>lo que el compilador necesite saber del nombre</em>. Para un intérprete como el nuestro:</p>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>Campo de nuestro <code>Simbolo</code></th><th>Para qué</th></tr></thead>
+            <tbody>
+              <tr><td><code>nombre</code></td><td>mostrarlo como lo escribió el usuario</td></tr>
+              <tr><td><code>categoria</code> (variable / arreglo)</td><td>que <code>@datos</code> no se confunda con <code>datos</code></td></tr>
+              <tr><td><code>tipo</code> (double / char[])</td><td>chequeo semántico de asignaciones y operaciones</td></tr>
+              <tr><td><code>valor</code></td><td>somos un INTÉRPRETE: la variable vive acá</td></tr>
+              <tr><td><code>linea, columna</code></td><td>reporte §6.3 y mensajes de error</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="muted">Detalle nuestro: un compilador clásico NO guarda el valor (genera código que lo calculará en runtime); un intérprete sí. Misma tabla, inquilino extra.</p>
+      </div>
+    </section>
+
+    <!-- 3 · La estructura -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">Implementación</p>
+        <h2>¿Con qué se construye? Hash, dice el libro</h2>
+        <p>El libro (§2.7 y §6.5) recomienda una <strong>tabla hash</strong>: <code class="inline">get</code>/<code class="inline">put</code> en tiempo constante O(1), porque un compilador consulta la tabla <em>muchísimas</em> veces. En Java eso es un <code class="inline">HashMap</code> — y nosotros usamos su primo:</p>
+        <pre class="code">private final LinkedHashMap&lt;String, Simbolo&gt; simbolos = new LinkedHashMap&lt;&gt;();
+<span class="tk-sym">//        └─ hash O(1) para get/put ─┘└─ y además RECUERDA el orden de inserción</span></pre>
+        <ul style="line-height:1.9">
+          <li><strong>¿Por qué Linked?</strong> El reporte §6.3 debe listar los símbolos <em>en orden de declaración</em>. Un <code class="inline">HashMap</code> pelado los devuelve en orden arbitrario; el Linked mantiene el orden sin costo relevante. Teoría del libro + requisito del enunciado.</li>
+          <li><strong>¿Por qué la clave en minúsculas?</strong> DataForge es case insensitive — <code class="inline">nUmero</code> y <code class="inline">numero</code> son LA MISMA variable. Clave normalizada (<code class="inline">toLowerCase</code>), nombre original guardado en la ficha para mostrar.</li>
+        </ul>
+        <div class="callout"><p>El libro también menciona alternativas históricas (listas, árboles de búsqueda) — hoy son curiosidad: hash ganó. Lo que NO es curiosidad histórica es lo que viene ahora: los ámbitos.</p></div>
+      </div>
+    </section>
+
+    <!-- 4 · Ámbitos -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">El concepto central del §2.7</p>
+        <h2>Ámbitos: la misma palabra, distintas cosas</h2>
+        <p>El problema que el libro considera EL problema de las tablas de símbolos: en casi todo lenguaje, un mismo nombre puede declararse <strong>varias veces en bloques distintos</strong>, y cada uso debe resolver a la declaración correcta:</p>
+        <pre class="code">int x = 1;              <span class="tk-sym">// x "de afuera"</span>
+{
+    int x = 2;          <span class="tk-sym">// OTRA x, que ensombrece a la primera</span>
+    print(x);           <span class="tk-sym">// → 2  (la más cercana gana)</span>
+}
+print(x);               <span class="tk-sym">// → 1  (la de adentro YA NO EXISTE)</span></pre>
+        <p>La regla universal: <strong>gana la declaración del bloque más cercano</strong> (ámbito estático o léxico). Y la estructura que el libro propone para implementarla es elegante:</p>
+        <div class="callout"><p><strong>Una tabla por bloque, encadenadas hacia afuera.</strong> Al entrar a un bloque se crea una tabla nueva que apunta a la de su bloque padre; al salir, se descarta. Buscar = mirar en mi tabla, y si no está, <strong>subir por la cadena</strong>. (Es la clase <code class="inline">Env</code> del libro, fig. 2.37.)</p></div>
+      </div>
+    </section>
+
+    <!-- 5 · DEMO cadena -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">Demo · la cadena de entornos en acción</p>
+        <h2>El <code class="inline">get</code> subiendo por la cadena</h2>
+        <div class="demo">
+          <div class="escena">
+            <pre class="code" style="font-size:14px"><span class="lineacode" data-linea="1">int x = 1;</span><span class="lineacode" data-linea="2">int y = 5;</span><span class="lineacode" data-linea="3">{</span><span class="lineacode" data-linea="4">    int x = 2;</span><span class="lineacode" data-linea="5">    print(x);   // ?</span><span class="lineacode" data-linea="6">    print(y);   // ?</span><span class="lineacode" data-linea="7">}</span><span class="lineacode" data-linea="8">print(x);       // ?</span></pre>
+            <div>
+              <div class="env" data-step="2" id="env-bloque">
+                <h4>Entorno del BLOQUE</h4>
+                <table><tbody>
+                  <tr id="fila-x2"><td>x</td><td>int</td><td>2</td></tr>
+                </tbody></table>
+                <div class="flecha-padre">↓ padre</div>
+              </div>
+              <div class="env" style="border-style:solid" id="env-global">
+                <h4>Entorno GLOBAL</h4>
+                <table><tbody>
+                  <tr id="fila-x1"><td>x</td><td>int</td><td>1</td></tr>
+                  <tr id="fila-y"><td>y</td><td>int</td><td>5</td></tr>
+                </tbody></table>
+              </div>
+            </div>
+          </div>
+          <div class="controls"><button type="button" class="step-btn">▶ Paso</button><button type="button" class="reset-btn">⟲ Reiniciar</button><span class="step-counter"></span></div>
+          <p class="explica" data-textos='["Líneas 1-2: x e y se insertan (put) en el entorno global.","Línea 3: se abre un bloque → NACE un entorno nuevo, encadenado al global.","Línea 4: la x interior se inserta EN EL ENTORNO DEL BLOQUE. La x global sigue intacta — son dos fichas distintas.","Línea 5: get(x) mira primero el entorno del bloque… ¡está! → 2. La búsqueda NI LLEGA al global: eso es el sombreado.","Línea 6: get(y) mira el bloque… no está → SUBE por la cadena al global → 5. Ese salto es toda la magia.","Línea 7: se cierra el bloque → su entorno SE DESCARTA, con su x adentro.","Línea 8: get(x) solo tiene el global → 1. La x interior murió con su bloque."]'></p>
+        </div>
+      </div>
+    </section>
+
+    <!-- 6 · Nuestro DataForge -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">La comparación honesta</p>
+        <h2>¿Y la nuestra está bien, según el libro?</h2>
+        <p><strong>Sí — porque DataForge es el caso donde la cadena tiene UN solo eslabón.</strong> A continuación, la comparación punto por punto:</p>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>Teoría del libro (§2.7)</th><th>Nuestro Entorno</th><th>Veredicto</th></tr></thead>
+            <tbody>
+              <tr><td>Operaciones put / get</td><td><code>declararVariable</code> / <code>valorDe</code> (+ variantes de arreglo)</td><td class="ok">✓ igual</td></tr>
+              <tr><td>Tabla hash para O(1)</td><td><code>LinkedHashMap</code> (hash + orden para el reporte)</td><td class="ok">✓ igual (mejorado para §6.3)</td></tr>
+              <tr><td>Ficha con tipo e info del nombre</td><td><code>Simbolo</code>: categoría, tipo, valor, línea, columna</td><td class="ok">✓ igual (+ valor, porque somos intérprete)</td></tr>
+              <tr><td>Una tabla <strong>por bloque</strong>, encadenadas</td><td>UNA sola tabla global</td><td class="ok">✓ correcto acá</td></tr>
+              <tr><td>get sube por la cadena de padres</td><td>get directo (no hay adónde subir)</td><td class="ok">✓ correcto acá</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="callout"><p><strong>¿Por qué «correcto acá»?</strong> Los ámbitos existen donde el lenguaje tiene <em>bloques que declaran</em> — llaves, funciones, procedimientos. La gramática de DataForge no tiene NINGUNO: todas las declaraciones viven directas entre <code class="inline">PROGRAM…END PROGRAM</code>. Un solo bloque ⇒ un solo entorno ⇒ la cadena degenera en una tabla. Usar la maquinaria completa habría sido sobre-ingeniería, no fidelidad al libro.</p></div>
+        <p class="muted">Chequeo contra el enunciado: la única semántica de nombres que pide es declarar-antes-de-usar y el reporte §6.3 — ambas cubiertas. Y nuestra decisión de <strong>rechazar redeclaración</strong> es coherente: sin bloques, una segunda <code class="inline">var x</code> no puede ser «otra x de otro ámbito» — solo puede ser un error.</p>
+      </div>
+    </section>
+
+    <!-- 7 · Cuándo se va a necesitar -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">El upgrade que viene</p>
+        <h2>CompScript: donde la cadena se vuelve real</h2>
+        <p>El tercer proyecto tendrá <code class="inline">if</code>, ciclos y funciones — es decir, <strong>bloques que declaran</strong>. Ahí el Entorno muta a la estructura del libro, y el cambio es sorprendentemente chico:</p>
+        <pre class="code"><span class="tk-res">public class</span> Entorno {
+    <span class="tk-res">private final</span> Entorno padre;                       <span class="tk-sym">// ← LA línea nueva</span>
+    <span class="tk-res">private final</span> LinkedHashMap&lt;String, Simbolo&gt; simbolos = <span class="tk-res">new</span> LinkedHashMap&lt;&gt;();
+
+    <span class="tk-res">public</span> Entorno(Entorno padre) { <span class="tk-res">this</span>.padre = padre; }   <span class="tk-sym">// global: padre = null</span>
+
+    <span class="tk-res">public</span> Simbolo buscar(String id) {
+        Simbolo s = simbolos.get(id.toLowerCase());
+        <span class="tk-res">if</span> (s != <span class="tk-res">null</span>) <span class="tk-res">return</span> s;                        <span class="tk-sym">// está en MI ámbito</span>
+        <span class="tk-res">if</span> (padre != <span class="tk-res">null</span>) <span class="tk-res">return</span> padre.buscar(id);     <span class="tk-sym">// subir por la cadena</span>
+        <span class="tk-res">return null</span>;                                    <span class="tk-sym">// no declarada en ningún lado</span>
+    }
+}</pre>
+        <p>Entrar a un bloque = <code class="inline">new Entorno(entornoActual)</code>; salir = volver a usar el padre. La demo de la diapositiva 5, hecha con tres líneas de Java. Nuestro Entorno de DataForge es exactamente esto con <code class="inline">padre = null</code> siempre.</p>
+        <div class="callout"><p><strong>Momento de diseño:</strong> por eso el trabajo de hoy no se tira — se <em>extiende</em>. Cuando se construya CompScript, el punto de partida es agregar el campo <code class="inline">padre</code> y el <code class="inline">buscar</code> recursivo. Conviene recordar esta diapositiva.</p></div>
+      </div>
+    </section>
+
+    <!-- 8 · Quiz -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">Chequeo rápido</p>
+        <h2>¿Dominás la memoria del compilador?</h2>
+        <div class="quiz">
+          <div class="q">
+            <p class="question">1 · En la demo de la diapositiva 5, ¿por qué <code class="inline">print(y)</code> dentro del bloque imprime 5 sin que y esté en el entorno del bloque?</p>
+            <button type="button" onclick="this.parentElement.classList.add('revealed')">Revelar respuesta</button>
+            <div class="answer"><p>Porque <code class="inline">get</code> no se rinde en la primera tabla: al no encontrar <code class="inline">y</code> en el entorno del bloque, <strong>sube por la referencia al padre</strong> y la encuentra en el global. La cadena de entornos ES la regla «la declaración más cercana gana» hecha estructura de datos.</p></div>
+          </div>
+          <div class="q">
+            <p class="question">2 · ¿Por qué en DataForge la redeclaración es error, pero en CompScript <code class="inline">int x</code> dentro de un bloque NO lo será aunque exista una x afuera?</p>
+            <button type="button" onclick="this.parentElement.classList.add('revealed')">Revelar respuesta</button>
+            <div class="answer"><p>Porque el conflicto solo existe <strong>dentro del mismo ámbito</strong>. En CompScript las dos x viven en tablas distintas de la cadena (sombreado legal); en DataForge hay una sola tabla, así que la segunda declaración chocaría con la primera sí o sí → error semántico.</p></div>
+          </div>
+          <div class="q">
+            <p class="question">3 · Un compilador clásico y nuestro intérprete guardan fichas casi iguales… salvo un campo. ¿Cuál y por qué?</p>
+            <button type="button" onclick="this.parentElement.classList.add('revealed')">Revelar respuesta</button>
+            <div class="answer"><p><strong>El valor.</strong> Un compilador traduce: en su tabla guarda tipo/dirección, y el valor existirá recién cuando el programa compilado corra. Un intérprete ejecuta YA: la tabla de símbolos es, literalmente, la memoria del programa en ejecución. Por eso nuestro <code class="inline">Simbolo.valor</code> no está en las figuras del libro — y está bien que no esté.</p></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 9 · Cierre -->
+    <section class="slide">
+      <div class="inner titleslide">
+        <p class="eyebrow">Resumen en una pantalla</p>
+        <h1>put · get · y la cadena</h1>
+        <p class="lead">Hash para O(1) · una ficha por nombre (tipo, posición… y valor si sos intérprete) · una tabla <strong>por ámbito</strong>, encadenadas al padre · buscar = subir la cadena · DataForge: cadena de un eslabón, correcta por diseño · CompScript: agregás <code class="inline">padre</code> y <code class="inline">buscar</code> recursivo.</p>
+        <p class="kicker"><a class="btn primary" href="etapa3.html">Verla funcionando: Etapa 3 →</a>&nbsp;&nbsp;<a class="btn" href="index.html">⌂ Volver al índice</a></p>
+      </div>
+    </section>
+
+  </div>
+
+  <div class="navbar">
+    <button id="prev" type="button">← Anterior</button>
+    <button id="next" type="button">Siguiente →</button>
+    <span class="hint">flechas ← → para las diapositivas · «▶ Paso» para la demo</span>
+  </div>
+</div>
+
+<script src="assets/deck.js"></script>
+<script>
+/* stepper genérico + escenografía específica de la demo de entornos */
+document.querySelectorAll('.demo').forEach((demo) => {
+  const pasos = Array.from(demo.querySelectorAll('[data-step]'));
+  const btn = demo.querySelector('.step-btn');
+  const reset = demo.querySelector('.reset-btn');
+  const counter = demo.querySelector('.step-counter');
+  const explica = demo.querySelector('.explica');
+  const textos = explica ? JSON.parse(explica.dataset.textos || '[]') : [];
+  const max = textos.length ? textos.length - 1
+            : Math.max(...pasos.map(e => +e.dataset.step));
+  let cur = 0;
+
+  /* guion de la demo de entornos: por paso, [línea de código activa,
+     filas visibles, fila resaltada por el get] */
+  const guion = [
+    { linea: 2, filas: ['fila-x1', 'fila-y'], hit: null,      bloque: false },
+    { linea: 3, filas: ['fila-x1', 'fila-y'], hit: null,      bloque: true  },
+    { linea: 4, filas: ['fila-x1', 'fila-y', 'fila-x2'], hit: null,      bloque: true },
+    { linea: 5, filas: ['fila-x1', 'fila-y', 'fila-x2'], hit: 'fila-x2', bloque: true },
+    { linea: 6, filas: ['fila-x1', 'fila-y', 'fila-x2'], hit: 'fila-y',  bloque: true },
+    { linea: 7, filas: ['fila-x1', 'fila-y'], hit: null,      bloque: false },
+    { linea: 8, filas: ['fila-x1', 'fila-y'], hit: 'fila-x1', bloque: false }
+  ];
+  const esDemoEntornos = !!demo.querySelector('#env-bloque');
+
+  function render() {
+    pasos.forEach(e => {
+      const n = +e.dataset.step;
+      e.classList.toggle('shown', n <= cur);
+      e.classList.toggle('current', n === cur);
+    });
+    if (esDemoEntornos) {
+      const g = guion[cur];
+      demo.querySelectorAll('.lineacode').forEach(l =>
+        l.classList.toggle('hoy', +l.dataset.linea === g.linea));
+      demo.querySelector('#env-bloque').style.opacity = g.bloque ? 1 : 0.15;
+      ['fila-x1', 'fila-y', 'fila-x2'].forEach(id => {
+        const f = demo.querySelector('#' + id);
+        if (!f) return;
+        f.style.visibility = g.filas.includes(id) ? 'visible' : 'hidden';
+        f.classList.toggle('hit', g.hit === id);
+      });
+    }
+    if (counter) counter.textContent = 'paso ' + cur + ' de ' + max;
+    if (explica) explica.textContent = textos[cur] || '';
+    btn.disabled = cur >= max;
+    reset.disabled = cur === 0;
+  }
+  btn.addEventListener('click', () => { if (cur < max) { cur++; render(); } });
+  reset.addEventListener('click', () => { cur = 0; render(); });
+  render();
+});
+</script>
+</body>
+</html>

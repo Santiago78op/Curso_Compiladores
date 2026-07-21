@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>VLangCherry — Curso guiado</title>
+<link rel="stylesheet" href="assets/estilo.css">
+</head>
+<body>
+
+<div class="hub">
+  <div class="topbar">
+    <a class="brand" href="index.html">VLang<em>Cherry</em> · curso guiado</a>
+    <span class="chip">Índice</span>
+    <span class="counter">OLC2 · USAC</span>
+    <button id="theme" type="button" title="Cambiar tema claro/oscuro" aria-label="Cambiar tema claro/oscuro">◐</button>
+  </div>
+
+  <main class="hub-main">
+    <p class="eyebrow">Proyecto 1 · Organización de Lenguajes y Compiladores 2</p>
+    <h1>Un intérprete en Go, etapa por etapa</h1>
+    <p class="lead">Material de estudio para el equipo de VLangCherry: un intérprete del lenguaje "V-Lang Cherry" (tipos estáticos, structs con métodos por referencia, slices 1D/2D, control de flujo, recursión) construido con ANTLR4 sobre Go, con servidor REST y cliente React. <strong>El proyecto está completo y verificado.</strong></p>
+
+    <ol class="roadmap">
+      <li class="linked"><a href="etapa0.html"><span class="num">Etapa 0</span> Conceptos base: por qué ANTLR4 + Go, y no JFlex/CUP + Java <span class="state">✓ completada</span></a></li>
+      <li class="linked"><a href="etapa1.html"><span class="num">Etapa 1</span> La gramática ANTLR4: lexer y parser combinados en un solo <code>.g4</code> <span class="state">✓ completada</span></a></li>
+      <li class="linked"><a href="etapa2.html"><span class="num">Etapa 2</span> Del parse tree al AST propio: por qué no se usó el Visitor generado <span class="state">✓ completada</span></a></li>
+      <li class="linked"><a href="etapa3.html"><span class="num">Etapa 3</span> Tipos estáticos, structs y métodos "por referencia" gratis <span class="state">✓ completada</span></a></li>
+      <li class="linked"><a href="etapa4.html"><span class="num">Etapa 4</span> Slices 1D/2D <span class="state">✓ completada</span></a></li>
+      <li class="linked"><a href="etapa5.html"><span class="num">Etapa 5</span> Control de flujo, recursión y la auditoría de validación semántica <span class="state">✓ completada</span></a></li>
+      <li class="linked"><a href="etapa6.html"><span class="num">Etapa 6</span> El servidor REST con <code>net/http</code> <span class="state">✓ completada</span></a></li>
+      <li class="linked"><a href="etapa7.html"><span class="num">Etapa 7</span> El cliente React, reusando componentes <span class="state">✓ completada</span></a></li>
+    </ol>
+
+    <p class="eyebrow" style="margin-top:36px">Profundizaciones</p>
+    <ol class="roadmap">
+      <li class="linked"><a href="generadores.html"><span class="num">★</span> ANTLR4 vs JFlex+CUP vs Jison — los 3 generadores del curso, comparados <span class="state">nuevo</span></a></li>
+    </ol>
+
+    <div class="callout"><p><strong>Sobre este proyecto:</strong> VLangCherry es el primer proyecto de OLC2 (curso distinto de OLC1) y es trabajo grupal de 3 integrantes, con defensa oral en vivo. Esta presentación es material de estudio para repasar las decisiones de diseño antes de esa defensa — no reemplaza al <code class="inline">ManualTecnico.md</code> ni a <code class="inline">docs/gramatica.txt</code>, que son la fuente de verdad técnica. El código de referencia vive en la carpeta <code class="inline">VLangCherry/</code> del workspace.</p></div>
+
+    <p class="eyebrow" style="margin-top:36px">Proyectos de OLC1 (mismo formato de curso guiado)</p>
+    <ol class="roadmap">
+      <li class="linked"><a href="../presentacion-dataforge/index.html"><span class="num">↔</span> DataForge — Java + JFlex + CUP, sin AST</a></li>
+      <li class="linked"><a href="../presentacion-conjanalyzer/index.html"><span class="num">↔</span> ConjAnalyzer — teoría de conjuntos, simplificador y diagramas de Venn</a></li>
+      <li class="linked"><a href="../presentacion-compscript/index.html"><span class="num">↔</span> CompScript — el hermano de OLC1 con AST real</a></li>
+      <li class="linked"><a href="../presentacion-compinterpreter/index.html"><span class="num">↔</span> CompInterpreter — JS/Jison/Express/React</a></li>
+      <li class="linked"><a href="../presentacion-libro-dragon/index.html"><span class="num">📖</span> El Libro del Dragón, capítulo a capítulo — teoría compartida con OLC1</a></li>
+    </ol>
+  </main>
+</div>
+
+<script src="assets/deck.js"></script>
+</body>
+</html>

@@ -1,0 +1,367 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cap. 7 · Entornos en tiempo de ejecución — Libro del Dragón</title>
+<link rel="stylesheet" href="assets/estilo.css">
+<style>
+  /* ---------- estilos exclusivos de las demos animadas ---------- */
+  .demo {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    box-shadow: var(--shadow);
+    padding: 20px 22px;
+    margin: 22px 0;
+  }
+  .demo .controls {
+    display: flex; align-items: center; gap: 12px;
+    margin-top: 16px; padding-top: 14px;
+    border-top: 1px dashed var(--line);
+  }
+  .demo .controls button {
+    font: inherit; font-size: 14.5px; font-weight: 600;
+    background: var(--accent); color: var(--accent-ink);
+    border: none; border-radius: 8px;
+    padding: 7px 18px; cursor: pointer;
+  }
+  .demo .controls button.reset-btn {
+    background: var(--surface); color: var(--muted);
+    border: 1px solid var(--line);
+  }
+  .demo .controls button:disabled { opacity: .35; cursor: default; }
+  .demo .controls .step-counter {
+    margin-left: auto; color: var(--muted);
+    font-variant-numeric: tabular-nums; font-size: 13.5px;
+  }
+  .demo .explica { font-size: 14px; color: var(--muted); margin: 4px 0 0; min-height: 3em; }
+
+  .derivacion { display: grid; gap: 9px; font-size: 16px; line-height: 2; }
+  .derivacion .paso {
+    display: flex; align-items: baseline; gap: 10px;
+    opacity: 0; transform: translateY(8px);
+    transition: opacity .4s ease, transform .4s ease;
+  }
+  .derivacion .paso.shown { opacity: 1; transform: none; }
+  .derivacion .paso .flecha { color: var(--muted); flex: none; width: 18px; }
+  .paso .nuevo { position: relative; }
+  .paso.current .nuevo { background: color-mix(in srgb, var(--accent) 14%, transparent); border-radius: 8px; }
+  .paso.current .nuevo > .marco { animation: brillo 1s ease 1; }
+  @keyframes brillo {
+    0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 55%, transparent); }
+    100% { box-shadow: 0 0 0 9px transparent; }
+  }
+  .paso .veredicto-ok { color: var(--tk-str); font-weight: 700; }
+
+  /* marco de activación en la pila */
+  .marco {
+    display: inline-block;
+    font-family: "Cascadia Code", Consolas, monospace;
+    font-size: .85em;
+    background: var(--surface2);
+    border: 1.5px solid var(--accent);
+    border-radius: 8px;
+    padding: 1px 10px; margin: 0 3px;
+    white-space: nowrap;
+  }
+  .marco.global { border-style: dashed; color: var(--muted); border-color: var(--line); }
+  .marco.muerto { opacity: .38; text-decoration: line-through; border-color: var(--line); }
+  .ret {
+    display: inline-block;
+    font-family: "Cascadia Code", Consolas, monospace;
+    font-size: .85em; font-weight: 700;
+    color: var(--tk-num);
+    border: 1.5px solid var(--tk-num);
+    border-radius: 6px;
+    padding: 0 8px; margin: 0 3px;
+    white-space: nowrap;
+  }
+</style>
+</head>
+<body>
+
+<div class="deck">
+  <div class="topbar">
+    <a class="brand" href="index.html" title="Volver al índice">Libro del <em>Dragón</em> · capítulo a capítulo</a>
+    <span class="chip">Cap. 7 · Entornos de ejecución</span>
+    <span class="counter"><span id="cur">1</span> / <span id="tot">?</span></span>
+    <button id="theme" type="button" title="Cambiar tema claro/oscuro" aria-label="Cambiar tema claro/oscuro">◐</button>
+  </div>
+  <div class="progress"><div id="bar"></div></div>
+
+  <div class="stage">
+
+    <!-- 1 · Portada -->
+    <section class="slide">
+      <div class="inner titleslide">
+        <p class="eyebrow">Capítulo 7 · Entornos en tiempo de ejecución</p>
+        <h1>El capítulo donde el <code class="inline">Entorno</code> crece</h1>
+        <p class="lead">Hasta ahora la tabla de símbolos fue un mapa global y feliz. Este capítulo explica qué pasa cuando llegan las <strong>funciones</strong>: llamadas, parámetros, locales, retorno y recursión — todo se sostiene con una sola estructura: la <strong>pila de activación</strong>.</p>
+        <p class="kicker">La equivalencia que guía todo el capítulo: <em>registro de activación ≈ entorno · pila de control ≈ pila de entornos</em>. Es la teoría exacta que CompScript va a exigir.<br>Se navega con ← → o los botones.</p>
+      </div>
+    </section>
+
+    <!-- 2 · Mapa -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">El mapa del capítulo</p>
+        <h2>Qué trae el cap. 7</h2>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>Sección</th><th>Tema</th><th>¿Corresponde?</th></tr></thead>
+            <tbody>
+              <tr><td>§7.1</td><td><strong>Organización de la memoria</strong>: código, estática, pila, montículo</td><td>Vocabulario esencial (¿qué ES un stack overflow?)</td></tr>
+              <tr><td>§7.2</td><td><strong>Pila de activación</strong>: árbol de activación, registros, secuencias de llamada</td><td>✓ de lleno — es el diseño de las funciones de CompScript</td></tr>
+              <tr><td>§7.3</td><td><strong>Acceso a datos no locales</strong>: alcance estático, enlaces de acceso</td><td>✓ de lleno — es la cadena de padres del <code class="inline">Entorno</code></td></tr>
+              <tr><td>§7.4–7.6</td><td><strong>Montículo y garbage collection</strong></td><td>Cultura general — la JVM lo regala</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="muted">Fuente: Dragón cap. 7 · notas del vault: Registro de activación y pila de control, Entornos y alcance. La profundización <em>La tabla de símbolos, a fondo</em> del curso DataForge ya demuestra los ámbitos encadenados de bloques (§2.7); acá se agrega la dimensión que faltaba: <strong>las llamadas</strong>.</p>
+      </div>
+    </section>
+
+    <!-- 3 · §7.1 memoria -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">Dragón §7.1</p>
+        <h2>Las cuatro zonas de la memoria de un programa</h2>
+        <pre class="code">┌───────────────────┐
+│   CÓDIGO          │  las instrucciones compiladas — tamaño fijo
+├───────────────────┤
+│   ESTÁTICA        │  globales y constantes — tamaño conocido al compilar
+├───────────────────┤
+│   MONTÍCULO (heap)│  objetos con vida "libre" (new) — crece hacia abajo ↓
+├───────────────────┤
+│        ↕ libre    │
+├───────────────────┤
+│   PILA (stack)    │  una activación por llamada viva — crece hacia arriba ↑
+└───────────────────┘</pre>
+        <p>La división responde a una pregunta por zona: ¿cuánto vive cada dato? El código y lo estático viven <em>todo el programa</em>; lo de la pila vive <em>lo que dura su llamada</em>; lo del heap vive <em>hasta que nadie lo usa</em>.</p>
+        <div class="callout"><p>El intérprete corre <em>dentro</em> de la JVM, que ya tiene sus cuatro zonas. Pero el vocabulario aplica también acá: cuando CompScript ejecute una recursión sin caso base, la pila de entornos crecerá hasta reventar — y queda claro que el <code class="inline">StackOverflowError</code> de Java es literalmente esto: la pila chocando contra el heap.</p></div>
+        <p class="muted">Fuente: Dragón §7.1.1, fig. 7.2 (subdivisión típica de la memoria).</p>
+      </div>
+    </section>
+
+    <!-- 4 · §7.2 activaciones -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">Dragón §7.2.1–7.2.2</p>
+        <h2>Activación: cada llamada es un mundo nuevo</h2>
+        <p>Una <strong>activación</strong> es <em>una ejecución</em> de un procedimiento. La palabra importa: si <code class="inline">fact</code> se llama a sí misma 3 veces, hay <strong>un</strong> procedimiento y <strong>tres activaciones</strong> — cada una con su propio <code class="inline">n</code>.</p>
+        <p>Las activaciones de una corrida forman el <strong>árbol de activación</strong>: el padre llama a los hijos, y los hijos terminan antes que el padre:</p>
+        <pre class="code">              main()
+             ┌──┴─────────┐
+        fact(3)        imprimir(r)
+           │
+        fact(2)          ← cada nodo: una activación
+           │                con SUS propios parámetros y locales
+        fact(1)</pre>
+        <p>De ahí la observación que funda todo el capítulo: como las activaciones terminan en orden inverso al que empezaron (el hijo muere antes que el padre), <strong>una pila las administra perfecto</strong>. En cada instante, la pila contiene el <em>camino de la raíz a la activación actual</em>.</p>
+        <p class="muted">Fuente: Dragón §7.2.1 (árboles de activación), §7.2.2 (registros). Vida de una activación = su nodo y todo lo de abajo.</p>
+      </div>
+    </section>
+
+    <!-- 5 · registro de activación vs Entorno -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">Dragón §7.2.2 — la equivalencia central</p>
+        <h2>Registro de activación ≈ el <code class="inline">Entorno</code></h2>
+        <p>Cada activación vive en un <strong>registro de activación</strong> (frame): un bloque en la pila con todo lo que esa ejecución necesita. Se compara el del libro con su equivalente en el proyecto:</p>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>Campo del frame (libro, fig. 7.5)</th><th>Para qué</th><th>En el intérprete (CompScript)</th></tr></thead>
+            <tbody>
+              <tr><td>Parámetros reales</td><td>Los argumentos de esta llamada</td><td>Variables pre-cargadas en el <code class="inline">Entorno</code> nuevo: <code class="inline">n → 3</code></td></tr>
+              <tr><td>Datos locales</td><td>Variables declaradas adentro</td><td>Entradas que el cuerpo agrega a ese mismo <code class="inline">Entorno</code></td></tr>
+              <tr><td>Valor de retorno</td><td>Lo que la llamada devuelve</td><td>El valor que el <code class="inline">ejecutar()</code> retorna al evaluar la llamada</td></tr>
+              <tr><td>Enlace de <strong>control</strong></td><td>Apunta al frame del <em>llamador</em> (para volver)</td><td>Gratis: la pila de llamadas de Java — la recursión de <code class="inline">ejecutar()</code></td></tr>
+              <tr><td>Enlace de <strong>acceso</strong></td><td>Apunta al entorno donde <em>buscar los no locales</em></td><td>La referencia <code class="inline">padre</code> del <code class="inline">Entorno</code> — ojo: NO es el llamador (diapositiva 7)</td></tr>
+              <tr><td>Estado de máquina (registros, dirección de retorno)</td><td>Reanudar al llamador tal como estaba</td><td>No aplica: la JVM lo administra automáticamente</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="callout"><p>La traducción completa en una frase: <strong>«llamar a una función» = crear un <code class="inline">Entorno</code> nuevo con los parámetros adentro, ejecutar el cuerpo sobre él, y destruirlo al retornar</strong>. Todo lo demás del capítulo son los detalles de esa frase.</p></div>
+      </div>
+    </section>
+
+    <!-- 6 · Demo pila de activación -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">§7.2 en movimiento</p>
+        <h2>La pila ejecutando <code class="inline">fact(3)</code></h2>
+        <pre class="code">funcion fact(n) {  si (n &lt;= 1) { retornar 1; }  retornar n * fact(n - 1);  }</pre>
+        <div class="demo">
+          <div class="derivacion">
+            <div class="paso" data-step="0"><span class="flecha"></span><span>pila: <span class="marco global">global</span> — se evalúa la llamada <span class="marco">fact(3)</span>…</span></div>
+            <div class="paso" data-step="1"><span class="flecha">→</span><span>pila: <span class="marco global">global</span><span class="nuevo"><span class="marco">fact · n=3</span></span> — 3 &gt; 1: necesita <code>fact(2)</code></span></div>
+            <div class="paso" data-step="2"><span class="flecha">→</span><span>pila: <span class="marco global">global</span><span class="marco">fact · n=3</span><span class="nuevo"><span class="marco">fact · n=2</span></span> — 2 &gt; 1: necesita <code>fact(1)</code></span></div>
+            <div class="paso" data-step="3"><span class="flecha">→</span><span>pila: <span class="marco global">global</span><span class="marco">fact · n=3</span><span class="marco">fact · n=2</span><span class="nuevo"><span class="marco">fact · n=1</span></span> — caso base: <span class="ret">retorna 1</span></span></div>
+            <div class="paso" data-step="4"><span class="flecha">→</span><span>pila: <span class="marco global">global</span><span class="marco">fact · n=3</span><span class="nuevo"><span class="marco">fact · n=2</span></span><span class="marco muerto">fact · n=1</span> — completa 2 × 1: <span class="ret">retorna 2</span></span></div>
+            <div class="paso" data-step="5"><span class="flecha">→</span><span>pila: <span class="marco global">global</span><span class="nuevo"><span class="marco">fact · n=3</span></span><span class="marco muerto">fact · n=2</span> — completa 3 × 2: <span class="ret">retorna 6</span></span></div>
+            <div class="paso" data-step="6"><span class="flecha">→</span><span>pila: <span class="marco global">global</span> — la expresión vale <span class="ret">6</span> <span class="veredicto-ok">✓ tres activaciones, tres n distintos, cero conflictos</span></span></div>
+          </div>
+          <div class="controls">
+            <button type="button" class="step-btn">▶ Paso</button>
+            <button type="button" class="reset-btn">⟲ Reiniciar</button>
+            <span class="step-counter"></span>
+          </div>
+          <p class="explica" data-textos='["Estado inicial: solo el entorno global (donde vive la definición de fact). Alguien evalúa fact(3).","Se apila el primer frame: un Entorno nuevo con n=3 ya adentro. El cuerpo corre SOBRE este entorno.","Para calcular n * fact(n-1) hay que resolver fact(2) primero: otro frame, con SU n=2. El n=3 del frame de abajo sigue intacto — ese es el milagro de la pila.","Tercer frame: n=1. El caso base corta la recursión: retorna 1 sin llamar a nadie.","El frame de n=1 se destruye (pop). fact(2) recibe el 1, completa su multiplicación pendiente 2×1 y retorna 2.","Pop de n=2. fact(3) completa 3×2 y retorna 6.","Pop final: la pila quedó como empezó. Cada activación tuvo su propio n porque cada una tuvo su propio Entorno. Recursión no es un caso especial: es la pila haciendo su trabajo."]'></p>
+        </div>
+      </div>
+    </section>
+
+    <!-- 7 · §7.3 no locales -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">Dragón §7.3 — el bug clásico de los intérpretes de OLC1</p>
+        <h2>¿Y si la función usa una variable que no es suya?</h2>
+        <p>Dentro de <code class="inline">fact</code> aparece <code class="inline">fact</code> (¡y podría aparecer una global!). Los nombres que no están en el entorno local se buscan siguiendo el <strong>enlace de acceso</strong> — la cadena de padres. La pregunta de diseño es: <strong>¿quién es el padre del entorno nuevo?</strong></p>
+        <div class="cards three">
+          <div class="card">
+            <h3>Alcance estático ✓</h3>
+            <p>El padre es el entorno donde la función fue <strong>definida</strong> (para CompScript sin funciones anidadas: el <strong>global</strong>). Lo que ve la función se decide <em>leyendo el fuente</em>. Es lo que hacen C, Java y lo que el enunciado espera.</p>
+          </div>
+          <div class="card">
+            <h3>Alcance dinámico ✗</h3>
+            <p>El padre es el entorno del <strong>llamador</strong>. Lo que ve la función depende de <em>quién la llamó</em> — imposible de razonar leyendo el código.</p>
+          </div>
+          <div class="card">
+            <h3>El bug clásico</h3>
+            <p>Escribir <code class="inline">new Entorno(entornoActual)</code> al ejecutar la llamada. Compila, funciona en tests simples… y las locales del llamador <strong>se filtran</strong> dentro de la función: alcance dinámico accidental.</p>
+          </div>
+        </div>
+        <pre class="code"><span class="tk-sym">// CORRECTO (estático):                  // BUG (dinámico accidental):</span>
+Entorno e = new Entorno(global);         Entorno e = new Entorno(entornoActual);
+<span class="tk-sym">// el test que los distingue:  var x = 1;  funcion f(){ imprimir(x); }
+// funcion g(){ var x = 99; f(); }   →  g() debe imprimir 1, no 99</span></pre>
+        <p class="muted">Fuente: Dragón §7.3.1–7.3.2 (alcances), §7.3.5–7.3.6 (enlaces de acceso). Los bloques <code class="inline">{ }</code> internos sí encadenan con el entorno actual — la demo está en <em>La tabla de símbolos, a fondo</em>.</p>
+      </div>
+    </section>
+
+    <!-- 8 · §7.4-7.6 heap y GC -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">Dragón §7.4–7.6 — cultura general</p>
+        <h2>El montículo y el recolector: lo que la JVM regala</h2>
+        <p>La pila muere en orden; los <strong>objetos no</strong>: un arreglo creado dentro de una función puede sobrevivirla (si se retorna). Para esas vidas «libres» existe el <strong>montículo</strong> — y con él, el problema de saber cuándo liberar:</p>
+        <div class="cards three">
+          <div class="card">
+            <h3>Gestión manual</h3>
+            <p>C: <code class="inline">malloc</code>/<code class="inline">free</code>. Poder total, bugs totales: <em>dangling pointers</em> (liberar temprano) y <em>memory leaks</em> (no liberar nunca).</p>
+          </div>
+          <div class="card">
+            <h3>Garbage collection</h3>
+            <p>El runtime encuentra lo <strong>inalcanzable</strong> (nada apunta ahí) y lo recicla. Java, JS, Python. El cap. §7.5–7.6 estudia sus algoritmos (marcar-y-barrer, copia, generacional).</p>
+          </div>
+          <div class="card">
+            <h3>La posición del intérprete en el mapa</h3>
+            <p>Los intérpretes del curso corren <strong>sobre</strong> la JVM/Node: cuando un <code class="inline">Entorno</code> muere y nada lo referencia, el GC lo recicla. La «gestión de memoria» es no retener referencias de más.</p>
+          </div>
+        </div>
+        <div class="callout"><p>Ironía instructiva: se escribe un intérprete cuyo runtime (el de Java) fue construido con las técnicas de este mismo capítulo. Es el capítulo donde la herramienta y el proyecto son el mismo objeto de estudio a dos escalas.</p></div>
+        <p class="muted">Fuente: Dragón §7.4 (montículo), §7.5 (GC básico), §7.6 (GC avanzado) — lectura ligera recomendada, sin ejercicios.</p>
+      </div>
+    </section>
+
+    <!-- 9 · Checklist runtime -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">El mapa aterrizado</p>
+        <h2>Checklist de runtime para CompScript</h2>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>Decisión</th><th>Teoría detrás</th><th>Regla práctica</th></tr></thead>
+            <tbody>
+              <tr><td>Llamada a función</td><td>Registro de activación (§7.2.2)</td><td><code class="inline">new Entorno(global)</code> + parámetros adentro → ejecutar cuerpo → destruir</td></tr>
+              <tr><td>Padre del entorno de la función</td><td>Alcance estático (§7.3.2)</td><td><strong>El global</strong> (donde se definió), jamás el del llamador — testealo con el caso de la diapositiva 7</td></tr>
+              <tr><td>Bloques <code class="inline">{ }</code>, if, while</td><td>Ámbitos anidados (§2.7)</td><td>Acá sí: <code class="inline">new Entorno(entornoActual)</code> — el bloque ve a su contenedor</td></tr>
+              <tr><td><code class="inline">retornar</code>, <code class="inline">break</code>, <code class="inline">continue</code></td><td>Transferencia de control no local</td><td>En un intérprete de AST: una <strong>señal que sube</strong> por el recorrido (excepción propia o valor especial) hasta que el nodo función/ciclo la captura</td></tr>
+              <tr><td>Recursión</td><td>Una activación = un entorno (§7.2.1)</td><td>Si la llamada crea entorno propio, la recursión funciona <strong>sola</strong> — no la programes como caso especial</td></tr>
+              <tr><td>Recursión infinita del usuario</td><td>La pila es finita (§7.1)</td><td>El intérprete morirá con <code class="inline">StackOverflowError</code> — conviene atraparlo y reportarlo como error de ejecución con línea/columna</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="muted">La cuarta fila es el truco de implementación más valioso del capítulo para OLC1: <code class="inline">return</code> no es un valor que se retorna hacia abajo — es un evento que <strong>interrumpe</strong> el recorrido hacia arriba.</p>
+      </div>
+    </section>
+
+    <!-- 10 · Quiz -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">Chequeo rápido</p>
+        <h2>¿Quedó claro? Probate</h2>
+        <p class="muted">Conviene pensar la respuesta antes de revelarla. Si falla alguna, conviene volver unas diapositivas.</p>
+        <div class="quiz">
+          <div class="q">
+            <p class="question">1 · En el punto más profundo de <code class="inline">fact(3)</code>: ¿cuántas activaciones de <code class="inline">fact</code> hay vivas, y por qué el <code class="inline">n</code> de una no pisa el de otra?</p>
+            <button type="button" onclick="this.parentElement.classList.add('revealed')">Revelar respuesta</button>
+            <div class="answer"><p><strong>Tres</strong> (n=3, n=2, n=1), las tres en la pila a la vez. No se pisan porque <code class="inline">n</code> no vive «en la función»: vive <strong>en el registro de activación</strong> — cada llamada tiene el suyo. Un procedimiento, muchas activaciones; el código es compartido, los datos no.</p></div>
+          </div>
+          <div class="q">
+            <p class="question">2 · Con el bug del padre-llamador: <code class="inline">var x = 1; funcion f(){ imprimir(x); } funcion g(){ var x = 99; f(); } g();</code> — ¿qué imprime la versión con bug y qué debía imprimir?</p>
+            <button type="button" onclick="this.parentElement.classList.add('revealed')">Revelar respuesta</button>
+            <div class="answer"><p>El bug imprime <strong>99</strong>: el entorno de <code class="inline">f</code> tiene como padre al de <code class="inline">g</code>, así que la búsqueda de <code class="inline">x</code> encuentra la local del llamador (alcance dinámico). Debía imprimir <strong>1</strong>: con alcance estático, <code class="inline">f</code> se definió en el global y su cadena de acceso es f → global, donde <code class="inline">x</code> vale 1. Metételo en los casos de prueba de CompScript desde el día uno.</p></div>
+          </div>
+          <div class="q">
+            <p class="question">3 · ¿Por qué <code class="inline">retornar</code> conviene implementarlo como una «señal que sube» y no como un simple valor de retorno de <code class="inline">ejecutar()</code>?</p>
+            <button type="button" onclick="this.parentElement.classList.add('revealed')">Revelar respuesta</button>
+            <div class="answer"><p>Porque el <code class="inline">retornar</code> puede estar <strong>enterrado</strong>: dentro de un if, dentro de un while, dentro de un bloque — y al dispararse debe <strong>abortar todo lo pendiente</strong> hasta salir de la función. Si fuera un valor normal, cada nodo intermedio (bloque, ciclo) tendría que chequearlo y propagarlo a mano — y un olvido = bug. Como señal (excepción propia que el nodo-función captura), el recorrido se corta solo, exactamente como la transferencia de control no local del libro. Ídem <code class="inline">break</code>/<code class="inline">continue</code> capturados por el nodo-ciclo.</p></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 11 · Cierre -->
+    <section class="slide">
+      <div class="inner titleslide">
+        <p class="eyebrow">Capítulo 7 completado — núcleo del libro terminado 🎉</p>
+        <h1>Ya se tiene el runtime en la cabeza</h1>
+        <p class="lead">Cuatro zonas de memoria · activaciones y su árbol · registro ≈ Entorno · la pila ejecutando recursión · alcance estático vs. dinámico (y el bug clásico) · señales para return/break · GC como cultura.</p>
+        <p style="margin-top:28px"><a class="btn primary" href="panorama.html">Cerrar el curso con el panorama de los caps. 8–12 →</a></p>
+        <p class="kicker"><a class="btn" href="cap6.html">← Cap. 6</a> &nbsp; <a class="btn" href="index.html">⌂ Volver al índice</a></p>
+      </div>
+    </section>
+
+  </div>
+
+  <div class="navbar">
+    <button id="prev" type="button">← Anterior</button>
+    <button id="next" type="button">Siguiente →</button>
+    <span class="hint">también se pueden usar las flechas del teclado</span>
+  </div>
+</div>
+
+<script src="assets/deck.js"></script>
+<script>
+/* ---- steppers de las demos: cada clic revela el siguiente paso ---- */
+document.querySelectorAll('.demo').forEach((demo) => {
+  const pasos = Array.from(demo.querySelectorAll('[data-step]'));
+  if (!pasos.length) return;
+  const max = Math.max(...pasos.map(e => +e.dataset.step));
+  const btn = demo.querySelector('.step-btn');
+  const reset = demo.querySelector('.reset-btn');
+  const counter = demo.querySelector('.step-counter');
+  const explica = demo.querySelector('.explica');
+  const textos = explica ? JSON.parse(explica.dataset.textos || '[]') : [];
+  let cur = 0;
+
+  function render() {
+    pasos.forEach(e => {
+      const n = +e.dataset.step;
+      e.classList.toggle('shown', n <= cur);
+      e.classList.toggle('current', n === cur);
+    });
+    if (counter) counter.textContent = 'paso ' + cur + ' de ' + max;
+    if (explica) explica.textContent = textos[cur] || '';
+    btn.disabled = cur >= max;
+    reset.disabled = cur === 0;
+  }
+  btn.addEventListener('click', () => { if (cur < max) { cur++; render(); } });
+  reset.addEventListener('click', () => { cur = 0; render(); });
+  render();
+});
+</script>
+</body>
+</html>

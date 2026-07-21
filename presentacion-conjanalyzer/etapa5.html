@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Etapa 5 · Diagrama de Venn — ConjAnalyzer</title>
+<link rel="stylesheet" href="assets/estilo.css">
+</head>
+<body>
+
+<div class="deck">
+  <div class="topbar">
+    <a class="brand" href="index.html" title="Volver al índice">Conj<em>Analyzer</em> · curso guiado</a>
+    <span class="chip">Etapa 5 · Diagrama de Venn</span>
+    <span class="counter"><span id="cur">1</span> / <span id="tot">?</span></span>
+    <button id="theme" type="button" title="Cambiar tema claro/oscuro" aria-label="Cambiar tema claro/oscuro">◐</button>
+  </div>
+  <div class="progress"><div id="bar"></div></div>
+
+  <div class="stage">
+
+    <!-- 1 · Intro -->
+    <section class="slide">
+      <div class="inner titleslide">
+        <p class="eyebrow">Etapa 5 · Parte 1</p>
+        <h1>El diagrama de Venn (sección 5.1)</h1>
+        <p class="lead">El enunciado pide visualizar, para cada operación, qué región del universo abarca su resultado. La solución de ConjAnalyzer no dibuja formas aproximadas: <strong>calcula, píxel por píxel, si cada punto pertenece de verdad al resultado</strong>.</p>
+        <p class="kicker">Clase: <code class="inline">gui/DiagramaVenn.java</code>. Reutiliza directamente <code class="inline">NodoOperacion.pertenenciaRegion</code> de la Etapa 3.</p>
+      </div>
+    </section>
+
+    <!-- 2 · La idea: sombreado exacto -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">La idea central</p>
+        <h2>Sombreado exacto, no aproximado</h2>
+        <p>Un diagrama de Venn "de libro" dibuja regiones a mano según qué operación se quiere ilustrar. Acá se invierte el proceso: por cada píxel del <code class="inline">Canvas</code>, se calcula en qué círculos (conjuntos base) cae, y se evalúa la operación como <strong>función booleana</strong> sobre esa combinación — si da <code class="inline">true</code>, el píxel se pinta.</p>
+        <pre class="code">for (int y = 0; y &lt; ALTO; y++) {
+    for (int x = 0; x &lt; ANCHO; x++) {
+        boolean dentroDeAlguno = false;
+        for (int i = 0; i &lt; n; i++) {
+            double dx = x - centros[i][0], dy = y - centros[i][1];
+            boolean adentro = dx*dx + dy*dy &lt;= r*r;      <span class="tk-sym">// ¿dentro del circulo i?</span>
+            region.put(bases.get(i), adentro);
+            dentroDeAlguno |= adentro;
+        }
+        if (op.arbol.pertenenciaRegion(region)) {          <span class="tk-sym">// Etapa 3</span>
+            pw.setColor(x, y, dentroDeAlguno ? DENTRO : FUERA);
+        }
+    }
+}</pre>
+        <div class="callout"><p><strong>Por qué esto es exacto y no una aproximación visual:</strong> <code class="inline">pertenenciaRegion</code> es la MISMA función que calcula la pertenencia real de un elemento a la operación (Etapa 3) — no hay una lógica de dibujo separada de la lógica de evaluación. Si el árbol cambia (por ejemplo, después de simplificarse), el dibujo sigue siendo correcto sin tocar una línea de <code class="inline">DiagramaVenn</code>.</p></div>
+      </div>
+    </section>
+
+    <!-- 3 · 1 a 3 conjuntos -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">Geometría</p>
+        <h2>De 1 a 3 círculos — y el límite honesto</h2>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>Conjuntos base</th><th>Disposición</th></tr></thead>
+            <tbody>
+              <tr><td>1</td><td>un círculo centrado</td></tr>
+              <tr><td>2</td><td>dos círculos superpuestos, uno junto al otro</td></tr>
+              <tr><td>3</td><td>trébol clásico: dos arriba, uno abajo al centro</td></tr>
+              <tr><td>4 o más</td><td>sin Venn geométrico razonable — se muestra el resultado solo en texto</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p><code class="inline">op.referencias</code> (método de <code class="inline">NodoOperacion</code>, Etapa 3) es lo que le dice al diagrama cuántos conjuntos base tiene que dibujar y cómo etiquetarlos. Con más de 3, dibujar círculos que representen honestamente todas las combinaciones de pertenencia ya no es geométricamente posible con circunferencias simples — de ahí la decisión documentada de degradar a texto.</p>
+      </div>
+    </section>
+
+    <!-- 4 · El complemento: la región de afuera -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">El caso especial: el complemento</p>
+        <h2>Sombrear también "lo que queda fuera de todos los círculos"</h2>
+        <p>El complemento de un conjunto incluye elementos del universo que <strong>no</strong> pertenecen a ningún conjunto base dibujado. Por eso <code class="inline">DiagramaVenn</code> usa dos tonos del mismo color: uno para "dentro de algún círculo" (<code class="inline">DENTRO</code>) y otro más claro para "fuera de todos" (<code class="inline">FUERA</code>) — ambos activados por el mismo <code class="inline">if (op.arbol.pertenenciaRegion(region))</code>, solo cambia qué tono se usa según <code class="inline">dentroDeAlguno</code>.</p>
+        <div class="callout"><p>Esto es una consecuencia directa de cómo funciona <code class="inline">pertenenciaRegion</code> sobre un nodo unario: <code class="inline">return !izq.pertenenciaRegion(region)</code>. Para un píxel que no cae en NINGÚN círculo, todas las entradas del mapa <code class="inline">region</code> son <code class="inline">false</code> — y aun así el complemento de eso puede evaluar <code class="inline">true</code>.</p></div>
+      </div>
+    </section>
+
+    <!-- 5 · El panel completo -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">El panel de una operación</p>
+        <h2>Título, canvas, expresión, resultado y simplificación — todo junto</h2>
+        <p><code class="inline">DiagramaVenn.crear(Operacion op)</code> arma un <code class="inline">VBox</code> con 5 piezas: el nombre de la operación, el <code class="inline">Canvas</code> sombreado, la expresión en notación prefija (<code class="inline">op.arbol.toPrefijo()</code>), el resultado evaluado y — si aplica — la simplificación con sus leyes:</p>
+        <pre class="code">String simplTxt = op.simplificacion.seSimplifico
+        ? op.simplificacion.simplificado.toPrefijo()
+          + "   [leyes: " + String.join(", ", op.simplificacion.leyes) + "]"
+        : "No se puede simplificar la operacion";</pre>
+        <p>Un panel por operación, navegable con <code class="inline">◀</code>/<code class="inline">▶</code>/<code class="inline">ComboBox</code> desde <code class="inline">EditorApp</code> — el mismo criterio de "navegación entre gráficos generados en la ejecución" que pide la sección 5.1 del enunciado.</p>
+      </div>
+    </section>
+
+    <!-- 6 · Quiz -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">Chequeo rápido</p>
+        <h2>¿Se entiende el sombreado por función booleana?</h2>
+        <div class="quiz">
+          <div class="q">
+            <p class="question">1 · Para una operación con 5 conjuntos base referenciados, ¿qué muestra el panel de Venn?</p>
+            <button type="button" onclick="this.parentElement.classList.add('revealed')">Revelar respuesta</button>
+            <div class="answer"><p>Solo <strong>texto</strong>: "Venn no disponible para 5 conjuntos base". No existe una disposición geométrica razonable con círculos simples para más de 3 conjuntos, y el proyecto lo reconoce en vez de dibujar algo engañoso.</p></div>
+          </div>
+          <div class="q">
+            <p class="question">2 · ¿Por qué el sombreado NO necesita recorrer el <code class="inline">Set&lt;Character&gt;</code> completo del universo?</p>
+            <button type="button" onclick="this.parentElement.classList.add('revealed')">Revelar respuesta</button>
+            <div class="answer"><p>Porque en vez de preguntar "¿qué caracteres pertenecen al resultado?", se pregunta "¿este PUNTO del canvas (que representa una combinación hipotética de pertenencias) satisface la función booleana de la operación?" — <code class="inline">pertenenciaRegion</code> resuelve eso sin necesidad de conocer ningún carácter concreto.</p></div>
+          </div>
+          <div class="q">
+            <p class="question">3 · Si <code class="inline">Simplificador</code> reescribe el árbol de una operación, ¿hay que cambiar algo en <code class="inline">DiagramaVenn</code> para que el dibujo siga siendo correcto?</p>
+            <button type="button" onclick="this.parentElement.classList.add('revealed')">Revelar respuesta</button>
+            <div class="answer"><p><strong>No.</strong> El diagrama usa <code class="inline">op.arbol</code> (el árbol ORIGINAL evaluado, no el simplificado) para el sombreado, así que es independiente de la simplificación — el panel solo MUESTRA el árbol simplificado como texto informativo aparte, sin usarlo para dibujar.</p></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 7 · Cierre -->
+    <section class="slide">
+      <div class="inner titleslide">
+        <p class="eyebrow">Etapa 5 · construida</p>
+        <h1>Queda construido un Venn matemáticamente exacto</h1>
+        <p class="lead">De 1 a 3 conjuntos, con el complemento sombreando también "lo de afuera", reutilizando la misma función booleana que decide pertenencia real — sin lógica de dibujo separada de la lógica del intérprete.</p>
+        <p class="kicker">Próxima: <strong>Etapa 6 — reportes HTML y el JSON con Gson</strong>, el cierre del pipeline.<br><a class="btn" href="index.html" style="margin-top:14px">⌂ Volver al índice</a></p>
+      </div>
+    </section>
+
+  </div>
+
+  <div class="navbar">
+    <button id="prev" type="button">← Anterior</button>
+    <button id="next" type="button">Siguiente →</button>
+    <span class="hint">también se pueden usar las flechas del teclado</span>
+  </div>
+</div>
+
+<script src="assets/deck.js"></script>
+</body>
+</html>

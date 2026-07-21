@@ -1,0 +1,437 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cap. 2 · Un traductor sencillo — Libro del Dragón</title>
+<link rel="stylesheet" href="assets/estilo.css">
+<style>
+  /* ---------- estilos exclusivos de las demos animadas ---------- */
+  .demo {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    box-shadow: var(--shadow);
+    padding: 20px 22px;
+    margin: 22px 0;
+  }
+  .demo .controls {
+    display: flex; align-items: center; gap: 12px;
+    margin-top: 16px; padding-top: 14px;
+    border-top: 1px dashed var(--line);
+  }
+  .demo .controls button {
+    font: inherit; font-size: 14.5px; font-weight: 600;
+    background: var(--accent); color: var(--accent-ink);
+    border: none; border-radius: 8px;
+    padding: 7px 18px; cursor: pointer;
+  }
+  .demo .controls button.reset-btn {
+    background: var(--surface); color: var(--muted);
+    border: 1px solid var(--line);
+  }
+  .demo .controls button:disabled { opacity: .35; cursor: default; }
+  .demo .controls .step-counter {
+    margin-left: auto; color: var(--muted);
+    font-variant-numeric: tabular-nums; font-size: 13.5px;
+  }
+  .demo .explica { font-size: 14px; color: var(--muted); margin: 4px 0 0; min-height: 3em; }
+
+  /* no terminal: concepto pendiente de sustituir */
+  .nt {
+    display: inline-block;
+    font-family: "Cascadia Code", Consolas, monospace;
+    color: var(--accent);
+    border: 1.5px dashed var(--accent);
+    border-radius: 6px;
+    padding: 0 7px;
+    margin: 0 2px;
+    font-size: .95em;
+    white-space: nowrap;
+  }
+  /* terminal: pieza definitiva */
+  .t {
+    display: inline-block;
+    font-family: "Cascadia Code", Consolas, monospace;
+    background: var(--surface2);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 0 7px;
+    margin: 0 2px;
+    white-space: nowrap;
+  }
+
+  /* líneas de derivación que van apareciendo */
+  .derivacion { display: grid; gap: 9px; font-size: 16.5px; line-height: 2; }
+  .derivacion .paso {
+    display: flex; align-items: baseline; gap: 10px;
+    opacity: 0; transform: translateY(8px);
+    transition: opacity .4s ease, transform .4s ease;
+  }
+  .derivacion .paso.shown { opacity: 1; transform: none; }
+  .derivacion .paso .flecha { color: var(--muted); flex: none; width: 18px; }
+  .paso .nuevo { position: relative; }
+  .paso.current .nuevo > .t, .paso.current .nuevo > .nt,
+  .paso.current .nuevo.t, .paso.current .nuevo.nt {
+    animation: brillo 1s ease 1;
+  }
+  .paso.current .nuevo { background: color-mix(in srgb, var(--accent) 14%, transparent); border-radius: 8px; }
+  @keyframes brillo {
+    0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 55%, transparent); }
+    100% { box-shadow: 0 0 0 9px transparent; }
+  }
+  .paso .veredicto-ok { color: var(--tk-str); font-weight: 700; }
+
+  /* salida acumulada de la demo de postfijo */
+  .salida {
+    font-family: "Cascadia Code", Consolas, monospace;
+    background: var(--code-bg); color: var(--code-ink);
+    border-radius: 6px; padding: 2px 10px; margin-left: 6px;
+    letter-spacing: .12em;
+  }
+  .accion {
+    display: inline-block;
+    font-family: "Cascadia Code", Consolas, monospace;
+    font-size: .85em;
+    color: var(--tk-num);
+    border: 1.5px solid var(--tk-num);
+    border-radius: 6px;
+    padding: 0 7px; margin: 0 2px;
+    white-space: nowrap;
+  }
+</style>
+</head>
+<body>
+
+<div class="deck">
+  <div class="topbar">
+    <a class="brand" href="index.html" title="Volver al índice">Libro del <em>Dragón</em> · capítulo a capítulo</a>
+    <span class="chip">Cap. 2 · Un traductor sencillo</span>
+    <span class="counter"><span id="cur">1</span> / <span id="tot">?</span></span>
+    <button id="theme" type="button" title="Cambiar tema claro/oscuro" aria-label="Cambiar tema claro/oscuro">◐</button>
+  </div>
+  <div class="progress"><div id="bar"></div></div>
+
+  <div class="stage">
+
+    <!-- 1 · Portada -->
+    <section class="slide">
+      <div class="inner titleslide">
+        <p class="eyebrow">Capítulo 2 · Un traductor sencillo dirigido por la sintaxis</p>
+        <h1>El libro entero, en miniatura</h1>
+        <p class="lead">El capítulo 2 hace algo raro para un libro de texto: <strong>construye un traductor completo y funcional</strong> — de expresiones infijas como <code class="inline">9-5+2</code> a postfijas como <code class="inline">95-2+</code> — antes de explicar ninguna teoría a fondo. Es la maqueta a escala de todo lo que viene.</p>
+        <p class="kicker">Quien entiende este capítulo ya ve todo el front-end funcionando una vez. Los caps. 3–7 solo agrandan cada pieza.<br>Se navega con las flechas ← → o con los botones de abajo.</p>
+      </div>
+    </section>
+
+    <!-- 2 · El plan del capítulo -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">El mapa del capítulo</p>
+        <h2>Cada sección del cap. 2 es un capítulo entero después</h2>
+        <p>El juguete se arma con una pieza por sección — y cada pieza tiene su capítulo «adulto» más adelante:</p>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>Sección del cap. 2</th><th>La pieza del juguete</th><th>Versión adulta</th></tr></thead>
+            <tbody>
+              <tr><td>§2.2 Definición de sintaxis</td><td>Una gramática libre de contexto (BNF)</td><td>Cap. 4</td></tr>
+              <tr><td>§2.3 Traducción dirigida por sintaxis</td><td>Acciones que imprimen postfijo</td><td>Cap. 5</td></tr>
+              <tr><td>§2.4–2.5 Análisis descendente</td><td>Un parser predictivo a mano</td><td>Cap. 4</td></tr>
+              <tr><td>§2.6 Análisis léxico</td><td>Un lexer artesanal (dígitos, espacios)</td><td>Cap. 3</td></tr>
+              <tr><td>§2.7 Tablas de símbolos</td><td>Ámbitos encadenados</td><td>Caps. 6–7</td></tr>
+              <tr><td>§2.8 Generación intermedia</td><td>Árboles de sintaxis y tres direcciones</td><td>Cap. 6</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="callout"><p>El código completo del juguete está en Java, en el <strong>Apéndice A</strong> del libro. DataForge es este mismo esqueleto con dos diferencias: las piezas artesanales se reemplazan por <strong>generadores</strong> (JFlex/CUP), y en vez de imprimir postfijo, <strong>ejecuta</strong>.</p></div>
+        <p class="muted">Fuente: Dragón cap. 2, §2.1 · nota del vault: Cap 2 - Traductor simple orientado a la sintaxis.</p>
+      </div>
+    </section>
+
+    <!-- 3 · §2.2 CFG -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">Dragón §2.2</p>
+        <h2>Definir la sintaxis: la gramática libre de contexto</h2>
+        <p>Una gramática (BNF) tiene cuatro ingredientes: <strong>terminales</strong> (los tokens), <strong>no terminales</strong> (los conceptos), <strong>producciones</strong> (las reglas de sustitución) y un <strong>símbolo inicial</strong>. La primera gramática del libro define listas de dígitos separados por <code class="inline">+</code> y <code class="inline">-</code>:</p>
+        <pre class="code">list  → list + digit
+list  → list - digit
+list  → digit
+digit → 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9</pre>
+        <div class="cards three">
+          <div class="card">
+            <h3>Terminales</h3>
+            <p><code class="inline">+</code> <code class="inline">-</code> <code class="inline">0…9</code> — símbolos que aparecen tal cual en la entrada. En los proyectos del curso: los tokens que entrega el lexer.</p>
+          </div>
+          <div class="card">
+            <h3>No terminales</h3>
+            <p><code class="inline">list</code>, <code class="inline">digit</code> — conceptos que se definen por producciones. En el <code class="inline">.cup</code>: los <code class="inline">non terminal</code>.</p>
+          </div>
+          <div class="card">
+            <h3>Una frase es válida si…</h3>
+            <p>…se puede <strong>derivar</strong> desde el símbolo inicial aplicando producciones. Eso es <em>todo</em> lo que significa «sintácticamente correcto».</p>
+          </div>
+        </div>
+        <p class="muted">Fuente: Dragón §2.2 · nota del vault: Gramática libre de contexto (BNF).</p>
+      </div>
+    </section>
+
+    <!-- 4 · Demo derivación -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">§2.2 en movimiento</p>
+        <h2>Derivar <code class="inline">9-5+2</code>, paso a paso</h2>
+        <p>Se parte del símbolo inicial <code class="inline">list</code> y se sustituye hasta que solo quedan terminales:</p>
+        <div class="demo">
+          <div class="derivacion">
+            <div class="paso" data-step="0"><span class="flecha"></span><span><span class="nt">list</span></span></div>
+            <div class="paso" data-step="1"><span class="flecha">→</span><span><span class="nuevo"><span class="nt">list</span> <span class="t">+</span> <span class="nt">digit</span></span></span></div>
+            <div class="paso" data-step="2"><span class="flecha">→</span><span><span class="nuevo"><span class="nt">list</span> <span class="t">-</span> <span class="nt">digit</span></span> <span class="t">+</span> <span class="nt">digit</span></span></div>
+            <div class="paso" data-step="3"><span class="flecha">→</span><span><span class="nuevo"><span class="nt">digit</span></span> <span class="t">-</span> <span class="nt">digit</span> <span class="t">+</span> <span class="nt">digit</span></span></div>
+            <div class="paso" data-step="4"><span class="flecha">→</span><span><span class="nuevo"><span class="t">9</span></span> <span class="t">-</span> <span class="nt">digit</span> <span class="t">+</span> <span class="nt">digit</span></span></div>
+            <div class="paso" data-step="5"><span class="flecha">→</span><span><span class="t">9</span> <span class="t">-</span> <span class="nuevo"><span class="t">5</span></span> <span class="t">+</span> <span class="nt">digit</span></span></div>
+            <div class="paso" data-step="6"><span class="flecha">→</span><span><span class="t">9</span> <span class="t">-</span> <span class="t">5</span> <span class="t">+</span> <span class="nuevo"><span class="t">2</span></span> <span class="veredicto-ok">✓ solo terminales: la frase es válida</span></span></div>
+          </div>
+          <div class="controls">
+            <button type="button" class="step-btn">▶ Paso</button>
+            <button type="button" class="reset-btn">⟲ Reiniciar</button>
+            <span class="step-counter"></span>
+          </div>
+          <p class="explica" data-textos='["Se arranca con el símbolo inicial. Todavía no hay nada concreto: list es una promesa de expresión.","Se aplica list → list + digit. El detalle importante: el + de MÁS A LA DERECHA se decide primero. Eso deja el 9-5 agrupado a la izquierda.","Dentro del primer list, se aplica list → list - digit. La estructura ya dice: (algo - algo) + algo.","El list que queda se convierte en digit: caso base de la recursión.","digit → 9. Primera pieza concreta.","digit → 5. Segunda pieza.","digit → 2. No quedan no terminales: 9-5+2 se deriva de list, así que ES una frase del lenguaje. El árbol de esta derivación agrupa (9-5)+2 — asociatividad izquierda."]'></p>
+        </div>
+        <p>Este proceso dibujado como árbol es el <strong>árbol de análisis sintáctico</strong>: la raíz es el símbolo inicial, las hojas leídas de izquierda a derecha son la frase.</p>
+      </div>
+    </section>
+
+    <!-- 5 · Asociatividad y precedencia -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">Dragón §2.2.4–2.2.6</p>
+        <h2>La gramática codifica asociatividad y precedencia</h2>
+        <p>No es casualidad que <code class="inline">9-5+2</code> se agrupe <code class="inline">(9-5)+2</code>. La forma de la producción lo decide:</p>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>Forma de la producción</th><th>Efecto</th><th>Ejemplo</th></tr></thead>
+            <tbody>
+              <tr><td><code class="inline">list → list + digit</code> — <strong>recursiva a la izquierda</strong></td><td>asocia a la <strong>izquierda</strong></td><td><code class="inline">9-5+2</code> = <code class="inline">(9-5)+2</code> ✓ (restar exige esto)</td></tr>
+              <tr><td><code class="inline">right → letter = right</code> — <strong>recursiva a la derecha</strong></td><td>asocia a la <strong>derecha</strong></td><td><code class="inline">a=b=c</code> = <code class="inline">a=(b=c)</code> (asignación en C)</td></tr>
+              <tr><td><strong>Dos niveles</strong> de no terminales: <code class="inline">expr</code> usa <code class="inline">term</code>, <code class="inline">term</code> usa <code class="inline">factor</code></td><td><code class="inline">*</code> y <code class="inline">/</code> ganan <strong>precedencia</strong> sobre <code class="inline">+</code> y <code class="inline">-</code></td><td><code class="inline">9+5*2</code> = <code class="inline">9+(5*2)</code></td></tr>
+            </tbody>
+          </table>
+        </div>
+        <pre class="code">expr   → expr + term  |  expr - term  |  term
+term   → term * factor  |  term / factor  |  factor
+factor → digit  |  ( expr )</pre>
+        <p>Cuanto <strong>más abajo</strong> vive un operador en la cadena de no terminales, <strong>más fuerte liga</strong>. Los paréntesis reinician el juego dentro de <code class="inline">factor</code>.</p>
+        <div class="callout"><p>En el <code class="inline">parser.cup</code> no se escribe esta jerarquía: se usan declaraciones <code class="inline">precedence left PLUS, MINUS;</code> — CUP la fabrica automáticamente. La teoría es la misma; la herramienta ahorra los no terminales intermedios. La profundización <em>Gramáticas, muy claro</em> del curso de DataForge tiene la demo de la ambigüedad que esto evita.</p></div>
+        <p class="muted">Fuente: Dragón §2.2.4 (ambigüedad), §2.2.5 (asociatividad), §2.2.6 (precedencia).</p>
+      </div>
+    </section>
+
+    <!-- 6 · §2.3 SDT -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">Dragón §2.3 — la idea que da nombre al capítulo</p>
+        <h2>Traducción dirigida por la sintaxis: colgarle acciones a la gramática</h2>
+        <p class="lead">La gramática dice qué frases son válidas. Para <strong>traducir</strong>, el libro le cuelga a cada producción un fragmento de código — una <strong>acción semántica</strong> — que se ejecuta cuando esa producción se usa.</p>
+        <p>El esquema que convierte infijo en postfijo (el operador va <em>después</em> de sus operandos):</p>
+        <pre class="code">expr → expr + term   <span class="tk-str">{ print('+') }</span>
+expr → expr - term   <span class="tk-str">{ print('-') }</span>
+expr → term
+term → 0             <span class="tk-str">{ print('0') }</span>
+  …
+term → 9             <span class="tk-str">{ print('9') }</span></pre>
+        <p>Nada más. No hay algoritmo aparte de «traducir a postfijo»: <strong>la traducción emerge del orden en que el análisis usa las producciones</strong>. Ese es el truco que sostiene medio libro — y los cuatro proyectos del curso.</p>
+        <div class="callout"><p>Resulta familiar: es exactamente el <code class="inline">parser.cup</code>: <code class="inline">instruccion ::= imprimir {: entorno.consola(…) :}</code>. En DataForge la acción no imprime postfijo: <strong>ejecuta la instrucción</strong>. Mismo mecanismo, distinta carga.</p></div>
+        <p class="muted">Fuente: Dragón §2.3 (esquemas de traducción, atributos) · nota del vault: Traducción dirigida por la sintaxis.</p>
+      </div>
+    </section>
+
+    <!-- 7 · Demo postfijo -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">§2.3 en movimiento</p>
+        <h2>Ver la traducción emerger: <code class="inline">9-5+2</code> → <code class="inline">95-2+</code></h2>
+        <p>Se recorre el árbol de <code class="inline">9-5+2</code>; cada vez que una producción se completa, su acción <span class="accion">print</span> dispara:</p>
+        <div class="demo">
+          <div class="derivacion">
+            <div class="paso" data-step="0"><span class="flecha"></span><span>entrada: <span class="t">9</span> <span class="t">-</span> <span class="t">5</span> <span class="t">+</span> <span class="t">2</span> — salida: <span class="salida">&nbsp;</span></span></div>
+            <div class="paso" data-step="1"><span class="flecha">→</span><span><span class="nuevo"><span class="t">9</span> reconocido como term</span> <span class="accion">print('9')</span> salida: <span class="salida">9</span></span></div>
+            <div class="paso" data-step="2"><span class="flecha">→</span><span><span class="nuevo"><span class="t">5</span> reconocido como term</span> <span class="accion">print('5')</span> salida: <span class="salida">95</span></span></div>
+            <div class="paso" data-step="3"><span class="flecha">→</span><span><span class="nuevo">se completa expr → expr <span class="t">-</span> term</span> <span class="accion">print('-')</span> salida: <span class="salida">95-</span></span></div>
+            <div class="paso" data-step="4"><span class="flecha">→</span><span><span class="nuevo"><span class="t">2</span> reconocido como term</span> <span class="accion">print('2')</span> salida: <span class="salida">95-2</span></span></div>
+            <div class="paso" data-step="5"><span class="flecha">→</span><span><span class="nuevo">se completa expr → expr <span class="t">+</span> term</span> <span class="accion">print('+')</span> salida: <span class="salida">95-2+</span> <span class="veredicto-ok">✓</span></span></div>
+          </div>
+          <div class="controls">
+            <button type="button" class="step-btn">▶ Paso</button>
+            <button type="button" class="reset-btn">⟲ Reiniciar</button>
+            <span class="step-counter"></span>
+          </div>
+          <p class="explica" data-textos='["La entrada infija espera. La salida está vacía. Las acciones van a disparar en el orden en que el parser completa producciones.","El 9 se reconoce como term: su acción imprime el dígito de inmediato.","El 5 también. Ojo: el guion todavía NO se imprimió aunque ya pasó por la entrada — su producción no está completa hasta tener el operando derecho.","Con 9 y 5 listos, la producción expr → expr - term se completa Y RECIÉN AHÍ imprime el -. Por eso el operador queda después de sus operandos: postfijo.","El 2 se reconoce como term.","Se completa la producción de +, imprime al final. Resultado: 95-2+. La notación postfija no necesita paréntesis ni precedencia: el orden de los operadores ES la estructura."]'></p>
+        </div>
+        <p class="muted">Así funciona el intérprete: <code class="inline">RESULT = op(a, b)</code> corre cuando la producción de la suma se <em>completa</em> — los operandos siempre están listos antes.</p>
+      </div>
+    </section>
+
+    <!-- 8 · §2.4 descendente -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">Dragón §2.4–2.5</p>
+        <h2>El parser del juguete: descendente recursivo</h2>
+        <p>El libro implementa el análisis de la forma más directa posible: <strong>un método Java por cada no terminal</strong>. El token actual (<em>lookahead</em>) decide qué producción aplicar:</p>
+        <pre class="code"><span class="tk-res">void</span> expr() {
+  term();
+  <span class="tk-res">while</span> (<span class="tk-res">true</span>) {
+    <span class="tk-res">if</span> (lookahead == <span class="tk-str">'+'</span>)      { match(<span class="tk-str">'+'</span>); term(); print(<span class="tk-str">'+'</span>); }
+    <span class="tk-res">else if</span> (lookahead == <span class="tk-str">'-'</span>) { match(<span class="tk-str">'-'</span>); term(); print(<span class="tk-str">'-'</span>); }
+    <span class="tk-res">else return</span>;
+  }
+}</pre>
+        <p>Elegante… pero con una trampa: la producción <code class="inline">expr → expr + term</code> tal cual haría que <code class="inline">expr()</code> se llame a sí misma <strong>sin consumir nada</strong> — recursión infinita. El libro la elimina reescribiendo la gramática (el <code class="inline">while</code> de arriba es esa reescritura hecha código).</p>
+        <div class="callout"><p><strong>Por qué esto no ocurre con CUP:</strong> CUP construye parsers <strong>ascendentes (LALR)</strong>, que digieren la recursión izquierda sin problema — de hecho la <em>prefieren</em>. La recursión izquierda es veneno solo para los descendentes (LL). Ese contraste es el corazón del cap. 4.</p></div>
+        <p class="muted">Fuente: Dragón §2.4 (predictivo), §2.4.5 (recursión izquierda), §2.5 (el traductor completo).</p>
+      </div>
+    </section>
+
+    <!-- 9 · §2.6 léxico artesanal -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">Dragón §2.6</p>
+        <h2>El lexer artesanal: lo que JFlex automatiza</h2>
+        <p>Para que el parser reciba tokens y no caracteres, el juguete escribe un lexer a mano. Sus tres trabajos son exactamente los mismos de siempre:</p>
+        <div class="cards three">
+          <div class="card">
+            <div class="step">1</div>
+            <h3>Saltar lo invisible</h3>
+            <p>Espacios, tabs, saltos de línea y comentarios se consumen sin producir tokens. En el <code class="inline">.flex</code>: la regla de <code class="inline">{BLANCOS}</code> que no devuelve nada.</p>
+          </div>
+          <div class="card">
+            <div class="step">2</div>
+            <h3>Agrupar con lookahead</h3>
+            <p>Al ver <code class="inline">6</code>, ¿es el número 6 o empieza 60? Hay que <strong>mirar el siguiente carácter</strong> antes de cerrar el token. A mano son bucles con <code class="inline">peek</code>; JFlex lo resuelve con el autómata (cap. 3).</p>
+          </div>
+          <div class="card">
+            <div class="step">3</div>
+            <h3>Reservadas vs. identificadores</h3>
+            <p>El juguete carga las reservadas en una tabla y consulta cada palabra leída. JFlex usa otro camino: reglas de reservadas <strong>antes</strong> de la regla <code class="inline">{Id}</code> — por eso el orden en el <code class="inline">.flex</code> importa.</p>
+          </div>
+        </div>
+        <p>El objeto token del libro lleva su categoría y su lexema — igual que el <code class="inline">Symbol</code> que el lexer le entrega a CUP, con línea y columna para los reportes.</p>
+        <p class="muted">Fuente: Dragón §2.6 · el cap. 3 explica la teoría (ER → autómatas) que JFlex automatiza.</p>
+      </div>
+    </section>
+
+    <!-- 10 · §2.7 + §2.8 -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">Dragón §2.7–2.8</p>
+        <h2>Las dos piezas restantes del juguete</h2>
+        <p><strong>§2.7 — Tablas de símbolos con ámbitos.</strong> El juguete maneja bloques anidados (<code class="inline">{ int x; { bool x; } }</code>) encadenando una tabla por bloque: si el nombre no está en la tabla del bloque actual, se busca en la del padre. DataForge no lo necesitó (un solo ámbito global), pero <strong>CompScript sí</strong>: funciones y bloques anidados son exactamente este mecanismo.</p>
+        <pre class="code">buscar(nombre):
+  para tabla = actual, luego su padre, luego el suyo…
+    si nombre ∈ tabla → devolver su entrada
+  no está en ninguna → error semántico: variable no declarada</pre>
+        <p><strong>§2.8 — Dos representaciones intermedias.</strong> El capítulo cierra generando <em>árboles de sintaxis</em> (cada nodo = una construcción; se guardan y se recorren después) y <em>código de tres direcciones</em>. El árbol de sintaxis es el <strong>AST</strong> que CompScript necesitará para el control de flujo: un <code class="inline">while</code> debe poder <em>re-ejecutarse</em>, así que hay que guardar su estructura en vez de ejecutarla al vuelo.</p>
+        <div class="callout"><p>La profundización <em>La tabla de símbolos, a fondo</em> del curso de DataForge desarrolla §2.7 con demos; <em>El AST y cómo corre el código</em> hace lo mismo con §2.8. Este capítulo es donde ambas nacen.</p></div>
+      </div>
+    </section>
+
+    <!-- 11 · Conexión con proyectos -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">El mapa aterrizado</p>
+        <h2>El juguete del cap. 2 vs. los proyectos del curso</h2>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>Pieza</th><th>Cap. 2 (a mano)</th><th>Los proyectos del curso</th></tr></thead>
+            <tbody>
+              <tr><td>Lexer</td><td>Bucles con <code class="inline">peek</code> y tabla de reservadas</td><td><strong>Generado</strong> por JFlex desde patrones</td></tr>
+              <tr><td>Parser</td><td>Descendente recursivo, un método por no terminal, sin recursión izquierda</td><td><strong>Generado</strong> por CUP (LALR), recursión izquierda bienvenida</td></tr>
+              <tr><td>Acciones</td><td><code class="inline">{ print('+') }</code> incrustado en la gramática</td><td><code class="inline">{: RESULT = … :}</code> incrustado en el <code class="inline">.cup</code></td></tr>
+              <tr><td>Qué producen las acciones</td><td>Texto postfijo / árbol / tres direcciones</td><td>DataForge: <strong>ejecución directa</strong> · CompScript: <strong>AST</strong> que luego se ejecuta</td></tr>
+              <tr><td>Tabla de símbolos</td><td>Encadenada por bloques</td><td>DataForge: <code class="inline">Entorno</code> global único · CompScript: encadenada, como el libro</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p>Vale como regla general del oficio: <strong>primero se entiende la versión artesanal; después se deja que la herramienta la genere</strong>. Cuando CUP arroja un conflicto, hay que razonar sobre esta versión artesanal para resolverlo.</p>
+      </div>
+    </section>
+
+    <!-- 12 · Quiz -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">Chequeo rápido</p>
+        <h2>¿Quedó claro? Un repaso rápido</h2>
+        <p class="muted">Conviene pensar la respuesta antes de revelar. Si alguna falla, conviene volver unas diapositivas.</p>
+        <div class="quiz">
+          <div class="q">
+            <p class="question">1 · Con el esquema de §2.3, ¿a qué se traduce <code class="inline">9+5*2</code> (usando la gramática con expr/term/factor)? Pensá qué producción se completa primero.</p>
+            <button type="button" onclick="this.parentElement.classList.add('revealed')">Revelar respuesta</button>
+            <div class="answer"><p><strong><code class="inline">952*+</code></strong>. Por precedencia, <code class="inline">5*2</code> es un <code class="inline">term</code> que se completa primero: imprime <code class="inline">9</code>, <code class="inline">5</code>, <code class="inline">2</code>, después el <code class="inline">*</code> (su producción se completó) y al final el <code class="inline">+</code>. El postfijo no necesita paréntesis: el orden de los operadores ya cuenta la estructura.</p></div>
+          </div>
+          <div class="q">
+            <p class="question">2 · ¿Por qué la producción <code class="inline">expr → expr + term</code> rompe un parser descendente recursivo pero no rompe a CUP?</p>
+            <button type="button" onclick="this.parentElement.classList.add('revealed')">Revelar respuesta</button>
+            <div class="answer"><p>Un descendente implementa <code class="inline">expr()</code> llamando lo que la producción dice de izquierda a derecha — y lo primero es <code class="inline">expr</code>: se llama a sí misma <strong>sin consumir ningún token</strong> → recursión infinita. CUP es <strong>ascendente</strong>: arma la expresión desde las hojas hacia arriba (shift/reduce), así que la recursión izquierda no genera llamadas infinitas — de hecho produce pilas más chicas y es el estilo recomendado en un <code class="inline">.cup</code>.</p></div>
+          </div>
+          <div class="q">
+            <p class="question">3 · En DataForge las acciones ejecutan al instante; en CompScript deberán construir un AST. ¿Qué tiene CompScript que obliga al cambio?</p>
+            <button type="button" onclick="this.parentElement.classList.add('revealed')">Revelar respuesta</button>
+            <div class="answer"><p><strong>Control de flujo.</strong> Un <code class="inline">while</code> ejecuta su cuerpo 0, 1 o mil veces, y un <code class="inline">if</code> quizá nunca — pero el parser recorre cada producción <strong>exactamente una vez</strong>. Si la acción ejecuta al vuelo, el cuerpo del <code class="inline">while</code> correría una única vez. La solución de §2.8: que las acciones <em>construyan</em> el árbol (<code class="inline">RESULT = new NodoWhile(cond, cuerpo)</code>) y un recorrido posterior lo ejecute cuantas veces haga falta.</p></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 13 · Cierre -->
+    <section class="slide">
+      <div class="inner titleslide">
+        <p class="eyebrow">Capítulo 2 completado</p>
+        <h1>El front-end entero, visto funcionando de punta a punta</h1>
+        <p class="lead">Gramática BNF · derivaciones y árboles · asociatividad y precedencia en la forma de las producciones · acciones semánticas · descendente vs. ascendente · el lexer artesanal · ámbitos encadenados · el AST que viene.</p>
+        <p style="margin-top:28px"><a class="btn primary" href="cap3.html">Continuar con el Cap. 3: análisis léxico →</a></p>
+        <p class="kicker"><a class="btn" href="cap1.html">← Cap. 1</a> &nbsp; <a class="btn" href="index.html">⌂ Volver al índice</a></p>
+      </div>
+    </section>
+
+  </div>
+
+  <div class="navbar">
+    <button id="prev" type="button">← Anterior</button>
+    <button id="next" type="button">Siguiente →</button>
+    <span class="hint">también se pueden usar las flechas del teclado</span>
+  </div>
+</div>
+
+<script src="assets/deck.js"></script>
+<script>
+/* ---- steppers de las demos: cada clic revela el siguiente paso ---- */
+document.querySelectorAll('.demo').forEach((demo) => {
+  const pasos = Array.from(demo.querySelectorAll('[data-step]'));
+  if (!pasos.length) return;
+  const max = Math.max(...pasos.map(e => +e.dataset.step));
+  const btn = demo.querySelector('.step-btn');
+  const reset = demo.querySelector('.reset-btn');
+  const counter = demo.querySelector('.step-counter');
+  const explica = demo.querySelector('.explica');
+  const textos = explica ? JSON.parse(explica.dataset.textos || '[]') : [];
+  let cur = 0;
+
+  function render() {
+    pasos.forEach(e => {
+      const n = +e.dataset.step;
+      e.classList.toggle('shown', n <= cur);
+      e.classList.toggle('current', n === cur);
+    });
+    if (counter) counter.textContent = 'paso ' + cur + ' de ' + max;
+    if (explica) explica.textContent = textos[cur] || '';
+    btn.disabled = cur >= max;
+    reset.disabled = cur === 0;
+  }
+  btn.addEventListener('click', () => { if (cur < max) { cur++; render(); } });
+  reset.addEventListener('click', () => { cur = 0; render(); });
+  render();
+});
+</script>
+</body>
+</html>

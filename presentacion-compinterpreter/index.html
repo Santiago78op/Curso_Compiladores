@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CompInterpreter — Curso guiado</title>
+<link rel="stylesheet" href="assets/estilo.css">
+</head>
+<body>
+
+<div class="hub">
+  <div class="topbar">
+    <a class="brand" href="index.html">Comp<em>Interpreter</em> · curso guiado</a>
+    <span class="chip">Índice</span>
+    <span class="counter">OLC1 · USAC · Proyecto 2</span>
+    <button id="theme" type="button" title="Cambiar tema claro/oscuro" aria-label="Cambiar tema claro/oscuro">◐</button>
+  </div>
+
+  <main class="hub-main">
+    <p class="eyebrow">Proyecto 2 · Organización de Lenguajes y Compiladores 1</p>
+    <h1>Un intérprete cliente-servidor, etapa por etapa</h1>
+    <p class="lead">Teoría de compiladores aplicada a un stack distinto del habitual del curso: JavaScript, Jison, Express y React, en vez de Java, JFlex, CUP y JavaFX. Cada etapa es una presentación con sus diapositivas, ejemplos reales del proyecto y un quiz de cierre. <strong>Las 8 etapas están completas: el intérprete corre en el navegador.</strong></p>
+
+    <ol class="roadmap">
+      <li class="linked"><a href="etapa0.html"><span class="num">Etapa 0</span> Conceptos base y por qué cambia el stack: JS/Jison vs Java/JFlex+CUP <span class="state">✓ completada</span></a></li>
+      <li class="linked"><a href="etapa1.html"><span class="num">Etapa 1</span> La gramática Jison: tabla de tokens y léxico en <code class="inline">%lex</code> <span class="state">✓ completada</span></a></li>
+      <li class="linked"><a href="etapa2.html"><span class="num">Etapa 2</span> El parser: gramática sintáctica, precedencia y el AST <span class="state">✓ completada</span></a></li>
+      <li class="linked"><a href="etapa3.html"><span class="num">Etapa 3</span> El intérprete: entorno, tipos y dos pasadas <span class="state">✓ completada</span></a></li>
+      <li class="linked"><a href="etapa4.html"><span class="num">Etapa 4</span> Señales de control: break/continue/return y la auditoría de código <span class="state">✓ completada</span></a></li>
+      <li class="linked"><a href="etapa5.html"><span class="num">Etapa 5</span> El servidor Express: contrato REST y entorno fresco <span class="state">✓ completada</span></a></li>
+      <li class="linked"><a href="etapa6.html"><span class="num">Etapa 6</span> El cliente React: editor multipestaña, reportes y el AST con vis-network <span class="state">✓ completada</span></a></li>
+      <li class="linked"><a href="etapa7.html"><span class="num">Etapa 7</span> Pruebas de extremo a extremo con Playwright <span class="state">✓ completada</span></a></li>
+    </ol>
+
+    <p class="eyebrow" style="margin-top:36px">Profundizaciones</p>
+    <ol class="roadmap">
+      <li class="linked"><a href="arquitectura-rest.html"><span class="num">★</span> Arquitectura cliente-servidor REST — el contrato de la API, paso a paso <span class="state">nuevo</span></a></li>
+    </ol>
+
+    <div class="callout"><p><strong>Cómo se trabajó este proyecto:</strong> a diferencia de DataForge (construido con demostración guiada), CompInterpreter se trabajó con el estudiante escribiendo el código y el instructor tutorando y revisando. El 21 de julio de 2026 el proyecto pasó además una auditoría de código que encontró y corrigió dos errores reales — ver la Etapa 4. El código de referencia vive en la carpeta <code class="inline">CompInterpreter/</code> del workspace.</p></div>
+
+    <p class="eyebrow" style="margin-top:36px">Otros proyectos del curso</p>
+    <ol class="roadmap">
+      <li class="linked"><a href="../presentacion-dataforge/index.html"><span class="num">↔</span> DataForge — el primer proyecto, construido con demostración guiada</a></li>
+      <li class="linked"><a href="../presentacion-conjanalyzer/index.html"><span class="num">↔</span> ConjAnalyzer — teoría de conjuntos, simplificador y diagramas de Venn</a></li>
+      <li class="linked"><a href="../presentacion-compscript/index.html"><span class="num">↔</span> CompScript — el hermano con AST real: if/while/for, funciones y recursión</a></li>
+      <li class="linked"><a href="../presentacion-libro-dragon/index.html"><span class="num">📖</span> El Libro del Dragón, capítulo a capítulo — la teoría detrás de los 4 proyectos de OLC1</a></li>
+    </ol>
+  </main>
+</div>
+
+<script src="assets/deck.js"></script>
+</body>
+</html>

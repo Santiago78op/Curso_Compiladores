@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>El Libro del Dragón — capítulo a capítulo</title>
+<link rel="stylesheet" href="assets/estilo.css">
+</head>
+<body>
+
+<div class="hub">
+  <div class="topbar">
+    <a class="brand" href="index.html">Libro del <em>Dragón</em> · capítulo a capítulo</a>
+    <span class="chip">Índice</span>
+    <span class="counter">OLC1 · USAC</span>
+    <button id="theme" type="button" title="Cambiar tema claro/oscuro" aria-label="Cambiar tema claro/oscuro">◐</button>
+  </div>
+
+  <main class="hub-main">
+    <p class="eyebrow">Compilers: Principles, Techniques &amp; Tools — Aho · Lam · Sethi · Ullman, 2ª ed.</p>
+    <h1>La teoría del libro, contada para los proyectos del curso</h1>
+    <p class="lead">El Libro del Dragón es <em>el</em> texto de compiladores — y también un ladrillo de 1000 páginas. Esta presentación recorre sus capítulos 1 a 7 (el núcleo del curso OLC1), en el mismo formato del curso guiado de DataForge: diapositivas, demos animadas y quiz. Cada capítulo cierra conectando la teoría con <strong>los 4 proyectos del curso</strong>. <strong>Las 8 páginas están completas.</strong></p>
+
+    <ol class="roadmap">
+      <li class="linked"><a href="cap1.html"><span class="num">Cap. 1</span> Introducción — compilador vs. intérprete, las fases y el viaje de una instrucción <span class="state">✓ lista</span></a></li>
+      <li class="linked"><a href="cap2.html"><span class="num">Cap. 2</span> Un traductor sencillo — el compilador de juguete completo, de infijo a postfijo <span class="state">✓ lista</span></a></li>
+      <li class="linked"><a href="cap3.html"><span class="num">Cap. 3</span> Análisis léxico — expresiones regulares, autómatas y el motor que hay dentro de JFlex <span class="state">✓ lista</span></a></li>
+      <li class="linked"><a href="cap4.html"><span class="num">Cap. 4</span> Análisis sintáctico — gramáticas, descendente vs. ascendente, LALR y el motor de CUP <span class="state">✓ lista</span></a></li>
+      <li class="linked"><a href="cap5.html"><span class="num">Cap. 5</span> Traducción dirigida por la sintaxis — atributos, gramáticas S-atribuidas y el porqué del <code class="inline">RESULT</code> <span class="state">✓ lista</span></a></li>
+      <li class="linked"><a href="cap6.html"><span class="num">Cap. 6</span> Generación de código intermedio — AST, reglas de tipos y análisis semántico <span class="state">✓ lista</span></a></li>
+      <li class="linked"><a href="cap7.html"><span class="num">Cap. 7</span> Entornos en tiempo de ejecución — memoria, pila de activación y ámbitos <span class="state">✓ lista</span></a></li>
+      <li class="linked"><a href="panorama.html"><span class="num">★</span> Panorama de los caps. 8–12 — qué hay más allá y por qué los proyectos del curso no lo necesitan <span class="state">✓ lista</span></a></li>
+    </ol>
+
+    <div class="callout"><p><strong>Cómo se cruza con el curso guiado:</strong> las presentaciones de los 4 proyectos de OLC1 enseñan la teoría <em>mientras se construye</em> cada uno; esta la recorre <em>siguiendo el libro</em>, capítulo a capítulo, de modo que se pueda ubicar el origen de cada idea y citar la sección exacta. Se complementan: acá está el mapa, allá está el camino recorrido.</p></div>
+
+    <p class="eyebrow" style="margin-top:36px">Los 4 proyectos de OLC1</p>
+    <ol class="roadmap">
+      <li class="linked"><a href="../presentacion-dataforge/index.html"><span class="num">↔</span> DataForge — Java + JFlex + CUP, sin AST</a></li>
+      <li class="linked"><a href="../presentacion-conjanalyzer/index.html"><span class="num">↔</span> ConjAnalyzer — teoría de conjuntos, simplificador y diagramas de Venn</a></li>
+      <li class="linked"><a href="../presentacion-compscript/index.html"><span class="num">↔</span> CompScript — el hermano con AST real</a></li>
+      <li class="linked"><a href="../presentacion-compinterpreter/index.html"><span class="num">↔</span> CompInterpreter — JS/Jison/Express/React</a></li>
+    </ol>
+  </main>
+</div>
+
+<script src="assets/deck.js"></script>
+</body>
+</html>

@@ -1,0 +1,214 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Etapa 1 · Gramática Jison — CompInterpreter</title>
+<link rel="stylesheet" href="assets/estilo.css">
+</head>
+<body>
+
+<div class="deck">
+  <div class="topbar">
+    <a class="brand" href="index.html" title="Volver al índice">Comp<em>Interpreter</em> · curso guiado</a>
+    <span class="chip">Etapa 1 · Gramática Jison</span>
+    <span class="counter"><span id="cur">1</span> / <span id="tot">?</span></span>
+    <button id="theme" type="button" title="Cambiar tema claro/oscuro" aria-label="Cambiar tema claro/oscuro">◐</button>
+  </div>
+  <div class="progress"><div id="bar"></div></div>
+
+  <div class="stage">
+
+    <!-- 1 · Intro -->
+    <section class="slide">
+      <div class="inner titleslide">
+        <p class="eyebrow">Etapa 1 · Parte 1</p>
+        <h1>Un solo archivo para léxico y sintáctico</h1>
+        <p class="lead">Jison es, en el ecosistema JavaScript, el equivalente a Yacc/Bison: un generador de analizadores LALR(1). A diferencia de JFlex+CUP, Jison reúne la especificación léxica y la sintáctica en <strong>un único archivo</strong>: <code class="inline">server/src/grammar.jison</code>.</p>
+        <p class="kicker">El archivo tiene dos mitades separadas por <code class="inline">%%</code>: primero <code class="inline">%lex … /lex</code> (los tokens), después la gramática de producciones.</p>
+      </div>
+    </section>
+
+    <!-- 2 · Case-insensitive de entrada -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">Lo primero que resuelve el archivo</p>
+        <h2>Una directiva resuelve la sección 5.1 completa</h2>
+        <pre class="code"><span class="tk-sym">/* server/src/grammar.jison, línea 10 */</span>
+%lex
+%options case-insensitive flex
+
+%%</pre>
+        <p><code class="inline">%options case-insensitive</code> hace que <strong>cada patrón literal se compare ignorando mayúsculas/minúsculas</strong>, sin tener que escribir <code class="inline">[lL][eE][tT]</code> a mano para cada palabra reservada — algo que sí hacía falta enunciar explícitamente en JFlex con <code class="inline">%ignorecase</code>, pero aquí es una sola línea que cubre reservadas e identificadores por igual.</p>
+        <div class="callout"><p><strong>Verificado contra el enunciado (5.1):</strong> <code class="inline">let a:int = 10;</code> y <code class="inline">LeT A: iNt = 0;</code> son la misma instrucción. El lexema original no se conserva porque el lenguaje no distingue mayúsculas en ningún reporte — a diferencia de DataForge, donde si importaba para los reportes.</p></div>
+      </div>
+    </section>
+
+    <!-- 3 · Palabras reservadas -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">Grupo 1 de 3</p>
+        <h2>Palabras reservadas — 43 en total</h2>
+        <p>Agrupadas por función dentro del lenguaje (sección del enunciado entre paréntesis):</p>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>Grupo</th><th>Palabras</th></tr></thead>
+            <tbody>
+              <tr><td>Literales y nulo</td><td><code>true</code> · <code>false</code> · <code>null</code></td></tr>
+              <tr><td>Declaración (5.12)</td><td><code>let</code> · <code>const</code></td></tr>
+              <tr><td>Tipos (5.3)</td><td><code>int</code> · <code>double</code> · <code>bool</code> · <code>char</code> · <code>string</code> · <code>void</code></td></tr>
+              <tr><td>Vectores (5.15)</td><td><code>new</code> · <code>vector</code></td></tr>
+              <tr><td>Casteo (5.13)</td><td><code>cast</code> · <code>as</code></td></tr>
+              <tr><td>Control (5.16)</td><td><code>if</code> · <code>else</code> · <code>switch</code> · <code>case</code> · <code>default</code></td></tr>
+              <tr><td>Ciclos (5.17)</td><td><code>while</code> · <code>for</code> · <code>do</code> · <code>until</code> · <code>loop</code></td></tr>
+              <tr><td>Transferencia (5.18)</td><td><code>break</code> · <code>continue</code> · <code>return</code></td></tr>
+              <tr><td>Subrutinas (5.19-5.21)</td><td><code>function</code> · <code>echo</code> · <code>ejecutar</code></td></tr>
+              <tr><td>Nativas (5.22-5.25)</td><td><code>is</code> · <code>lower</code> · <code>upper</code> · <code>round</code> · <code>len</code> · <code>truncate</code> · <code>tostring</code> · <code>tochararray</code> · <code>reverse</code> · <code>max</code> · <code>min</code> · <code>sum</code> · <code>average</code></td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="callout"><p><strong>Regla de siempre, herramienta distinta:</strong> igual que en JFlex, las reservadas están declaradas <strong>antes</strong> que <code class="inline">ID</code> en el archivo. En Jison, a igual longitud de coincidencia, también gana la regla escrita primero — mismo principio, misma consecuencia si se invierte el orden.</p></div>
+      </div>
+    </section>
+
+    <!-- 4 · Símbolos y patrones -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">Grupo 2 de 3</p>
+        <h2>Operadores: los de dos caracteres van primero</h2>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>Token</th><th>Lexema</th><th>Por qué el orden importa</th></tr></thead>
+            <tbody>
+              <tr><td><code>INCR</code> / <code>DECR</code></td><td><code>++</code> / <code>--</code></td><td>Antes de <code>+</code> y <code>-</code> sueltos</td></tr>
+              <tr><td><code>IGUAL</code> / <code>DIFERENTE</code></td><td><code>==</code> / <code>!=</code></td><td>Antes de <code>=</code> y <code>!</code></td></tr>
+              <tr><td><code>MENORIGUAL</code> / <code>MAYORIGUAL</code></td><td><code>&lt;=</code> / <code>&gt;=</code></td><td>Antes de <code>&lt;</code> y <code>&gt;</code></td></tr>
+              <tr><td><code>AND</code> / <code>OR</code></td><td><code>&amp;&amp;</code> / <code>||</code></td><td>Símbolos de dos caracteres, sin forma de un carácter en este lenguaje</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p>Extracto real de <code class="inline">grammar.jison</code> — nótese el orden: primero los compuestos, después los simples:</p>
+        <pre class="code">"++"                                return 'INCR';
+"--"                                return 'DECR';
+"=="                                return 'IGUAL';
+"!="                                return 'DIFERENTE';
+"&lt;="                                return 'MENORIGUAL';
+"&gt;="                                return 'MAYORIGUAL';
+"&amp;&amp;"                                return 'AND';
+"||"                                return 'OR';
+"+"                                 return 'MAS';
+"-"                                 return 'MENOS';
+<span class="tk-sym">/* ... resto de un solo caracter: * / ^ $ % &lt; &gt; ! = ( ) { } [ ] ; : , */</span></pre>
+        <p class="muted">Es exactamente el mismo principio de <em>longest match</em> que en JFlex (Etapa 1 de DataForge): si <code class="inline">"="</code> estuviera escrito antes que <code class="inline">"=="</code>, Jison devolvería dos tokens <code class="inline">ASIGNA</code> seguidos en vez de un <code class="inline">IGUAL</code>.</p>
+      </div>
+    </section>
+
+    <!-- 5 · Literales y escapes -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">Grupo 3 de 3</p>
+        <h2>Literales: los escapes se resuelven en la propia acción léxica</h2>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>Token</th><th>Patrón</th><th>Ejemplo</th></tr></thead>
+            <tbody>
+              <tr><td><code>ID</code></td><td><code>[a-zA-Z_][a-zA-Z0-9_]*</code></td><td><code>edad</code>, <code>_temp</code>, <code>v1</code></td></tr>
+              <tr><td><code>ENTERO</code></td><td><code>[0-9]+</code></td><td><code>0</code>, <code>18</code></td></tr>
+              <tr><td><code>DECIMAL</code></td><td><code>[0-9]+"."[0-9]+</code></td><td><code>5.5</code>, <code>18.6</code></td></tr>
+              <tr><td><code>CADENA</code></td><td>entre comillas dobles, con escapes</td><td><code>"Hola\nMundo"</code></td></tr>
+              <tr><td><code>CARACTER</code></td><td>un carácter entre comillas simples, con escapes</td><td><code>'a'</code>, <code>'\n'</code></td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p>Una decisión propia del proyecto (no exigida literalmente, pero necesaria para 5.4): las secuencias de escape (<code class="inline">\n \t \" \' \\</code>) se traducen a su carácter real <strong>dentro de la propia regla léxica</strong>, con <code class="inline">.replace()</code>, antes de devolver el token — el intérprete nunca ve la barra invertida cruda:</p>
+        <pre class="code">\"(\\.|[^\\"])*\"    %{
+                       yytext = yytext.slice(1, -1).replace(/\\(.)/g, function (m, c) {
+                         switch (c) { case 'n': return '\n'; case 't': return '\t';
+                           case '"': return '"'; case "'": return "'"; case '\\': return '\\';
+                           default: return c; }
+                       });
+                       return 'CADENA';
+                    %}</pre>
+      </div>
+    </section>
+
+    <!-- 6 · Recuperación léxica -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">Manejo de errores, primera capa</p>
+        <h2>El carácter desconocido no detiene el análisis</h2>
+        <p>La última regla del bloque <code class="inline">%lex</code> es un catch-all (<code class="inline">.</code>) que coincide con cualquier carácter que no calzó con ninguna regla anterior. En vez de fallar, empuja un error al arreglo compartido <code class="inline">yy.errores</code> y continúa — igual que el modo de recuperación léxica de DataForge (descartar y seguir).</p>
+        <pre class="code"><span class="tk-sym">/* Recuperacion de error lexico: descarta el caracter y sigue (seccion 6.1) */</span>
+.                                   %{
+                                       if (yy.errores) {
+                                         yy.errores.push({ tipo: 'Léxico',
+                                           descripcion: 'El carácter "' + yytext + '" no pertenece al lenguaje',
+                                           linea: yylloc.first_line, columna: yylloc.first_column + 1 });
+                                       }
+                                    %}</pre>
+        <div class="callout"><p><strong>El objeto <code class="inline">yy</code> es la clave:</strong> Jison comparte una única variable <code class="inline">yy</code> entre el lexer generado y las acciones sintácticas. Eso permite que el léxico reporte errores directamente en la lista que después usa todo el resto del pipeline, sin inventar un canal de comunicación aparte. Se profundiza en la Etapa 2.</p></div>
+      </div>
+    </section>
+
+    <!-- 7 · Verificación con caso real -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">Verificado contra un caso real del proyecto</p>
+        <h2><code>entradas/ejemplo_errores.ci</code> produce el error esperado</h2>
+        <p>Este archivo de prueba incluye intencionalmente un carácter fuera del lenguaje en la línea 5. El resultado real de correr <code class="inline">analizar()</code> sobre él confirma el comportamiento de la regla catch-all:</p>
+        <pre class="code">1 error léxico:   El carácter "#" no pertenece al lenguaje   (línea 5, columna 3)
+2 errores sintácticos
+5 errores semánticos
+--------------------------------------------------------------
+Total: 8 errores, con línea y columna en cada uno</pre>
+        <p class="muted">Este mismo archivo es el que usa el test Playwright de errores (Etapa 7): la suite de pruebas confirma exactamente este desglose — 1 léxico, 2 sintácticos, 5 semánticos.</p>
+      </div>
+    </section>
+
+    <!-- 8 · Quiz -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">Chequeo rápido</p>
+        <h2>Sobre el léxico de <code>.ci</code></h2>
+        <div class="quiz">
+          <div class="q">
+            <p class="question">1 · ¿Qué pasaría si la regla de <code class="inline">ID</code> se moviera antes que las palabras reservadas en <code class="inline">grammar.jison</code>?</p>
+            <button type="button" onclick="this.parentElement.classList.add('revealed')">Revelar respuesta</button>
+            <div class="answer"><p>Ninguna palabra reservada se reconocería jamás: a igual longitud de coincidencia, Jison prefiere la regla escrita primero, exactamente igual que JFlex. <code class="inline">if</code>, <code class="inline">let</code>, <code class="inline">function</code>, etc. pasarían a ser identificadores comunes.</p></div>
+          </div>
+          <div class="q">
+            <p class="question">2 · ¿Por qué los escapes de cadenas se resuelven en la regla léxica y no más adelante, en el intérprete?</p>
+            <button type="button" onclick="this.parentElement.classList.add('revealed')">Revelar respuesta</button>
+            <div class="answer"><p>Porque el escape es un fenómeno puramente léxico: transformar <code class="inline">\n</code> en un salto de línea real no depende de ningún contexto sintáctico ni semántico. Resolverlo ahí evita que cada consumidor posterior del valor de la cadena (el intérprete, los reportes) tenga que repetir la misma lógica de reemplazo.</p></div>
+          </div>
+          <div class="q">
+            <p class="question">3 · ¿Qué gana el proyecto al compartir el objeto <code class="inline">yy</code> entre el lexer y el parser, en vez de que cada uno maneje sus propios errores por separado?</p>
+            <button type="button" onclick="this.parentElement.classList.add('revealed')">Revelar respuesta</button>
+            <div class="answer"><p>Un único arreglo de errores acumula tanto los léxicos como los sintácticos (y luego también los semánticos, que agrega el intérprete), en el orden en que ocurrieron. El reporte final (Etapa 5 y 6) puede ordenarlos por línea/columna sin tener que fusionar fuentes distintas.</p></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 9 · Cierre -->
+    <section class="slide">
+      <div class="inner titleslide">
+        <p class="eyebrow">Etapa 1 · construida</p>
+        <h1>Queda construido el léxico completo</h1>
+        <p class="lead">43 reservadas, operadores con precedencia de longitud correcta, cinco patrones con escapes resueltos en la propia regla, y recuperación de errores que nunca detiene el análisis. Todo en un único archivo <code class="inline">grammar.jison</code>.</p>
+        <p class="kicker">Próxima: <strong>Etapa 2 — el parser: gramática sintáctica, precedencia y la construcción del AST</strong>.<br><a class="btn" href="index.html" style="margin-top:14px">⌂ Volver al índice</a></p>
+      </div>
+    </section>
+
+  </div>
+
+  <div class="navbar">
+    <button id="prev" type="button">← Anterior</button>
+    <button id="next" type="button">Siguiente →</button>
+    <span class="hint">también se pueden usar las flechas del teclado</span>
+  </div>
+</div>
+
+<script src="assets/deck.js"></script>
+</body>
+</html>

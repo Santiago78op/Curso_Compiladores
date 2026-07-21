@@ -1,0 +1,186 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Etapa 3 · Tipos, structs y referencia — VLangCherry</title>
+<link rel="stylesheet" href="assets/estilo.css">
+</head>
+<body>
+
+<div class="deck">
+  <div class="topbar">
+    <a class="brand" href="index.html" title="Volver al índice">VLang<em>Cherry</em> · curso guiado</a>
+    <span class="chip">Etapa 3 · Tipos y structs</span>
+    <span class="counter"><span id="cur">1</span> / <span id="tot">?</span></span>
+    <button id="theme" type="button" title="Cambiar tema claro/oscuro" aria-label="Cambiar tema claro/oscuro">◐</button>
+  </div>
+  <div class="progress"><div id="bar"></div></div>
+
+  <div class="stage">
+
+    <!-- 1 · Intro -->
+    <section class="slide">
+      <div class="inner titleslide">
+        <p class="eyebrow">Etapa 3 · Parte 1</p>
+        <h1>Un valor que sabe pasar por referencia sin que nadie se lo pida</h1>
+        <p class="lead">El enunciado (sección 7.1) exige que structs y slices se pasen <strong>por referencia</strong> y los tipos primitivos <strong>por valor</strong>. Esta etapa muestra cómo el modelo de valores de VLangCherry logra eso sin implementar ningún mecanismo especial de paso de parámetros: lo resuelve la estructura misma del tipo <code class="inline">Valor</code>.</p>
+      </div>
+    </section>
+
+    <!-- 2 · El struct Valor -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">El modelo de valores (<code class="inline">internal/runtime/valores.go</code>)</p>
+        <h2>Un solo tipo <code class="inline">Valor</code> para todo el lenguaje</h2>
+        <pre class="code">type Valor struct {
+    Tipo   Tipo
+    I      int64
+    F      float64
+    S      string
+    B      bool
+    R      rune
+    Slice  *SliceVal
+    Struct *StructVal
+}</pre>
+        <p>Cada valor en tiempo de ejecución — sea un <code class="inline">int</code>, un <code class="inline">string</code>, un slice o una instancia de struct — es una instancia de este mismo tipo Go, con el campo <code class="inline">Tipo</code> indicando cuál de los demás campos es el que importa.</p>
+      </div>
+    </section>
+
+    <!-- 3 · El comentario clave -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">La decisión de diseño, documentada en el propio código</p>
+        <h2>Por referencia "gratis": <code class="inline">Slice</code> y <code class="inline">Struct</code> ya son punteros</h2>
+        <pre class="code">// Valor es el valor en tiempo de ejecucion de una expresion VLangCherry.
+// Slice y Struct viajan por puntero: asi una copia del Valor (paso de
+// parametro, asignacion) comparte la misma identidad subyacente, que es
+// exactamente el "por referencia" que pide la seccion 7 para structs y
+// slices (los primitivos, en cambio, se copian por valor via los campos
+// escalares I/F/S/B/R).</pre>
+        <div class="callout"><p><strong>El truco:</strong> Go copia structs por valor automáticamente (al pasar un parámetro, al hacer una asignación). Si <code class="inline">Valor</code> se copia, sus campos <code class="inline">*SliceVal</code> y <code class="inline">*StructVal</code> también se "copian" — pero copiar un puntero no copia lo apuntado. Dos variables VLangCherry que "comparten" un struct terminan apuntando literalmente al mismo <code class="inline">StructVal</code> en memoria.</p></div>
+        <p>No hace falta una tabla de referencias explícita ni un mecanismo de "boxing": la semántica de referencia compartida sale gratis de cómo Go maneja sus propios punteros.</p>
+      </div>
+    </section>
+
+    <!-- 4 · Métodos por valor y por puntero -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">Ejemplo real — <code class="inline">entradas/ejemplo2_structs.vch</code></p>
+        <h2>Un método que lee, otro que muta</h2>
+        <pre class="code">struct Direccion {
+    string Ciudad
+    int CodigoPostal
+}
+
+struct Persona {
+    string Nombre
+    int Edad
+    Direccion Domicilio
+}
+
+func (p Persona) Saludar() string {
+    return "Hola, soy " + p.Nombre
+}
+
+func (p *Persona) Cumplir() {
+    p.Edad = p.Edad + 1
+}
+
+func main() {
+    mut persona := Persona{Nombre: "Ana", Edad: 25, Domicilio: casa}
+    print(persona.Saludar())
+    persona.Cumplir()
+    print("Edad despues:", persona.Edad)   // 26: SI cambio
+}</pre>
+        <p><code class="inline">Saludar</code> recibe <code class="inline">p Persona</code> (receptor por valor): puede leer, pero mutar <code class="inline">p.Nombre</code> ahí adentro no tendría efecto sobre <code class="inline">persona</code>. <code class="inline">Cumplir</code> recibe <code class="inline">p *Persona</code> (receptor por puntero): mutar <code class="inline">p.Edad</code> sí se refleja afuera, porque — dado que <code class="inline">Valor.Struct</code> ya es un puntero — <code class="inline">persona</code> y el <code class="inline">p</code> dentro del método apuntan al mismo <code class="inline">StructVal</code>.</p>
+      </div>
+    </section>
+
+    <!-- 5 · resolverLugar -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">Cómo se implementa la mutación</p>
+        <h2><code class="inline">resolverLugar</code>: el puntero a la celda real</h2>
+        <pre class="code">func (in *Interprete) resolverLugar(nodo ast.Nodo, ent *Entorno) (*Valor, bool)</pre>
+        <p>Dado un nodo <code class="inline">ast.Identificador</code>, <code class="inline">ast.ExprIndice</code> o <code class="inline">ast.ExprCampo</code> (los mismos nodos que produce el traductor tanto para lectura como para escritura — Etapa 2), esta función devuelve un <strong><code class="inline">*Valor</code></strong> a la celda real referenciada, no una copia.</p>
+        <p>Se usa en toda operación que muta un dato existente: asignación simple (<code class="inline">=</code>), compuesta (<code class="inline">+=</code>, <code class="inline">-=</code>) e incremento/decremento (<code class="inline">++</code>, <code class="inline">--</code>). Es lo que garantiza que <code class="inline">numeros[2] = 100</code> o <code class="inline">p.Edad = 30</code> muten el dato real dentro del slice o del struct, y no una copia efímera que se descarta al terminar la expresión.</p>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>Variables almacenadas como</th><th>Por qué</th></tr></thead>
+            <tbody>
+              <tr><td><code>map[string]*Valor</code> en <code>Entorno</code></td><td>Un puntero por variable — no una copia — para que <code>resolverLugar</code> pueda devolver una referencia mutable a la celda exacta.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- 6 · append excepción -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">Una excepción intencional</p>
+        <h2><code class="inline">append</code> no muta en el lugar</h2>
+        <p>Todo lo anterior describe mutación compartida — excepto <code class="inline">append</code>, que siempre produce un <code class="inline">SliceVal</code> <strong>nuevo</strong>, igual que en el Go real:</p>
+        <pre class="code">numeros = append(numeros, 60)   // hace falta reasignar</pre>
+        <div class="callout"><p><strong>Por qué no es una inconsistencia:</strong> es el mismo comportamiento del <code class="inline">append</code> real de Go, donde crecer un slice puede requerir reservar un arreglo subyacente más grande — el valor devuelto no necesariamente comparte identidad con el original. Reproducir esa semántica exacta (en vez de mutar siempre en el lugar) evita sorpresas a quien ya conoce Go.</p></div>
+      </div>
+    </section>
+
+    <!-- 7 · Compatibilidad de tipos -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">Tipado estático, con una relajación deliberada</p>
+        <h2><code class="inline">tipoCompatible</code>/<code class="inline">coercionar</code>: int↔float64</h2>
+        <p>La sección 3.6 del enunciado exige tipo <strong>exacto</strong> en toda asignación. Pero las tablas aritméticas de la sección 4.3 muestran, de forma sistemática, promoción automática <code class="inline">int + float64 -&gt; float64</code> asignada de vuelta a variables <code class="inline">float64</code> — y el propio 3.7 ya admite una excepción para el literal <code class="inline">0</code> ("se considera tanto <code>int</code> como <code>float</code>").</p>
+        <div class="callout"><p><strong>Decisión tomada:</strong> se relaja la regla de tipo exacto para permitir la mezcla <code class="inline">int</code>↔<code class="inline">float64</code> en cualquier asignación (no solo para el literal <code class="inline">0</code>), documentado tanto en el código (<code class="inline">tipoCompatible</code>/<code class="inline">coercionar</code>, <code class="inline">internal/runtime/interprete.go</code>) como en <code class="inline">docs/gramatica.txt</code>. Todas las demás combinaciones de tipo (por ejemplo <code class="inline">string</code> asignado a una variable <code class="inline">int</code>) siguen siendo error semántico — es la excepción real que muestra el enunciado, no una relajación general del tipado estático.</p></div>
+      </div>
+    </section>
+
+    <!-- 8 · Quiz -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">Chequeo rápido</p>
+        <h2>Sobre tipos, structs y referencia</h2>
+        <div class="quiz">
+          <div class="q">
+            <p class="question">1 · Si <code class="inline">Cumplir</code> hubiera tenido receptor <code class="inline">(p Persona)</code> en vez de <code class="inline">(p *Persona)</code>, ¿qué imprimiría <code class="inline">print("Edad despues:", persona.Edad)</code>?</p>
+            <button type="button" onclick="this.parentElement.classList.add('revealed')">Revelar respuesta</button>
+            <div class="answer"><p><strong>25, sin cambiar.</strong> Con receptor por valor, <code class="inline">p</code> dentro del método sería una copia de <code class="inline">Valor</code> — pero ojo: como <code class="inline">Valor.Struct</code> ya es un puntero, en la práctica VLangCherry sigue la misma regla que Go real: un receptor por valor SÍ comparte el <code class="inline">StructVal</code> subyacente si no se reasigna todo el campo. La diferencia real entre valor y puntero acá se nota sobre todo con receptores que reasignan campos anidados o el struct entero, y es exactamente la distinción que documenta la sección 7.1 del enunciado.</p></div>
+          </div>
+          <div class="q">
+            <p class="question">2 · ¿Por qué <code class="inline">numeros = append(numeros, 60)</code> necesita el <code class="inline">numeros =</code> explícito, si structs y slices ya se comparten por puntero?</p>
+            <button type="button" onclick="this.parentElement.classList.add('revealed')">Revelar respuesta</button>
+            <div class="answer"><p>Porque <code class="inline">append</code> es la excepción intencional: siempre devuelve un <code class="inline">SliceVal</code> nuevo (igual que en Go real), en vez de mutar el existente. Sin la reasignación, la variable original seguiría apuntando al slice viejo.</p></div>
+          </div>
+          <div class="q">
+            <p class="question">3 · ¿Es válido asignar <code class="inline">"hola"</code> a una variable declarada <code class="inline">int</code>?</p>
+            <button type="button" onclick="this.parentElement.classList.add('revealed')">Revelar respuesta</button>
+            <div class="answer"><p>No — error semántico de tipo incompatible. La única mezcla que se relajó frente a la sección 3.6 es <code class="inline">int</code>↔<code class="inline">float64</code>; el resto del tipado estático se exige tal cual pide el enunciado.</p></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 9 · Cierre -->
+    <section class="slide">
+      <div class="inner titleslide">
+        <p class="eyebrow">Etapa 3 · construida</p>
+        <h1>El paso por referencia queda resuelto sin código extra</h1>
+        <p class="lead"><code class="inline">Valor</code> con <code class="inline">Slice</code>/<code class="inline">Struct</code> como punteros, <code class="inline">resolverLugar</code> para mutar la celda real, y una única relajación deliberada del tipado estático (int↔float64) documentada frente al enunciado.</p>
+        <p class="kicker">Próxima: <strong>Etapa 4 — slices 1D/2D</strong>.<br><a class="btn" href="index.html" style="margin-top:14px">⌂ Volver al índice</a></p>
+      </div>
+    </section>
+
+  </div>
+
+  <div class="navbar">
+    <button id="prev" type="button">← Anterior</button>
+    <button id="next" type="button">Siguiente →</button>
+    <span class="hint">también se pueden usar las flechas del teclado</span>
+  </div>
+</div>
+
+<script src="assets/deck.js"></script>
+</body>
+</html>

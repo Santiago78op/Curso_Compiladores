@@ -1,0 +1,177 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Etapa 0 · Conceptos base — ConjAnalyzer</title>
+<link rel="stylesheet" href="assets/estilo.css">
+</head>
+<body>
+
+<div class="deck">
+  <div class="topbar">
+    <a class="brand" href="index.html" title="Volver al índice">Conj<em>Analyzer</em> · curso guiado</a>
+    <span class="chip">Etapa 0 · Conceptos base</span>
+    <span class="counter"><span id="cur">1</span> / <span id="tot">?</span></span>
+    <button id="theme" type="button" title="Cambiar tema claro/oscuro" aria-label="Cambiar tema claro/oscuro">◐</button>
+  </div>
+  <div class="progress"><div id="bar"></div></div>
+
+  <div class="stage">
+
+    <!-- 1 · Portada -->
+    <section class="slide">
+      <div class="inner titleslide">
+        <p class="eyebrow">OLC1 · USAC · Proyecto 1</p>
+        <h1>Un intérprete para la teoría de conjuntos</h1>
+        <p class="lead">ConjAnalyzer es un programa en Java que lee un archivo <code class="inline">.ca</code>, entiende conjuntos y operaciones escritas en notación prefija, y entrega el resultado, su simplificación algebraica y un diagrama de Venn.</p>
+        <p class="kicker">Etapa 0 — antes de tocar código: qué problema resuelve el proyecto y en qué se parece (y en qué NO) a su hermano DataForge.<br>Se navega con las flechas del teclado ← → o los botones de abajo.</p>
+      </div>
+    </section>
+
+    <!-- 2 · El encargo -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">El encargo (enunciado, sección 2)</p>
+        <h2>Verificar tareas de Matemática para Computación 1</h2>
+        <p>El enunciado pide un sistema capaz de resolver operaciones entre conjuntos, para que estudiantes de otro curso puedan comprobar sus propias respuestas. Es decir: alguien escribe conjuntos y operaciones en texto plano, y el sistema debe:</p>
+        <div class="cards three">
+          <div class="card"><div class="step">1</div><h3>Definir conjuntos</h3><p>Por rango (<code class="inline">a~z</code>) o por enumeración (<code class="inline">m, j, d, 1</code>).</p></div>
+          <div class="card"><div class="step">2</div><h3>Operar entre ellos</h3><p>Unión, intersección, diferencia y complemento, en notación prefija anidada sin límite.</p></div>
+          <div class="card"><div class="step">3</div><h3>Evaluar pertenencia</h3><p>¿Estos elementos pertenecen al conjunto resultante? Y si la operación se puede <strong>simplificar</strong> algebraicamente, decir cómo.</p></div>
+        </div>
+        <div class="callout"><p>Mismo problema de fondo que <strong>DataForge</strong> (texto → acción), pero un dominio distinto: en vez de aritmética y estadística, la unidad de trabajo es el <strong>conjunto</strong>, y las reglas que rigen su simplificación son las de la sección 7 del enunciado — las propiedades de la teoría de conjuntos.</p></div>
+      </div>
+    </section>
+
+    <!-- 3 · Universo -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">Concepto nº 1 — el universo (4.4)</p>
+        <h2>Un universo finito y concreto: ASCII 33..126</h2>
+        <p>En matemática pura, un conjunto puede vivir dentro de cualquier universo (números, letras, personas). ConjAnalyzer necesita un universo <strong>concreto y computable</strong> para poder calcular complementos: se elige el rango ASCII imprimible, del <code class="inline">!</code> (33) al <code class="inline">~</code> (126).</p>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>Elemento matemático</th><th>Su representación en ConjAnalyzer</th></tr></thead>
+            <tbody>
+              <tr><td>Un elemento del conjunto</td><td>Un único <code>char</code> (letra, dígito o signo ASCII imprimible)</td></tr>
+              <tr><td>El universo <code>U</code></td><td><code>Set&lt;Character&gt;</code> con los 94 caracteres ASCII 33–126</td></tr>
+              <tr><td>El complemento <code>^A</code></td><td><code>universo</code> menos los elementos de <code>A</code></td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="callout"><p><strong>Por qué importa fijar el universo:</strong> sin un universo concreto, "complemento de A" no significa nada — hace falta saber "complemento <em>respecto a qué</em>". Definirlo como una constante del <code class="inline">Entorno</code> es lo que vuelve calculable la sección 6.4 del enunciado.</p></div>
+      </div>
+    </section>
+
+    <!-- 4 · Case sensitive: contraste con DataForge -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">Concepto nº 2 — contraste con el proyecto hermano</p>
+        <h2>Case sensitive de verdad (4.1)</h2>
+        <p>DataForge era insensible a mayúsculas (<code class="inline">VAR</code> y <code class="inline">var</code> eran el mismo token). ConjAnalyzer declara lo opuesto desde la primera sección del enunciado:</p>
+        <pre class="code">CONJ : conjuntoA -> a~z;
+CONJ : conjuntoB -> A~Z;
+# Nota: son conjuntos DIFERENTES — el enunciado lo aclara explícitamente</pre>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th></th><th>DataForge</th><th>ConjAnalyzer</th></tr></thead>
+            <tbody>
+              <tr><td>Palabras reservadas</td><td><code>var</code>, <code>VAR</code>, <code>Var</code> — todas válidas</td><td>solo <code>CONJ</code>, <code>OPERA</code>, <code>EVALUAR</code> en MAYÚSCULAS exactas</td></tr>
+              <tr><td>Identificadores</td><td>claves del entorno normalizadas a minúsculas</td><td>claves <strong>sin normalizar</strong>: <code>conjuntoA</code> ≠ <code>conjuntoa</code></td></tr>
+              <tr><td>En el <code class="inline">.flex</code></td><td>directiva <code>%ignorecase</code></td><td><strong>sin</strong> <code>%ignorecase</code> — decisión declarada con un comentario propio en el código</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="muted">Esta diferencia se arrastra por todo el proyecto: aparece en el lexer (Etapa 1), en el <code class="inline">Entorno</code> (Etapa 3) y es el primer punto de la lista de "errores comunes" de este proyecto.</p>
+      </div>
+    </section>
+
+    <!-- 5 · Notación prefija: anticipo -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">Concepto nº 3 — un anticipo de la Etapa 2</p>
+        <h2>Las operaciones se escriben "al revés"</h2>
+        <p>En clase se escribe <code class="inline">(A ∪ B) ∩ C</code>: el operador va <strong>entre</strong> sus operandos (notación infija). El enunciado (sección 4.6) pide notación <strong>prefija</strong> (o polaca): el operador va <strong>antes</strong>.</p>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>Matemática (infija)</th><th>ConjAnalyzer (prefija)</th></tr></thead>
+            <tbody>
+              <tr><td>A ∪ B</td><td><code>U {A} {B}</code></td></tr>
+              <tr><td>(A ∪ B) ∪ C</td><td><code>U U {A} {B} {C}</code></td></tr>
+              <tr><td>(C ∪ A) ∩ B</td><td><code>& U {C} {A} {B}</code></td></tr>
+              <tr><td>^A</td><td><code>^ {A}</code> (único operador unario)</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="callout"><p><strong>Ventaja de esta notación (se profundiza en la Etapa 2):</strong> nunca hace falta paréntesis para desambiguar — el operador siempre "sabe" cuántos operandos le siguen. Eso simplifica muchísimo la gramática, al costo de que un humano tenga que acostumbrarse a leerla de adentro hacia afuera.</p></div>
+      </div>
+    </section>
+
+    <!-- 6 · Las tres capas -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">Arquitectura del intérprete (igual esqueleto que DataForge)</p>
+        <h2>Las tres capas, aplicadas a conjuntos</h2>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>Capa</th><th>Pregunta que responde</th><th>Herramienta</th></tr></thead>
+            <tbody>
+              <tr><td>Léxica</td><td>¿Qué "palabras" tiene el archivo <code class="inline">.ca</code>? (<code>CONJ</code>, <code>{</code>, <code>U</code>, un identificador…)</td><td>JFlex</td></tr>
+              <tr><td>Sintáctica</td><td>¿El orden de esas palabras forma una sentencia válida del lenguaje?</td><td>CUP (LALR)</td></tr>
+              <tr><td>Ejecución</td><td>¿Qué significa esa sentencia? (definir un conjunto, armar y evaluar un árbol de operación, comparar pertenencia)</td><td>Java — acciones del <code class="inline">.cup</code> + paquete <code>interprete</code></td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p>La diferencia grande respecto a DataForge aparece en la tercera capa: acá <strong>sí existe un árbol</strong> (aunque acotado a las operaciones) porque una operación necesita recorrerse más de una vez. Ese porqué es el corazón de la Etapa 3.</p>
+      </div>
+    </section>
+
+    <!-- 7 · Quiz -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">Chequeo rápido</p>
+        <h2>¿Quedaron claras las bases?</h2>
+        <div class="quiz">
+          <div class="q">
+            <p class="question">1 · ¿<code class="inline">conjA</code> y <code class="inline">conja</code> son el mismo conjunto en ConjAnalyzer?</p>
+            <button type="button" onclick="this.parentElement.classList.add('revealed')">Revelar respuesta</button>
+            <div class="answer"><p><strong>No.</strong> El lenguaje es case sensitive de verdad (4.1): las claves del <code class="inline">Entorno</code> no se normalizan, a diferencia de DataForge.</p></div>
+          </div>
+          <div class="q">
+            <p class="question">2 · ¿Cómo se escribe <code class="inline">A ∩ (B ∪ C)</code> en notación prefija?</p>
+            <button type="button" onclick="this.parentElement.classList.add('revealed')">Revelar respuesta</button>
+            <div class="answer"><p><strong><code class="inline">& {A} U {B} {C}</code></strong>. El primer operador (<code class="inline">&</code>) toma como segundo operando TODO lo que sigue después de su primer operando — que resulta ser otra operación completa (<code class="inline">U {B} {C}</code>).</p></div>
+          </div>
+          <div class="q">
+            <p class="question">3 · ¿Por qué hace falta fijar un universo concreto (ASCII 33–126) en vez de dejarlo abstracto?</p>
+            <button type="button" onclick="this.parentElement.classList.add('revealed')">Revelar respuesta</button>
+            <div class="answer"><p>Porque el <strong>complemento</strong> (^A) solo se puede calcular si se sabe respecto a qué universo: sin un conjunto universo concreto y finito, no hay forma de enumerar "todo lo que no está en A".</p></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 8 · Cierre -->
+    <section class="slide">
+      <div class="inner titleslide">
+        <p class="eyebrow">Etapa 0 completada</p>
+        <h1>El dominio ya queda incorporado</h1>
+        <p class="lead">Universo concreto · case sensitive real · notación prefija · las tres capas de siempre. Con eso alcanza para empezar por el vocabulario del lenguaje.</p>
+        <p style="margin-top:28px"><a class="btn primary" href="etapa1.html">Continuar con la Etapa 1: análisis léxico →</a></p>
+        <p class="kicker"><a class="btn" href="index.html">⌂ Volver al índice</a></p>
+      </div>
+    </section>
+
+  </div>
+
+  <div class="navbar">
+    <button id="prev" type="button">← Anterior</button>
+    <button id="next" type="button">Siguiente →</button>
+    <span class="hint">también se pueden usar las flechas del teclado</span>
+  </div>
+</div>
+
+<script src="assets/deck.js"></script>
+</body>
+</html>
