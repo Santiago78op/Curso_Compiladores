@@ -170,6 +170,19 @@ coercionarElementoOValorDefecto(tipoBase, v, l, c) {
       </div>
     </section>
 
+    <!-- 9b · Segunda auditoría (2026-07-23) -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">Caso de estudio real · Segunda auditoría, 23 de julio de 2026</p>
+        <h2>Un bug que tres proyectos del curso compartían</h2>
+        <p>Una segunda auditoría —esta vez <strong>cruzada</strong>, sobre varios proyectos del curso a la vez— encontró en CompInterpreter que los operadores lógicos <code class="inline">&amp;&amp;</code> y <code class="inline">||</code> <strong>no cortocircuitaban</strong>: el caso <code class="inline">LOGICA</code> evaluaba siempre ambos lados antes de operar.</p>
+        <pre class="code">let x: int = 0;
+if (x != 0 &amp;&amp; 10 / x &gt; 1) { ... }   <span class="tk-sym">// reportaba "División entre cero"</span></pre>
+        <p>La guarda <code class="inline">x != 0</code> existe precisamente para que <code class="inline">10 / x</code> no se evalúe cuando <code class="inline">x</code> es 0 — pero sin cortocircuito, la derecha se evaluaba igual y disparaba el error que la guarda debía evitar. La corrección: si el operando izquierdo (booleano) ya decide el resultado (<code class="inline">false</code> para <code class="inline">&amp;&amp;</code>, <code class="inline">true</code> para <code class="inline">||</code>), se retorna sin evaluar la derecha.</p>
+        <div class="callout warn"><p><strong>La lección transversal:</strong> este mismo defecto estaba en tres proyectos del curso. CompScript lo había encontrado y corregido en su propia auditoría; VLangCherry y CompInterpreter lo arrastraban. De ahí la regla que guió esta ronda: <em>todo bug confirmado en un proyecto se verifica en los demás</em>. La misma auditoría cerró aquí otros huecos latentes: un método <em>void</em> usado como expresión (<code class="inline">let x = m();</code>) o con un <code class="inline">return</code> valuado, índices de vector no enteros, y las nativas <code class="inline">sum</code>/<code class="inline">average</code>/<code class="inline">max</code>/<code class="inline">min</code> sobre vectores con elementos sin asignar.</p></div>
+      </div>
+    </section>
+
     <!-- 10 · Quiz -->
     <section class="slide">
       <div class="inner">
@@ -191,6 +204,11 @@ coercionarElementoOValorDefecto(tipoBase, v, l, c) {
             <button type="button" onclick="this.parentElement.classList.add('revealed')">Revelar respuesta</button>
             <div class="answer"><p>Los dos son fallas del <strong>manejo de errores</strong>, no del "camino feliz": ambos ocurren únicamente cuando el programa de entrada tiene un problema (un tipo incompatible, una instrucción de control fuera de contexto), y en ambos casos el síntoma era peor que un mensaje de error — silenciar el problema (bug 2) o abortar todo sin localizar la causa (bug 1). Confirman por qué la propagación por causa única y la validación explícita son partes centrales del diseño, no un detalle secundario.</p></div>
           </div>
+          <div class="q">
+            <p class="question">4 · Con la corrección del cortocircuito, ¿por qué <code class="inline">x != 0 &amp;&amp; 10 / x &gt; 1</code> ya no reporta "División entre cero" cuando <code class="inline">x</code> es 0?</p>
+            <button type="button" onclick="this.parentElement.classList.add('revealed')">Revelar respuesta</button>
+            <div class="answer"><p>Porque el operando izquierdo <code class="inline">x != 0</code> es <code class="inline">false</code>, y en <code class="inline">&amp;&amp;</code> un izquierdo falso ya decide el resultado (<code class="inline">false</code>) sin importar la derecha — así que <code class="inline">10 / x</code> <strong>no llega a evaluarse</strong>. Ese es justamente el propósito del cortocircuito: permite usar el lado izquierdo como guarda del derecho. Antes de la corrección ambos lados se evaluaban siempre, y la división entre cero ocurría pese a la guarda.</p></div>
+          </div>
         </div>
       </div>
     </section>
@@ -200,7 +218,7 @@ coercionarElementoOValorDefecto(tipoBase, v, l, c) {
       <div class="inner titleslide">
         <p class="eyebrow">Etapa 4 · construida y auditada</p>
         <h1>El control de flujo queda robusto</h1>
-        <p class="lead">Señales en vez de excepciones resuelven <code class="inline">break</code>/<code class="inline">continue</code>/<code class="inline">return</code> y, de paso, el <em>fall-through</em> del <code class="inline">switch</code>. Guardas de estabilidad protegen al servidor de ciclos infinitos y recursión desbordada. Y la auditoría del 21 de julio de 2026 corrigió dos errores reales que ningún ejemplo de prueba anterior había ejercitado.</p>
+        <p class="lead">Señales en vez de excepciones resuelven <code class="inline">break</code>/<code class="inline">continue</code>/<code class="inline">return</code> y, de paso, el <em>fall-through</em> del <code class="inline">switch</code>. Guardas de estabilidad protegen al servidor de ciclos infinitos y recursión desbordada. Y dos auditorías —el 21 y el 23 de julio de 2026— corrigieron errores reales que ningún ejemplo de prueba anterior había ejercitado, incluido el cortocircuito de <code class="inline">&amp;&amp;</code>/<code class="inline">||</code> que tres proyectos del curso compartían.</p>
         <p class="kicker">Próxima: <strong>Etapa 5 — el servidor Express: el contrato REST completo</strong>.<br><a class="btn" href="index.html" style="margin-top:14px">⌂ Volver al índice</a></p>
       </div>
     </section>

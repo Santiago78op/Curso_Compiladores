@@ -118,6 +118,8 @@ Conforme a la recomendación del enunciado del proyecto, el intérprete recorre 
 
 El módulo `server/src/interprete/entorno.js` define la clase `Entorno`, que representa un ámbito de ejecución mediante una tabla (`Map`) y una referencia a su ámbito padre, formando una cadena de ámbitos: global, luego función o método, luego bloque (dentro de estructuras de control). La búsqueda de un identificador (método `obtener`) recorre la cadena desde el ámbito actual hacia el ámbito global. Las claves de la tabla se normalizan a minúsculas, dado que el lenguaje es insensible a mayúsculas y minúsculas también en los identificadores.
 
+La **tabla de símbolos del reporte** (`registrarSimbolo`) usa como clave `ámbito::id` y se **actualiza en cada asignación**, de modo que la columna de valor refleja el **valor final** de cada símbolo, no un registro histórico de sus sucesivos valores. Es una decisión de diseño deliberada y distinta de la del proyecto hermano CompScript, cuya tabla es un log cronológico; aquí una variable global reasignada dentro de una función actualiza su única fila en lugar de duplicarla.
+
 ### 5.3 Representación de valores
 
 El módulo `server/src/interprete/valor.js` define la clase `Valor`, que encapsula todo dato manipulado en tiempo de ejecución junto con su tipo (`int`, `double`, `bool`, `char`, `string`, `null` o `vector`). Los valores de tipo `vector` incluyen además el tipo base de sus elementos y su dimensión (una o dos). Esta representación uniforme permite que las operaciones y funciones nativas verifiquen la compatibilidad de tipos antes de operar.
@@ -150,6 +152,22 @@ Adicionalmente, al construir un vector a partir de una lista literal (`vector_in
 ### 5.8 Funciones nativas
 
 El módulo `server/src/interprete/nativas.js` implementa las doce funciones nativas del lenguaje (`lower`, `upper`, `round`, `len`, `truncate`, `toString`, `toCharArray`, `reverse`, `max`, `min`, `sum`, `average`), cada una validando el tipo de su argumento antes de operar y retornando un error semántico descriptivo en caso de incompatibilidad.
+
+### 5.9 Validaciones semánticas reforzadas (auditoría cruzada 2026-07-23)
+
+Una revisión cruzada de los proyectos del curso (el mismo lote que auditó VLangCherry) detectó en CompInterpreter una tanda de huecos de validación, todos latentes: ningún archivo de prueba los ejercitaba. Se corrigieron en bloque y se agregó `entradas/ejemplo_semantica.ci`, que ejercita los caminos afectados y debe correr sin errores, más casos nuevos en `entradas/ejemplo_errores.ci`. Los dos primeros son transversales —el mismo defecto apareció en más de un proyecto del curso—.
+
+1. **Cortocircuito de `&&` y `||` (transversal).** En el caso `LOGICA` de `evaluar`, antes se evaluaban siempre ambos operandos antes de llamar a `ops.logica`. Ahora, si el operando izquierdo es booleano y ya decide el resultado (`false` para `&&`, `true` para `||`), se retorna sin evaluar el derecho. Esto es lo que permite que una guarda como `x != 0 && 10 / x > 1` no dispare "División entre cero". El operador unario `!` no se ve afectado. (Es el mismo defecto que CompScript ya había corregido en su propia auditoría y que VLangCherry también tenía.)
+
+2. **`return <valor>` dentro de un método (transversal).** Un método es *void*; `invocar` validaba la señal `RETURN` solo para las funciones. Ahora, si el cuerpo de un método produce una señal `RETURN` con valor, se reporta un error semántico ("el método es void; return no puede llevar una expresión"), en el punto exacto del `return` (la señal ahora transporta línea y columna). Un `return;` sin valor sigue siendo válido como salida anticipada.
+
+3. **Método (void) usado como expresión.** Un método no produce valor; usarlo donde se espera uno (`let x: int = miMetodo();`) devolvía `null` en silencio, y `x` quedaba con un valor vacío que se propagaba como si "ya hubiera habido un error antes", cuando nunca lo hubo. Ahora `invocar` recibe una bandera `comoExpresion`: los dos puntos donde se despacha una `LLAMADA` la distinguen —como **instrucción** (`false`, un método suelto es válido) o como **expresión** (`true`, un método aquí es error semántico)—.
+
+4. **Índices de vector no enteros.** `evalAcceso` (lectura 1D/2D) y `execAsignacionVector` (asignación 1D/2D) truncaban el índice con `Math.trunc(aNumero(idx))` sin verificar su tipo. Un índice de tipo cadena o `null` daba `NaN` —y como `NaN < 0` y `NaN >= longitud` son ambos falsos, *pasaba* los chequeos de rango—, y un `double` se truncaba en silencio. Se agregó el auxiliar `indiceEntero`, aplicado en los cuatro puntos, que exige tipo `int` —la misma validación que la creación `new vector int[n]` ya hacía sobre el tamaño—.
+
+5. **Funciones nativas numéricas sobre elementos sin asignar.** `new vector int[n]` inicializa sus posiciones con el valor `null` del lenguaje. Las nativas `sum`, `average`, `max` y `min` hacían `aNumero(elemento)`, que para un `null` da `NaN`: `sum` sobre un vector recién creado imprimía `NaN` sin error alguno. Ahora, mediante el auxiliar `tieneNulos`, las cuatro reportan un error semántico si el vector contiene elementos nulos sin asignar.
+
+**Política documentada (argumentos faltantes).** Cuando una llamada omite un argumento que no tiene valor por defecto, se reporta el error semántico correspondiente pero la función **igualmente se ejecuta**, tomando el valor por defecto del tipo del parámetro. Es la política de "continuar y acumular errores" propia de este proyecto —opuesta al aborto inmediato de CompScript—, coherente con la propagación por `null` de la sección 5.6.
 
 ## 6. Reporte del árbol de sintaxis abstracta como grafo genérico
 
