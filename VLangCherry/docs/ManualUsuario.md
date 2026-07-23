@@ -120,7 +120,7 @@ func main() {
 
 Aspectos principales (la gramática completa y las decisiones de diseño frente al enunciado se documentan en `docs/gramatica.txt`):
 
-- **Variables**: declaración explícita (`mut edad int = 25`) o inferida (`nombre := "Ana"`); `mut` indica que la variable puede reasignarse.
+- **Variables**: declaración explícita (`mut edad int = 25`) o inferida (`nombre := "Ana"`); `mut` indica que la variable puede reasignarse. Reasignar una variable declarada **sin** `mut` (con `=`, `+=`, `-=`, `++` o `--`) es un error semántico; `mut` gobierna solo la reasignación de la variable completa: mutar un campo o un elemento (`persona.Edad = 30`, `numeros[0] = 9`) se permite aunque la variable no sea `mut`.
 - **Tipos primitivos**: `int`, `float64`, `string`, `bool`, `rune`.
 - **Slices**: `numeros := []int{1, 2, 3}`; funciones nativas `len`, `append`, `indexOf`, `join`.
 - **Structs y métodos**: `struct Persona { string Nombre; int Edad }`, con métodos asociados por valor o por referencia (`func (p Persona) Saludar() string` / `func (p *Persona) Cumplir()`).

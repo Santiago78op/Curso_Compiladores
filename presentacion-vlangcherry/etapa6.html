@@ -122,7 +122,8 @@ func (o *oyenteErrores) SyntaxError(recognizer antlr.Recognizer, offendingSymbol
     grafo = ast.ConstruirGrafo(programa)
     interprete.Interpretar(programa)
 }()</pre>
-        <div class="callout"><p><strong>Por qué importa en un servidor:</strong> un caso interno no contemplado (por ejemplo, un tipo de nodo del AST sin manejar en algún <code class="inline">switch</code>) no debe derribar el proceso completo del servidor — que sigue atendiendo otras peticiones. En vez de eso, se reporta como un error semántico adicional al usuario que envió ese código puntual.</p></div>
+        <div class="callout"><p><strong>Por qué importa en un servidor:</strong> un <em>panic</em> interno no contemplado (por ejemplo, un tipo de nodo del AST sin manejar en algún <code class="inline">switch</code>) no debe derribar el proceso completo del servidor — que sigue atendiendo otras peticiones. En vez de eso, se reporta como un error semántico adicional al usuario que envió ese código puntual.</p></div>
+        <div class="callout warn"><p><strong>Pero <code class="inline">recover()</code> no lo atrapa todo:</strong> solo captura <em>panics</em>, no los <code class="inline">fatal error</code> de Go. El caso crítico es el <strong>stack overflow</strong> por una recursión sin caso base (<code class="inline">func f() int { return f() }</code>): Go lo termina de forma no recuperable y <em>mataría el proceso entero</em> a pesar de este <code class="inline">recover()</code>. Por eso la robustez no descansa solo aquí: el intérprete lleva guardas de <strong>profundidad de recursión</strong> (2000) en <code class="inline">invocarFuncion</code> y de <strong>iteraciones por ciclo</strong> (1 000 000) en <code class="inline">ejecutarFor</code>, que reportan un error semántico —"recursión demasiado profunda" / "posible ciclo infinito"— antes de que el problema llegue a ser fatal.</p></div>
       </div>
     </section>
 

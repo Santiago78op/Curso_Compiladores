@@ -265,11 +265,12 @@ La función `append` es la excepción intencional a la mutación en el lugar: si
 type Entorno struct {
     Nombre    string
     variables map[string]*Valor
+    mutable   map[string]bool
     Padre     *Entorno
 }
 ```
 
-Las variables se almacenan como `*Valor` (no `Valor`), de modo que asignar `numeros[i] = x` o `p.Campo = x` (resueltos mediante `resolverLugar`, sección 8.4) mutan la misma celda en memoria en vez de una copia. `Buscar` resuelve un identificador subiendo por la cadena de entornos padres (alcance léxico anidado); `DeclaradoLocal` detecta redeclaración dentro del mismo bloque. El registro de `structs`, `funciones` y `métodos` vive aparte, en la estructura `Global`, independiente de la pila de entornos de ejecución (el enunciado exige que structs y funciones solo se declaren en el ámbito global, secciones 6.1 y 7.1).
+Las variables se almacenan como `*Valor` (no `Valor`), de modo que asignar `numeros[i] = x` o `p.Campo = x` (resueltos mediante `resolverLugar`, sección 8.4) mutan la misma celda en memoria en vez de una copia. `Buscar` resuelve un identificador subiendo por la cadena de entornos padres (alcance léxico anidado); `DeclaradoLocal` detecta redeclaración dentro del mismo bloque. El mapa paralelo `mutable` guarda, por variable, si fue declarada con `mut` (ver sección 8.8, hallazgo A1): `EsMutable` lo consulta subiendo por la misma cadena de entornos que `Buscar`, y `Declarar` (usado para parámetros, receptores y variables de `for`) declara siempre como mutable, mientras que `DeclararMut` respeta la bandera capturada del fuente. El registro de `structs`, `funciones` y `métodos` vive aparte, en la estructura `Global`, independiente de la pila de entornos de ejecución (el enunciado exige que structs y funciones solo se declaren en el ámbito global, secciones 6.1 y 7.1).
 
 ### 8.3 El intérprete de dos pasadas (`interprete.go`)
 
@@ -349,6 +350,32 @@ Una auditoría posterior a la primera versión funcional detectó y corrigió 3 
 
 Ninguno de los 4 hallazgos de la auditoría (los 3 anteriores más la comparación lexicográfica de strings) es un fallo de ejecución: los cuatro son huecos de validación semántica que el enunciado exige cerrar, no errores que impidieran correr el programa.
 
+### 8.8 Segunda auditoría (2026-07-23): semántica, robustez y reportes
+
+Una segunda auditoría —parte de una revisión cruzada de los proyectos del curso— leyó el runtime completo y detectó una nueva tanda de hallazgos, todos latentes (ningún ejemplo los ejercitaba). Se corrigieron en bloque y se agregó `entradas/ejemplo7_semantica.vch`, que ejercita los caminos afectados y debe correr sin errores, más dos casos nuevos en `entradas/ejemplo6_errores.vch`. Igual que la auditoría anterior, ninguno era un fallo que impidiera correr el intérprete; eran huecos de validación o de robustez.
+
+**Hallazgos de semántica del lenguaje:**
+
+1. **`mut` dejó de ser decorativo (A1).** La gramática acepta `'mut'?` en ambas formas de declaración (`VLangCherry.g4:92-94`) y el `ManualUsuario` documenta que "`mut` indica que la variable puede reasignarse", pero el runtime nunca leía la bandera: reasignar una variable declarada sin `mut` se aceptaba en silencio. Se agregó el campo `Mutable` a `ast.DeclVariable`, capturado en el traductor desde `MUT()`; el `Entorno` rastrea la mutabilidad (`DeclararMut`/`EsMutable`, sección 8.2); y `verificarReasignable` valida `=`, `+=`, `-=`, `++` y `--` en `ejecutarAsignacion`/`ejecutarIncDec`. **Alcance decidido y documentado:** `mut` gobierna únicamente reasignar la **variable entera**; mutar un campo o un elemento (`p.Edad = 30`, `xs[0] = 9`) se permite siempre, porque no reenlaza la variable. Las variables de control del `for` se fuerzan mutables en el traductor (una `for i := 0; …; i++` sin `mut` seguiría siendo válida), lo mismo que parámetros y receptores.
+
+2. **Cortocircuito de `&&` y `||` (A2).** `evaluar` evaluaba siempre ambos operandos antes de despachar a los operadores lógicos. Ahora, en el caso `*ast.ExprBinaria`, si el operando izquierdo es booleano y ya decide el resultado (`false` para `&&`, `true` para `||`), se retorna sin evaluar el derecho — la semántica habitual, y lo que permite que una guarda como `x != 0 && 10/x > 1` no dispare "división entre cero".
+
+3. **Receptor por valor que compartía el struct (A4).** `ReceptorPuntero` se capturaba en el AST pero el runtime nunca lo leía: `invocarFuncion` declaraba el receptor con una copia superficial del `Valor`, y como `Valor.Struct` es un puntero, un método con receptor **por valor** terminaba mutando el `StructVal` del llamador. Se agregó `ClonarPorValor` (`valores.go`), que replica la copia por valor de Go —clona el struct y sus structs anidados en profundidad; los slices internos se comparten, igual que en Go real— y se aplica en `invocarFuncion` cuando `!fn.ReceptorPuntero`. Ahora un receptor por valor trabaja sobre una copia y no afecta al llamador; uno por puntero sí comparte el struct.
+
+4. **`return` mal validado contra el tipo declarado (M1/M2).** El zero-value de `Tipo` es `int`, así que un `return` sin expresión en una función tipada devolvía `0` sin error, y un `return <valor>` en una función sin tipo de retorno se descartaba en silencio. Se agregó la bandera `TieneValor` a la señal `Senal`: ahora `invocarFuncion` reporta error si una función tipada trae un `return` sin valor, y si una función `void` trae un `return` con valor.
+
+**Hallazgos de robustez del servidor:**
+
+5. **Guardas anti-desborde (A3).** No existían límites de iteración ni de profundidad. Un `for true {}` dejaba la goroutine de la petición girando para siempre, y —más grave— una recursión sin caso base provocaba un **stack overflow de Go, que es un `fatal error` no recuperable por `recover()`** (ver sección 9): mataba el proceso entero del servidor, no solo esa petición. Se agregaron dos contadores, con los mismos valores que usa el proyecto hermano CompInterpreter: `maxIteraciones` (1 000 000) por ciclo en `ejecutarFor`, y `maxProfundidad` (2000) de llamadas anidadas en `invocarFuncion`. Al superarse, se reporta un error semántico ("posible ciclo infinito" / "recursión demasiado profunda") en vez de colgar o derribar el servidor.
+
+6. **`append`/`join` sobre un slice `nil` (A5/M3).** `ValorPorDefecto` devolvía para un slice o struct sin inicializar un `Valor{Tipo: TipoNil()}` que **perdía el tipo declarado**, de modo que una asignación posterior (`xs = []int{…}` tras `mut xs []int`) se rechazaba como incompatible con `nil`. Ahora devuelve `Valor{Tipo: t}` conservando el tipo (con `Slice`/`Struct` en `nil`, forma que `EsNil` ya contemplaba). Como ese fix hace alcanzable un slice `nil` real, se endurecieron además `append` y `join` en `nativas.go` para tratar el slice `nil` como Go (append de un elemento; join de cadena vacía) en vez de hacer panic.
+
+**Hallazgos de reportes y defensa (menores):**
+
+7. **Tabla de símbolos por sitio de declaración (M4).** `registrarSimbolo` usaba como clave `ambito::nombre` en un mapa, de modo que dos bloques hermanos de la misma función que declararan el mismo nombre se pisaban mutuamente (comparten el `Nombre` del entorno de la función). La clave ahora incluye la posición en el fuente (`ambito::nombre::linea:col`), y `Simbolos()` ordena las filas por ámbito y luego por línea/columna. **Decisión de diseño documentada:** la tabla es un registro de **declaraciones** —una fila por sitio de declaración, con el valor **al momento de declarar** (snapshot)—, no una traza de ejecución: una variable declarada dentro de un ciclo o de una función recursiva ocupa siempre la misma posición y por lo tanto una sola fila, y una reasignación posterior no actualiza la columna Valor.
+
+8. **Errores defensivos y campo duplicado (B1/B2).** Los casos `default` de `resolverLugar` y `evaluar` devolvían `false` sin mensaje ante un nodo inesperado (fallo silencioso); ahora reportan un error con posición ("destino de asignación no válido" / "expresión no soportada"). Y un literal de struct con el mismo campo repetido (`Persona{Nombre:"a", Nombre:"b"}`), que antes dejaba ganar al último en silencio, ahora es error semántico.
+
 ## 9. Manejo de errores
 
 `internal/runtime/errores.go` define una estructura única para las tres familias de error que exige el enunciado (sección 8.1):
@@ -406,7 +433,7 @@ func() {
 }()
 ```
 
-Esto evita que un caso interno no contemplado (por ejemplo, un tipo de nodo del AST sin manejar) derribe el proceso del servidor; en su lugar, se reporta como un error semántico adicional.
+Esto evita que un **panic** interno no contemplado (por ejemplo, un tipo de nodo del AST sin manejar, o un índice fuera de rango dentro del propio intérprete) derribe el proceso del servidor; en su lugar, se reporta como un error semántico adicional. Con una salvedad importante: `recover()` solo atrapa *panics*, no los `fatal error` de Go. El caso típico es el **stack overflow** por recursión sin caso base, que Go termina de forma no recuperable y que mataría el proceso entero pese al `recover()`. Por eso la robustez del servidor **no** descansa solo en este bloque: las guardas `maxProfundidad`/`maxIteraciones` de la sección 8.8 (hallazgo A3) atajan esos dos casos —recursión infinita y ciclo infinito— antes de que lleguen a ser fatales, reportándolos como error semántico.
 
 ## 10. El servidor REST (`cmd/servidor`, `internal/analizar`)
 

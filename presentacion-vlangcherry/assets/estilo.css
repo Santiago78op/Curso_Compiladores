@@ -197,6 +197,7 @@ td code { font-family: "Cascadia Code", Consolas, monospace; font-size: .92em; }
   padding: 14px 18px; margin: 22px 0;
 }
 .callout p { margin: 0; }
+.callout.warn { border-left-color: #e0a53f; background: rgba(224, 165, 63, 0.09); }
 
 /* ---------- quiz ---------- */
 .quiz { margin: 22px 0; display: grid; gap: 16px; }

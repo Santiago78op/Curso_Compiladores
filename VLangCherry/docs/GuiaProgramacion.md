@@ -298,11 +298,15 @@ func (p *Persona) Cumplir() {
 ```go
 entFn := NuevoEntorno(fn.Nombre, in.entGlobal)
 if receptor != nil && fn.ReceptorNombre != "" {
-    entFn.Declarar(fn.ReceptorNombre, *receptor)
+    rec := *receptor
+    if !fn.ReceptorPuntero {
+        rec = ClonarPorValor(rec) // receptor por valor: trabaja sobre una copia
+    }
+    entFn.Declarar(fn.ReceptorNombre, rec)
 }
 ```
 
-`Saludar` no muta nada. `Cumplir` sí incrementa `Edad`, y el cambio persiste afuera **porque `Valor.Struct` ya es puntero**, independientemente de si el receptor está declarado `(p Persona)` o `(p *Persona)`. La diferencia real entre receptor por valor y por puntero se nota sobre todo si reasignás el struct completo o un campo anidado dentro del método — no con un escalar simple. Si te piden demostrarlo en vivo: cambiá `func (p *Persona) Cumplir()` por `func (p Persona) Cumplir()`, volvé a correr `entradas/ejemplo2_structs.vch`, y mostrá que `persona.Edad` sigue reflejando el incremento de todos modos.
+`Saludar` no muta nada. `Cumplir` (receptor **por puntero**, `(p *Persona)`) incrementa `Edad` y el cambio persiste afuera, porque el receptor comparte el mismo `StructVal` que el llamador. La diferencia con un receptor **por valor** (`(p Persona)`) es real y observable: ahí `invocarFuncion` clona el struct con `ClonarPorValor` —copia en profundidad, igual que Go copia un struct al pasarlo por valor—, de modo que cualquier mutación dentro del método (reasignar el struct, un campo, o un campo anidado) **no** se ve afuera. Si te piden demostrarlo en vivo: cambiá `func (p *Persona) Cumplir()` por `func (p Persona) Cumplir()`, volvé a correr `entradas/ejemplo2_structs.vch`, y mostrá que ahora `persona.Edad` **no** refleja el incremento. (Este comportamiento correcto es reciente: hasta la auditoría del 2026-07-23, el receptor por valor compartía el `StructVal` por error —`ReceptorPuntero` no se leía—; ver Manual Técnico 8.8, hallazgo A4.)
 
 ### 4.3 La excepción: `append` siempre es nuevo
 
