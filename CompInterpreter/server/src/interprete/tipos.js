@@ -35,7 +35,10 @@ function valorPorDefecto(tipo) {
     case TIPO.INT: return 0;
     case TIPO.DOUBLE: return 0.0;
     case TIPO.BOOL: return true;
-    case TIPO.CHAR: return ' ';   // caracter espacio (codigo 32) - "carácter 0" del enunciado
+    // El enunciado (5.3, tabla de tipos) muestra el literal ' ' y lo anota como
+    // "(carácter 0)". Es ambiguo: ' ' es el espacio (ASCII 32), NO el carácter
+    // nulo \0 (ASCII 0). Se adopta el literal que el enunciado exhibe (' ').
+    case TIPO.CHAR: return ' ';
     case TIPO.STRING: return '';
     case TIPO.NULL: return null;
     default: return null;

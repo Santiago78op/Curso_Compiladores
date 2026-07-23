@@ -42,6 +42,11 @@ function void main() {
 
     // (11) Error SEMANTICO (M4): nativa numerica sobre un vector con nulos
     echo sum(vec);
+
+    // (12) Error SEMANTICO (B1): char NO se coerciona implicitamente a double
+    // (char->double solo con cast explicito, seccion 5.13)
+    let ch: char = 'A';
+    let dd: double = ch;
 }
 
 const ci: int = 99;

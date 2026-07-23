@@ -132,8 +132,10 @@ El módulo `server/src/interprete/operaciones.js` implementa las operaciones ari
 
 El lenguaje distingue dos mecanismos de conversión de tipos:
 
-- **Coerción implícita** (método `coercionar` de la clase `Interprete`): se aplica automáticamente al asignar un valor a una variable, al pasar un argumento a un parámetro o al retornar un valor desde una función, cuando el tipo de origen y el tipo de destino son numéricamente compatibles (por ejemplo, de `double` a `int`, truncando la parte decimal; o de `bool` a `int`/`double`).
-- **Casteo explícito** (palabra reservada `cast`, sección 5.13 del enunciado): permite conversiones adicionales solicitadas explícitamente por el programador (por ejemplo, `int` a `char` mediante el valor ASCII correspondiente, o cualquier tipo numérico a `string`).
+- **Coerción implícita** (método `coercionar` de la clase `Interprete`): se aplica automáticamente al asignar un valor a una variable, al pasar un argumento a un parámetro o al retornar un valor desde una función, cuando el tipo de origen y el tipo de destino son numéricamente compatibles (por ejemplo, de `double` a `int`, truncando la parte decimal; o de `bool` a `int`/`double`). El tipo `char` queda **deliberadamente fuera** de la coerción implícita: el enunciado (sección 5.13) contempla `char` → `int` y `char` → `double` únicamente como casteos explícitos, no como asignación implícita. Una auditoría detectó que el código permitía `char` → `double` de forma implícita pero no `char` → `int` (asimetría no respaldada por el enunciado); se unificó exigiendo el `cast` explícito en ambos casos.
+- **Casteo explícito** (palabra reservada `cast`, sección 5.13 del enunciado): permite conversiones adicionales solicitadas explícitamente por el programador (por ejemplo, `int` a `char` mediante el valor ASCII correspondiente, `char` a `int`/`double` por su código ASCII, o cualquier tipo numérico a `string`).
+
+El valor por defecto de un `char` sin inicializar es el espacio `' '`. El enunciado (tabla de tipos, sección 5.3) exhibe ese literal `' '` pero lo anota como "(carácter 0)"; se adopta el literal mostrado, ya que `' '` es el espacio (ASCII 32) y no el carácter nulo `\0` (ASCII 0) que sugeriría la anotación.
 
 ### 5.6 Propagación de errores mediante valores nulos
 

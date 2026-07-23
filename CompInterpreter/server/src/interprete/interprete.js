@@ -657,10 +657,14 @@ class Interprete {
   }
 
   // ---------------- Coercion de asignacion ----------------
-  /* DECISION DE DISENO: los tipos numericos son mutuamente asignables con
-     coercion (double->int trunca). Sin esto, el propio ejemplo oficial del
-     Anexo 11.1 seria invalido: `let modulo:int = x % 3` donde `%` produce
-     DECIMAL segun la tabla literal del enunciado (5.5.6). */
+  /* DECISION DE DISENO: los tipos numericos int/double (y bool) son mutuamente
+     asignables con coercion (double->int trunca). Sin esto, el propio ejemplo
+     oficial del Anexo 11.1 seria invalido: `let modulo:int = x % 3` donde `%`
+     produce DECIMAL segun la tabla literal del enunciado (5.5.6).
+     CHAR queda FUERA de la coercion implicita: el enunciado lista char->int y
+     char->double solo como CASTEOS explicitos (5.13), no como asignacion
+     implicita. Antes habia una asimetria (char->double se permitia implicito,
+     char->int no); se unifico exigiendo cast explicito para ambos. */
   coercionar(tipoDest, v, l, c) {
     if (v === null) return null;
     const o = v.tipo;
@@ -673,7 +677,6 @@ class Interprete {
       case TIPO.DOUBLE:
         if (o === TIPO.INT) return Valor.double(v.valor);
         if (o === TIPO.BOOL) return Valor.double(v.valor ? 1 : 0);
-        if (o === TIPO.CHAR) return Valor.double(v.valor.charCodeAt(0));
         break;
       case TIPO.BOOL:
         break;   // solo bool acepta bool
