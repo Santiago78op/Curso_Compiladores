@@ -35,6 +35,13 @@ function void main() {
 
     // (9) Error SEMANTICO (M3): un metodo (void) no puede retornar un valor
     conRetorno();
+
+    // (10) Error SEMANTICO (M1): indice de vector que no es ENTERO
+    let vec: int[] = new vector int[3];
+    echo vec["cero"];
+
+    // (11) Error SEMANTICO (M4): nativa numerica sobre un vector con nulos
+    echo sum(vec);
 }
 
 const ci: int = 99;

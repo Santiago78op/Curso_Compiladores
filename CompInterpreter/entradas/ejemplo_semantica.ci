@@ -16,6 +16,17 @@ function void main() {
 
     // Un metodo void llamado como SENTENCIA (sin usar su valor) es valido.
     reportar();
+
+    // M1: indice ENTERO valido; leer/escribir con indice int corre sin error.
+    let v: int[] = new vector int[3];
+    v[0] = 10;
+    v[1] = 20;
+    v[2] = 30;
+    echo "M1 indice entero valido: " + v[1];
+
+    // M4: nativas numericas sobre un vector con TODOS los elementos asignados.
+    echo "M4 sum sobre vector asignado (esperado 60): " + sum(v);
+    echo "M4 average sobre vector asignado (esperado 20): " + average(v);
 }
 
 // metodo void: correcto como sentencia, sin return valuado

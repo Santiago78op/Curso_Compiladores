@@ -278,6 +278,7 @@ class Interprete {
     const i1 = this.evaluar(nodo.idx1, entorno);
     const nuevo = this.evaluar(nodo.valor, entorno);
     if (i1 === null || nuevo === null) return null;
+    if (!this.indiceEntero(i1, nodo.id, nodo.linea, nodo.columna)) return null;
     const idx1 = Math.trunc(aNumero(i1));
 
     if (nodo.idx2 === null) {
@@ -288,6 +289,7 @@ class Interprete {
     } else {
       const i2 = this.evaluar(nodo.idx2, entorno);
       if (i2 === null) return null;
+      if (!this.indiceEntero(i2, nodo.id, nodo.linea, nodo.columna)) return null;
       const idx2 = Math.trunc(aNumero(i2));
       if (sim.valor.dimension !== 2) { this.errores.semantico('El vector "' + nodo.id + '" no es de 2 dimensiones', nodo.linea, nodo.columna); return null; }
       const mat = sim.valor.valor;
@@ -599,12 +601,25 @@ class Interprete {
   // Lee un elemento de vector/matriz: valida que el id sea un vector, que
   // la cantidad de índices coincida con su dimensión (1D/2D) y que el/los
   // índice(s) esté(n) en rango antes de devolver el Valor almacenado.
+  // M1: un indice de vector debe ser ENTERO. Sin esta validacion, un indice
+  // string/null cae en aNumero -> NaN (y NaN<0 / NaN>=len son ambos false, asi
+  // que "pasa" los chequeos de rango) y un double se trunca en silencio. Es la
+  // misma validacion que VECTOR_NEW ya hace sobre el tamanio.
+  indiceEntero(v, id, linea, columna) {
+    if (!v || v.tipo !== TIPO.INT) {
+      this.errores.semantico('El índice del vector "' + id + '" debe ser ENTERO', linea, columna);
+      return false;
+    }
+    return true;
+  }
+
   evalAcceso(nodo, entorno) {
     const sim = entorno.obtener(nodo.id);
     if (!sim) { this.errores.semantico('El vector "' + nodo.id + '" no está declarado', nodo.linea, nodo.columna); return null; }
     if (!sim.valor || sim.valor.tipo !== TIPO.VECTOR) { this.errores.semantico('"' + nodo.id + '" no es un vector', nodo.linea, nodo.columna); return null; }
     const i1v = this.evaluar(nodo.idx1, entorno);
     if (i1v === null) return null;
+    if (!this.indiceEntero(i1v, nodo.id, nodo.linea, nodo.columna)) return null;
     const idx1 = Math.trunc(aNumero(i1v));
     if (nodo.idx2 === null) {
       if (sim.valor.dimension !== 1) { this.errores.semantico('El vector "' + nodo.id + '" es de 2 dimensiones, falta un índice', nodo.linea, nodo.columna); return null; }
@@ -613,6 +628,7 @@ class Interprete {
     } else {
       const i2v = this.evaluar(nodo.idx2, entorno);
       if (i2v === null) return null;
+      if (!this.indiceEntero(i2v, nodo.id, nodo.linea, nodo.columna)) return null;
       const idx2 = Math.trunc(aNumero(i2v));
       if (sim.valor.dimension !== 2) { this.errores.semantico('El vector "' + nodo.id + '" no es de 2 dimensiones', nodo.linea, nodo.columna); return null; }
       const mat = sim.valor.valor;

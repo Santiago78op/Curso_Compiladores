@@ -8,6 +8,11 @@ const { nombreTipo } = require('./operaciones');
 
 function err(errores, msg, l, c) { errores.semantico(msg, l, c); return null; }
 
+// M4: max/min/sum/average sobre un vector con elementos SIN asignar (null, como
+// los que crea "new vector int[n]") producirian NaN en silencio (aNumero(null)
+// es NaN). En su lugar se reporta un error semantico.
+function tieneNulos(vec) { return vec.some(e => !e || e.tipo === TIPO.NULL); }
+
 function ejecutarNativa(fn, arg, l, c, errores) {
   if (arg === null) return null;
 
@@ -59,6 +64,7 @@ function ejecutarNativa(fn, arg, l, c, errores) {
       if (arg.tipo !== TIPO.VECTOR || arg.dimension !== 1)
         return err(errores, fn + ' espera un VECTOR de una dimensión', l, c);
       if (arg.valor.length === 0) return err(errores, fn + ' sobre un vector vacío', l, c);
+      if (tieneNulos(arg.valor)) return err(errores, fn + ' no puede operar sobre un vector con elementos nulos sin asignar', l, c);
       const base = arg.tipoBase;
       const buscarMax = fn === 'max';
       let mejor = arg.valor[0];
@@ -75,6 +81,7 @@ function ejecutarNativa(fn, arg, l, c, errores) {
     case 'sum': {
       if (arg.tipo !== TIPO.VECTOR || arg.dimension !== 1)
         return err(errores, 'sum espera un VECTOR de una dimensión', l, c);
+      if (tieneNulos(arg.valor)) return err(errores, 'sum no puede operar sobre un vector con elementos nulos sin asignar', l, c);
       const base = arg.tipoBase;
       if (base === TIPO.STRING) {
         return Valor.string(arg.valor.map(v => v.valor).join(''));
@@ -91,6 +98,7 @@ function ejecutarNativa(fn, arg, l, c, errores) {
       if (arg.tipoBase === TIPO.STRING)
         return err(errores, 'average no es aplicable a un VECTOR de CADENA', l, c);
       if (arg.valor.length === 0) return err(errores, 'average sobre un vector vacío', l, c);
+      if (tieneNulos(arg.valor)) return err(errores, 'average no puede operar sobre un vector con elementos nulos sin asignar', l, c);
       let acc = 0;
       for (const e of arg.valor) acc += aNumero(e);
       return Valor.double(acc / arg.valor.length);
