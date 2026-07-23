@@ -29,8 +29,24 @@ function void main() {
 
     // (7) Error SEMANTICO: orden entre BOOLEAN no permitido (decision de disenio 5.6)
     let x: bool = bandera > true;
+
+    // (8) Error SEMANTICO (M2): un metodo (void) no puede usarse como expresion
+    let v: int = saludar();
+
+    // (9) Error SEMANTICO (M3): un metodo (void) no puede retornar un valor
+    conRetorno();
 }
 
 const ci: int = 99;
+
+// metodo void usado mal arriba (M2)
+function void saludar() {
+    echo "hola";
+}
+
+// metodo void con un return valuado invalido (M3)
+function void conRetorno() {
+    return 7;
+}
 
 ejecutar main();

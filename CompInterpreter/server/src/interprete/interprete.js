@@ -123,9 +123,9 @@ class Interprete {
       case 'CONTINUE': return { tipo: 'CONTINUE', linea: nodo.linea, columna: nodo.columna };
       case 'RETURN': {
         const v = nodo.valor ? this.evaluar(nodo.valor, entorno) : null;
-        return { tipo: 'RETURN', valor: nodo.valor ? v : null, tieneValor: !!nodo.valor };
+        return { tipo: 'RETURN', valor: nodo.valor ? v : null, tieneValor: !!nodo.valor, linea: nodo.linea, columna: nodo.columna };
       }
-      case 'LLAMADA': this.evaluar(nodo, entorno); return null;    // llamada como instruccion
+      case 'LLAMADA': this.evalLlamada(nodo, entorno, false); return null;    // llamada como instruccion (metodo void permitido)
       case 'NATIVA': this.evaluar(nodo, entorno); return null;
       case 'EJECUTAR': this.ejecutarEjecutar(nodo); return null;
       case 'ERROR': return null;
@@ -442,7 +442,7 @@ class Interprete {
   // argumento provisto o su valor por defecto, corre el cuerpo y, si es
   // FUNCION, exige que haya terminado con RETURN y coerciona el valor al
   // tipo declarado. Falla con guarda anti-recursión (MAX_DEPTH).
-  invocar(fn, args, linea, columna, entornoLlamador) {
+  invocar(fn, args, linea, columna, entornoLlamador, comoExpresion = false) {
     if (++this.profundidad > MAX_DEPTH) {
       this.errores.semantico('Recursión demasiado profunda al llamar "' + fn.id + '"', linea, columna);
       this.profundidad--;
@@ -503,6 +503,18 @@ class Interprete {
       const coer = this.coercionar(fn.retorno, senal.valor, linea, columna);
       return coer;
     }
+    // M3: un metodo es void; un "return <expr>;" en su cuerpo es error
+    // semantico (igual que CompScript), en vez de descartarse en silencio.
+    if (senal && senal.tipo === 'RETURN' && senal.tieneValor) {
+      this.errores.semantico('El método "' + fn.id + '" es void; "return" no puede llevar una expresión',
+        senal.linea != null ? senal.linea : linea, senal.columna != null ? senal.columna : columna);
+    }
+    // M2: usar un metodo (void) donde se espera un valor (p.ej. "let x: int
+    // = m();") es error, en vez de propagar un null silencioso que aparenta
+    // un error previo que nunca ocurrio.
+    if (comoExpresion) {
+      this.errores.semantico('El método "' + fn.id + '" no retorna valor y no puede usarse como expresión', linea, columna);
+    }
     return null;   // metodo: sin valor de retorno
   }
 
@@ -530,13 +542,22 @@ class Interprete {
       }
       case 'LOGICA': {
         const i = this.evaluar(nodo.izq, entorno);
+        // Cortocircuito de && y ||: si el operando izquierdo (BOOL) ya decide
+        // el resultado, el derecho NO se evalua. Importa cuando la derecha
+        // podria fallar (p.ej. la guarda "x != 0 && 10/x > 1") o tener
+        // efectos; ademas es la semantica habitual de estos operadores. El
+        // caso ! es unario (nodo.der === null) y no entra aqui.
+        if (i !== null && i.tipo === TIPO.BOOL) {
+          if (nodo.op === '&&' && i.valor === false) return Valor.bool(false);
+          if (nodo.op === '||' && i.valor === true) return Valor.bool(true);
+        }
         const d = nodo.der ? this.evaluar(nodo.der, entorno) : null;
         return ops.logica(nodo.op, i, d, nodo.linea, nodo.columna, this.errores);
       }
       case 'IS': return this.evalIs(nodo, entorno);
       case 'CAST': return this.evalCast(nodo, entorno);
       case 'TERNARIO': return this.evalTernario(nodo, entorno);
-      case 'LLAMADA': return this.evalLlamada(nodo, entorno);
+      case 'LLAMADA': return this.evalLlamada(nodo, entorno, true);    // contexto expresion: un metodo void aqui es error (M2)
       case 'NATIVA': return ejecutarNativa(nodo.fn, this.evaluar(nodo.arg, entorno), nodo.linea, nodo.columna, this.errores);
       case 'ACCESO_VECTOR': return this.evalAcceso(nodo, entorno);
       default:
@@ -569,10 +590,10 @@ class Interprete {
     return cond.valor ? this.evaluar(nodo.verdadero, entorno) : this.evaluar(nodo.falso, entorno);
   }
 
-  evalLlamada(nodo, entorno) {
+  evalLlamada(nodo, entorno, comoExpresion = false) {
     const fn = this.funciones.get(nodo.id.toLowerCase());
     if (!fn) { this.errores.semantico('La función o método "' + nodo.id + '" no está declarado', nodo.linea, nodo.columna); return null; }
-    return this.invocar(fn, nodo.args, nodo.linea, nodo.columna, entorno);
+    return this.invocar(fn, nodo.args, nodo.linea, nodo.columna, entorno, comoExpresion);
   }
 
   // Lee un elemento de vector/matriz: valida que el id sea un vector, que

@@ -1,0 +1,26 @@
+// ejemplo_semantica.ci — ejercita los fixes del barrido cruzado 2026-07-23
+// (transversales confirmadas primero en VLangCherry). Debe correr SIN errores.
+
+function void main() {
+    let x: int = 0;
+
+    // A1: cortocircuito de &&. Con x = 0, la derecha (10 / x) NO se evalua,
+    // asi que NO hay division entre cero.
+    let guardaAnd: bool = x != 0 && 10 / x > 1;
+    echo "A1 cortocircuito && (esperado false): " + guardaAnd;
+
+    // A1: cortocircuito de ||. Con x = 0, la izquierda ya es true, la derecha
+    // (10 / x) tampoco se evalua.
+    let guardaOr: bool = x == 0 || 10 / x > 1;
+    echo "A1 cortocircuito || (esperado true): " + guardaOr;
+
+    // Un metodo void llamado como SENTENCIA (sin usar su valor) es valido.
+    reportar();
+}
+
+// metodo void: correcto como sentencia, sin return valuado
+function void reportar() {
+    echo "A1 metodo void como sentencia: ok";
+}
+
+ejecutar main();
