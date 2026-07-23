@@ -31,4 +31,11 @@ func main() {
     if 10 + 5 {
         print("no deberia ejecutarse")
     }
+
+    // (8) Error SEMANTICO (A1): reasignar una variable declarada SIN 'mut'
+    fijo := 1
+    fijo = 2
+
+    // (9) Error SEMANTICO (B2): campo repetido en un literal de struct
+    mut dup := Persona{Nombre: "a", Nombre: "b"}
 }

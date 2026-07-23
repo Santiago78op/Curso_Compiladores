@@ -162,7 +162,7 @@ func traducirDeclVariable(ctx parser.IDeclaracionVariableContext) *ast.DeclVaria
 	switch dc := ctx.(type) {
 	case *parser.DeclTipadaContext:
 		l, c := pos(dc)
-		n := &ast.DeclVariable{Nombre: dc.ID().GetText()}
+		n := &ast.DeclVariable{Nombre: dc.ID().GetText(), Mutable: dc.MUT() != nil}
 		n.Linea, n.Columna = l, c
 		tt := traducirTipo(dc.Tipo())
 		n.TipoVar = &tt
@@ -172,7 +172,7 @@ func traducirDeclVariable(ctx parser.IDeclaracionVariableContext) *ast.DeclVaria
 		return n
 	case *parser.DeclInferidaContext:
 		l, c := pos(dc)
-		n := &ast.DeclVariable{Nombre: dc.ID().GetText(), Inferido: true}
+		n := &ast.DeclVariable{Nombre: dc.ID().GetText(), Inferido: true, Mutable: dc.MUT() != nil}
 		n.Linea, n.Columna = l, c
 		n.Valor = traducirExpr(dc.Expr())
 		return n
@@ -306,7 +306,13 @@ func traducirFor(ctx parser.ISentenciaForContext) *ast.SentenciaFor {
 
 func traducirForInit(ctx *parser.ForInitContext) ast.Nodo {
 	if dv := ctx.DeclaracionVariable(); dv != nil {
-		return traducirDeclVariable(dv)
+		d := traducirDeclVariable(dv)
+		// La variable de control del for es SIEMPRE reasignable (la actualiza
+		// el propio for con i++/i=...), aunque se declare sin 'mut' (A1: es la
+		// decision documentada para variables de for). Sin esto, "for i := 0"
+		// dejaria i inmutable y su i++ seria error.
+		d.Mutable = true
+		return d
 	}
 	return traducirAsignacion(ctx.Asignacion().(*parser.AsignacionContext))
 }

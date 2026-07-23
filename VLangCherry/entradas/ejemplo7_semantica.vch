@@ -1,0 +1,71 @@
+// ejemplo7_semantica.vch — casos que ejercitan los fixes de la auditoria
+// del 2026-07-22. Debe correr SIN errores; cada print rotula el fix probado.
+
+struct Contador {
+    int valor
+}
+
+// receptor POR VALOR (7.1): mutar dentro NO debe afectar al llamador (fix A4)
+func (c Contador) intentarMutar() {
+    c.valor = 999
+}
+
+// receptor POR PUNTERO: si debe afectar
+func (c *Contador) incrementar() {
+    c.valor = c.valor + 1
+}
+
+func main() {
+    // A5: slice declarado sin inicializar, luego asignado por completo
+    mut xs []int
+    xs = []int{1, 2, 3}
+    print("A5 asignacion tras decl vacia:", xs)
+
+    // M3: append sobre un slice recien declarado (nil por defecto)
+    mut ys []int
+    ys = append(ys, 10)
+    ys = append(ys, 20)
+    print("M3 append sobre nil:", ys)
+
+    // A2: cortocircuito. Con x = 0, la derecha (10/x) NO debe evaluarse,
+    // asi que NO hay division entre cero.
+    mut x int = 0
+    mut guardaAnd bool = x != 0 && 10 / x > 1
+    print("A2 cortocircuito &&:", guardaAnd)
+    mut guardaOr bool = x == 0 || 10 / x > 1
+    print("A2 cortocircuito ||:", guardaOr)
+
+    // A4: receptor por valor vs por puntero
+    mut cont Contador = Contador{valor: 5}
+    cont.intentarMutar()
+    print("A4 receptor por valor (esperado 5):", cont.valor)
+    cont.incrementar()
+    print("A4 receptor por puntero (esperado 6):", cont.valor)
+
+    // A1: 'mut' gobierna SOLO la reasignacion de la variable entera.
+    mut contador int = 0
+    contador = contador + 1     // OK: es mut
+    contador += 10              // OK: es mut
+    print("A1 reasignacion de mut (esperado 11):", contador)
+
+    // Sin 'mut' NO se puede reasignar la variable, pero SI mutar su
+    // contenido (campo o elemento), porque eso no reenlaza la variable.
+    zs := []int{7, 8, 9}
+    zs[0] = 70                  // OK: muta un elemento, no reasigna zs
+    print("A1 mutar elemento de var sin mut (esperado [70 8 9]):", zs)
+    fijo := Contador{valor: 1}
+    fijo.valor = 42             // OK: muta un campo, no reasigna fijo
+    print("A1 mutar campo de var sin mut (esperado 42):", fijo.valor)
+
+    // M4: dos bloques hermanos declaran el MISMO nombre en lineas distintas.
+    // Antes colisionaban en una sola fila de la tabla de simbolos; ahora cada
+    // sitio de declaracion es su propia fila (ver reporte 8.2).
+    {
+        bloque := "primero"
+        print("M4 bloque hermano 1:", bloque)
+    }
+    {
+        bloque := "segundo"
+        print("M4 bloque hermano 2:", bloque)
+    }
+}

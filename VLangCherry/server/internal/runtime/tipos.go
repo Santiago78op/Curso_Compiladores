@@ -99,8 +99,11 @@ func ValorPorDefecto(t Tipo) Valor {
 	case TRune:
 		return Valor{Tipo: t, R: 0}
 	default:
-		// slice, struct y cualquier otro compuesto: nil (3.7 nota final)
-		return Valor{Tipo: TipoNil()}
+		// slice, struct y cualquier otro compuesto arrancan "nil" PERO
+		// conservando el tipo declarado (3.7 nota final): asi una asignacion
+		// posterior (p.ej. xs = []int{...}) valida contra []int y no contra un
+		// nil sin tipo. EsNil() ya trata {TSlice,Slice:nil}/{TStruct,Struct:nil}.
+		return Valor{Tipo: t}
 	}
 }
 

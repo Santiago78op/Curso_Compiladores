@@ -24,7 +24,20 @@ const (
 type Senal struct {
 	Tipo  TipoSenal
 	Valor Valor
+	// TieneValor distingue "return;" (false) de "return expr;" (true), para
+	// validar el retorno contra el tipo declarado de la funcion.
+	TieneValor bool
 }
+
+// Guardas de estabilidad: no las pide el enunciado, pero el interprete corre
+// dentro del servidor. Un "for true {}" colgaria la peticion para siempre y
+// una recursion sin caso base desbordaria la pila de Go (fatal error que el
+// recover() de analizar.go NO atrapa -> caeria el proceso entero). Ambas se
+// reportan como error semantico en su lugar. (mismos valores que CompInterpreter)
+const (
+	maxIteraciones = 1000000
+	maxProfundidad = 2000
+)
 
 // FilaSimbolo es una fila del reporte 8.2 (Tabla de simbolos).
 type FilaSimbolo struct {
@@ -56,6 +69,8 @@ type Interprete struct {
 	// del llamador.
 	profLoop   int
 	profSwitch int
+	// profundidad de llamadas anidadas (recursion): guarda anti-desborde.
+	profundidad int
 }
 
 func NuevoInterprete(errores *ListaErrores) *Interprete {
@@ -65,15 +80,24 @@ func NuevoInterprete(errores *ListaErrores) *Interprete {
 func (in *Interprete) Consola() []string { return in.consola }
 
 func (in *Interprete) Simbolos() []FilaSimbolo {
-	claves := make([]string, 0, len(in.simbolos))
-	for k := range in.simbolos {
-		claves = append(claves, k)
+	filas := make([]FilaSimbolo, 0, len(in.simbolos))
+	for _, f := range in.simbolos {
+		filas = append(filas, *f)
 	}
-	sort.Strings(claves)
-	filas := make([]FilaSimbolo, 0, len(claves))
-	for _, k := range claves {
-		filas = append(filas, *in.simbolos[k])
-	}
+	// Orden de lectura del reporte 8.2: por ambito y luego por posicion en el
+	// fuente (linea, columna), no por la clave interna del map.
+	sort.Slice(filas, func(i, j int) bool {
+		if filas[i].Ambito != filas[j].Ambito {
+			return filas[i].Ambito < filas[j].Ambito
+		}
+		if filas[i].Linea != filas[j].Linea {
+			return filas[i].Linea < filas[j].Linea
+		}
+		if filas[i].Columna != filas[j].Columna {
+			return filas[i].Columna < filas[j].Columna
+		}
+		return filas[i].ID < filas[j].ID
+	})
 	return filas
 }
 
@@ -142,8 +166,20 @@ func (in *Interprete) registrarSimboloGlobal(nombre, categoria string, linea, co
 	in.simbolos[clave] = &FilaSimbolo{ID: nombre, TipoSimbolo: categoria, TipoDato: "", Ambito: "global", Linea: linea, Columna: col}
 }
 
+// registrarSimbolo agrega (o reemplaza) la fila 8.2 de una declaracion.
+// M4 — decision de diseño documentada: la tabla de simbolos es un registro de
+// DECLARACIONES, una fila por SITIO de declaracion en el fuente. Por eso la
+// clave incluye la posicion (linea:col) ademas de ambito y nombre:
+//   - dos bloques hermanos de la misma funcion que declaran el mismo nombre en
+//     lineas distintas ya NO se pisan (antes colisionaban por ambito::nombre);
+//   - una declaracion dentro de un ciclo o de una funcion recursiva ocupa
+//     SIEMPRE la misma posicion -> queda UNA fila (la ultima activacion), no
+//     177: la tabla describe el programa, no cada activacion en runtime.
+// La columna Valor es el valor AL DECLARAR (snapshot): una reasignacion
+// posterior NO actualiza la fila. Es una eleccion consistente (declaraciones,
+// no estado final); para ver valores finales se usa print.
 func (in *Interprete) registrarSimbolo(nombre, categoria string, ent *Entorno, valor Valor, linea, col int) {
-	clave := ent.Nombre + "::" + nombre
+	clave := fmt.Sprintf("%s::%s::%d:%d", ent.Nombre, nombre, linea, col)
 	in.simbolos[clave] = &FilaSimbolo{
 		ID: nombre, TipoSimbolo: categoria, TipoDato: valor.Tipo.String(),
 		Ambito: ent.Nombre, Valor: AValorReporte(valor), Linea: linea, Columna: col,
@@ -263,11 +299,11 @@ func (in *Interprete) ejecutarSentencia(nodo ast.Nodo, ent *Entorno) Senal {
 		}
 		return Senal{Tipo: SenalContinue}
 	case *ast.SentenciaReturn:
-		var v Valor
-		if n.Valor != nil {
-			v, _ = in.evaluar(n.Valor, ent)
+		if n.Valor == nil {
+			return Senal{Tipo: SenalReturn}
 		}
-		return Senal{Tipo: SenalReturn, Valor: v}
+		v, _ := in.evaluar(n.Valor, ent)
+		return Senal{Tipo: SenalReturn, Valor: v, TieneValor: true}
 	case *ast.Bloque:
 		return in.ejecutarBloque(n, NuevoEntorno(ent.Nombre, ent))
 	}
@@ -325,14 +361,36 @@ func (in *Interprete) ejecutarDeclaracion(n *ast.DeclVariable, ent *Entorno) {
 		}
 	}
 
-	ent.Declarar(n.Nombre, valor)
+	ent.DeclararMut(n.Nombre, valor, n.Mutable)
 	in.registrarSimbolo(n.Nombre, "Variable", ent, valor, n.Linea, n.Columna)
+}
+
+// verificarReasignable aplica A1: reasignar una variable declarada sin 'mut'
+// es error semantico. Solo aplica cuando el destino es la variable ENTERA
+// (un identificador simple); mutar un campo o elemento (lugar.campo / lugar[i])
+// se permite siempre, porque no reenlaza la variable. Devuelve false si debe
+// abortarse la asignacion. Si la variable no existe, deja que resolverLugar
+// reporte "no definida" (no duplica el error).
+func (in *Interprete) verificarReasignable(lugar ast.Nodo, ent *Entorno, linea, col int) bool {
+	id, ok := lugar.(*ast.Identificador)
+	if !ok {
+		return true
+	}
+	mutable, existe := ent.EsMutable(id.Nombre)
+	if existe && !mutable {
+		in.errorSemantico("no se puede reasignar \""+id.Nombre+"\": fue declarada sin \"mut\"", linea, col)
+		return false
+	}
+	return true
 }
 
 // ejecutarAsignacion resuelve la celda mutable del lugar destino y aplica
 // "=" directamente o "+="/"-=" combinando el valor actual con el nuevo via
 // Suma/Resta antes de verificar compatibilidad de tipo con la variable.
 func (in *Interprete) ejecutarAsignacion(n *ast.Asignacion, ent *Entorno) {
+	if !in.verificarReasignable(n.Lugar, ent, n.Linea, n.Columna) {
+		return
+	}
 	ptr, ok := in.resolverLugar(n.Lugar, ent)
 	if !ok {
 		return
@@ -375,6 +433,9 @@ func (in *Interprete) ejecutarAsignacion(n *ast.Asignacion, ent *Entorno) {
 }
 
 func (in *Interprete) ejecutarIncDec(n *ast.IncrementoDecremento, ent *Entorno) {
+	if !in.verificarReasignable(n.Lugar, ent, n.Linea, n.Columna) {
+		return
+	}
 	ptr, ok := in.resolverLugar(n.Lugar, ent)
 	if !ok {
 		return
@@ -444,6 +505,11 @@ func (in *Interprete) resolverLugar(nodo ast.Nodo, ent *Entorno) (*Valor, bool) 
 		}
 		return campo, true
 	}
+	// B1: un nodo que no es un "lugar" asignable (ID | lugar[i] | lugar.campo)
+	// falla con mensaje en vez de en silencio. No deberia ocurrir con un AST
+	// bien formado; es una red de seguridad ante nodos inesperados.
+	l, c := nodo.Pos()
+	in.errorSemantico("destino de asignación no válido", l, c)
 	return nil, false
 }
 
@@ -534,6 +600,7 @@ func (in *Interprete) ejecutarFor(n *ast.SentenciaFor, ent *Entorno) Senal {
 
 	switch n.Forma {
 	case "condicion":
+		iter := 0
 		for {
 			cond, ok := in.evaluar(n.Condicion, ent)
 			if !ok {
@@ -545,6 +612,11 @@ func (in *Interprete) ejecutarFor(n *ast.SentenciaFor, ent *Entorno) Senal {
 				return Senal{Tipo: SenalNinguna}
 			}
 			if !cond.B {
+				break
+			}
+			if iter++; iter > maxIteraciones {
+				l, c := n.Condicion.Pos()
+				in.errorSemantico("posible ciclo infinito en el for (se superó el máximo de iteraciones)", l, c)
 				break
 			}
 			senal := in.ejecutarBloque(n.Cuerpo, NuevoEntorno(ent.Nombre, ent))
@@ -561,7 +633,13 @@ func (in *Interprete) ejecutarFor(n *ast.SentenciaFor, ent *Entorno) Senal {
 		if n.Init != nil {
 			in.ejecutarSentencia(n.Init, entFor)
 		}
+		iter := 0
 		for {
+			if iter++; iter > maxIteraciones {
+				l, c := n.Pos()
+				in.errorSemantico("posible ciclo infinito en el for (se superó el máximo de iteraciones)", l, c)
+				break
+			}
 			if n.Condicion != nil {
 				cond, ok := in.evaluar(n.Condicion, entFor)
 				if !ok {
@@ -663,6 +741,16 @@ func (in *Interprete) evaluar(nodo ast.Nodo, ent *Entorno) (Valor, bool) {
 		if !ok {
 			return Valor{}, false
 		}
+		// Cortocircuito de && y ||: si el operando izquierdo ya decide el
+		// resultado, la derecha NO se evalua. Importa cuando la derecha
+		// podria fallar (p.ej. la guarda "x != 0 && 10/x > 1") o tener
+		// efectos; ademas es la semantica habitual de estos operadores.
+		if n.Operador == "&&" && iz.Tipo.Base == TBool && !iz.B {
+			return Valor{Tipo: TipoBool(), B: false}, true
+		}
+		if n.Operador == "||" && iz.Tipo.Base == TBool && iz.B {
+			return Valor{Tipo: TipoBool(), B: true}, true
+		}
 		der, ok := in.evaluar(n.Derecha, ent)
 		if !ok {
 			return Valor{}, false
@@ -713,6 +801,10 @@ func (in *Interprete) evaluar(nodo ast.Nodo, ent *Entorno) (Valor, bool) {
 	case *ast.LiteralStruct:
 		return in.evaluarLiteralStruct(n, ent)
 	}
+	// B1: expresion de un tipo de nodo no contemplado -> error con posicion,
+	// en vez de un {} silencioso que se propaga como si fuera un valor valido.
+	l, c := nodo.Pos()
+	in.errorSemantico("expresión no soportada", l, c)
 	return Valor{}, false
 }
 
@@ -805,6 +897,12 @@ func (in *Interprete) evaluarLlamada(n *ast.ExprLlamada, ent *Entorno) (Valor, b
 // el cuerpo y valida que la senal final sea consistente con el tipo de
 // retorno declarado (o su ausencia).
 func (in *Interprete) invocarFuncion(fn *ast.DeclFuncion, args []Valor, receptor *Valor, linea, col int) (Valor, bool) {
+	in.profundidad++
+	defer func() { in.profundidad-- }()
+	if in.profundidad > maxProfundidad {
+		in.errorSemantico(fmt.Sprintf("recursión demasiado profunda al llamar \"%s\" (posible recursión sin caso base)", fn.Nombre), linea, col)
+		return Valor{}, false
+	}
 	if len(args) != len(fn.Parametros) {
 		in.errorSemantico(fmt.Sprintf("\"%s\" espera %d argumento(s), se recibieron %d", fn.Nombre, len(fn.Parametros), len(args)), linea, col)
 		return Valor{}, false
@@ -812,7 +910,14 @@ func (in *Interprete) invocarFuncion(fn *ast.DeclFuncion, args []Valor, receptor
 
 	entFn := NuevoEntorno(fn.Nombre, in.entGlobal)
 	if receptor != nil && fn.ReceptorNombre != "" {
-		entFn.Declarar(fn.ReceptorNombre, *receptor)
+		rec := *receptor
+		if !fn.ReceptorPuntero {
+			// Receptor por valor (7.1): el metodo trabaja sobre una COPIA del
+			// struct; mutar sus campos NO se refleja en el llamador. Con
+			// receptor por puntero, en cambio, se comparte el StructVal.
+			rec = ClonarPorValor(rec)
+		}
+		entFn.Declarar(fn.ReceptorNombre, rec)
 	}
 	for i, p := range fn.Parametros {
 		tipoParam := in.resolverTipoAST(p.Tipo, fn.Linea, fn.Columna)
@@ -832,11 +937,21 @@ func (in *Interprete) invocarFuncion(fn *ast.DeclFuncion, args []Valor, receptor
 	in.profLoop, in.profSwitch = loopPrevio, switchPrevio
 
 	if fn.TipoRetorno == nil {
+		// Sin tipo de retorno declarado: un "return <valor>" es un error
+		// semantico (no puede devolver nada), en vez de descartarse en silencio.
+		if senal.Tipo == SenalReturn && senal.TieneValor {
+			in.errorSemantico("\""+fn.Nombre+"\" no declara tipo de retorno y no puede retornar un valor", fn.Linea, fn.Columna)
+		}
 		return Valor{Tipo: TipoVoid()}, true
 	}
 	tipoRet := in.resolverTipoAST(*fn.TipoRetorno, fn.Linea, fn.Columna)
 	if senal.Tipo != SenalReturn {
 		in.errorSemantico("la función \""+fn.Nombre+"\" debe retornar un valor de tipo "+tipoRet.String(), fn.Linea, fn.Columna)
+		return ValorPorDefecto(tipoRet), false
+	}
+	if !senal.TieneValor {
+		// "return;" en una funcion que declara tipo de retorno
+		in.errorSemantico("la función \""+fn.Nombre+"\" declara retorno "+tipoRet.String()+" pero tiene un \"return\" sin valor", fn.Linea, fn.Columna)
 		return ValorPorDefecto(tipoRet), false
 	}
 	if !tipoCompatible(tipoRet, senal.Valor) {
@@ -912,7 +1027,15 @@ func (in *Interprete) evaluarLiteralStruct(n *ast.LiteralStruct, ent *Entorno) (
 		orden = append(orden, cs.Nombre)
 	}
 
+	vistos := make(map[string]bool)
 	for _, cv := range n.Campos {
+		// B2: el mismo campo dos veces en el literal (Persona{Nombre:"a",
+		// Nombre:"b"}) es error, en vez de que el ultimo gane en silencio.
+		if vistos[cv.Nombre] {
+			in.errorSemantico("el campo \""+cv.Nombre+"\" aparece repetido en el literal de \""+n.NombreStruct+"\"", n.Linea, n.Columna)
+			return Valor{}, false
+		}
+		vistos[cv.Nombre] = true
 		campoDecl := buscarCampoStruct(decl, cv.Nombre)
 		if campoDecl == nil {
 			in.errorSemantico("el struct \""+n.NombreStruct+"\" no tiene el campo \""+cv.Nombre+"\"", n.Linea, n.Columna)

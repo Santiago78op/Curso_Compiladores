@@ -84,6 +84,10 @@ type DeclVariable struct {
 	TipoVar  *TipoAST // nil si es inferido (:=)
 	Inferido bool
 	Valor    Nodo // puede ser nil
+	// Mutable es true si la declaracion lleva 'mut' (VLangCherry.g4:92-94):
+	// solo entonces la variable puede reasignarse (=, +=, -=, ++, --). Sin
+	// 'mut' es de un solo enlace; mutar sus campos/elementos si se permite.
+	Mutable bool
 }
 
 func (n *DeclVariable) Tipo() string { return "DECLARACION" }

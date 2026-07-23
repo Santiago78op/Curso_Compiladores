@@ -47,6 +47,28 @@ func NuevaInstanciaStruct(nombre string, orden []string, campos map[string]*Valo
 	return Valor{Tipo: TipoStructDe(nombre), Struct: &StructVal{NombreTipo: nombre, OrdenCampos: orden, Campos: campos}}
 }
 
+// ClonarPorValor replica la semantica de copia por valor de Go para un
+// receptor de metodo declarado SIN puntero (7.1): el struct y sus structs
+// anidados se copian en profundidad (mutar un campo dentro del metodo no
+// afecta al struct del llamador), mientras que los slices comparten su
+// backing array — igual que copiar en Go real un struct que contiene slices.
+// Sobre valores no-struct es la identidad (los primitivos ya se copian solos).
+func ClonarPorValor(v Valor) Valor {
+	if v.Tipo.Base != TStruct || v.Struct == nil {
+		return v
+	}
+	clon := &StructVal{
+		NombreTipo:  v.Struct.NombreTipo,
+		OrdenCampos: v.Struct.OrdenCampos, // solo-lectura: se puede compartir
+		Campos:      make(map[string]*Valor, len(v.Struct.Campos)),
+	}
+	for k, campo := range v.Struct.Campos {
+		cl := ClonarPorValor(*campo)
+		clon.Campos[k] = &cl
+	}
+	return Valor{Tipo: v.Tipo, Struct: clon}
+}
+
 func EsNil(v Valor) bool {
 	return v.Tipo.Base == TNil || ((v.Tipo.Base == TSlice) && v.Slice == nil) || (v.Tipo.Base == TStruct && v.Struct == nil)
 }

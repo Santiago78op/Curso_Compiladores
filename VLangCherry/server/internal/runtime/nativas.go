@@ -62,8 +62,20 @@ func (in *Interprete) llamarNativa(nombre string, args []Valor, linea, col int) 
 			in.errorSemantico("append espera un slice como primer argumento", linea, col)
 			return Valor{}, false
 		}
-		nuevos := append(append([]Valor{}, v.Slice.Elems...), args[1])
-		return NuevoSlice(v.Slice.TipoElem, nuevos), true
+		// Un slice declarado sin inicializar (ValorPorDefecto) llega con
+		// v.Slice == nil pero con el tipo de elemento en v.Tipo.Elemento:
+		// append sobre el es como append de Go sobre un nil slice -> uno de 1.
+		var previos []Valor
+		tipoElem := TipoNil()
+		if v.Tipo.Elemento != nil {
+			tipoElem = *v.Tipo.Elemento
+		}
+		if v.Slice != nil {
+			previos = v.Slice.Elems
+			tipoElem = v.Slice.TipoElem
+		}
+		nuevos := append(append([]Valor{}, previos...), args[1])
+		return NuevoSlice(tipoElem, nuevos), true
 
 	case "indexOf":
 		if len(args) != 2 {
@@ -88,14 +100,26 @@ func (in *Interprete) llamarNativa(nombre string, args []Valor, linea, col int) 
 			return Valor{}, false
 		}
 		v := args[0]
-		if v.Tipo.Base != TSlice || v.Slice.TipoElem.Base != TString {
+		// tipo de elemento: del SliceVal si existe, si no del tipo declarado
+		// (un []string sin inicializar tiene v.Slice == nil).
+		tipoElem := TipoNil()
+		if v.Tipo.Base == TSlice && v.Tipo.Elemento != nil {
+			tipoElem = *v.Tipo.Elemento
+		}
+		if v.Slice != nil {
+			tipoElem = v.Slice.TipoElem
+		}
+		if v.Tipo.Base != TSlice || tipoElem.Base != TString {
 			in.errorSemantico("join solo es válido para []string", linea, col)
 			return Valor{}, false
 		}
 		sep := args[1]
-		partes := make([]string, len(v.Slice.Elems))
-		for i, e := range v.Slice.Elems {
-			partes[i] = e.S
+		var partes []string
+		if v.Slice != nil {
+			partes = make([]string, len(v.Slice.Elems))
+			for i, e := range v.Slice.Elems {
+				partes[i] = e.S
+			}
 		}
 		return Valor{Tipo: TipoString(), S: strings.Join(partes, sep.S)}, true
 

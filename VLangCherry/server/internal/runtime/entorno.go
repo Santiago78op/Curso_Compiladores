@@ -8,18 +8,42 @@ import "vlangcherry/internal/ast"
 type Entorno struct {
 	Nombre    string // nombre de la funcion contenedora, para el reporte 8.2
 	variables map[string]*Valor
-	Padre     *Entorno
+	// mutable[n] es false para una variable declarada SIN 'mut': reasignarla
+	// (=, +=, -=, ++, --) es error semantico (A1). Los parametros, variables
+	// de for y receptores se declaran con Declarar -> mutables por defecto.
+	mutable map[string]bool
+	Padre   *Entorno
 }
 
 func NuevoEntorno(nombre string, padre *Entorno) *Entorno {
-	return &Entorno{Nombre: nombre, variables: make(map[string]*Valor), Padre: padre}
+	return &Entorno{Nombre: nombre, variables: make(map[string]*Valor), mutable: make(map[string]bool), Padre: padre}
 }
 
-// Declarar crea una variable en ESTE ambito (4.1: los bloques anidados
-// pueden reusar un nombre del ambito superior, ocultandolo - "shadowing").
+// Declarar crea una variable MUTABLE en ESTE ambito (4.1: los bloques
+// anidados pueden reusar un nombre del ambito superior, ocultandolo -
+// "shadowing"). Se usa para lo que siempre es reasignable: parametros,
+// receptores y las variables de control del for.
 func (e *Entorno) Declarar(nombre string, v Valor) {
+	e.DeclararMut(nombre, v, true)
+}
+
+// DeclararMut crea una variable indicando si es reasignable (lleva 'mut').
+func (e *Entorno) DeclararMut(nombre string, v Valor, mutable bool) {
 	copia := v
 	e.variables[nombre] = &copia
+	e.mutable[nombre] = mutable
+}
+
+// EsMutable indica si el enlace mas cercano de "nombre" es reasignable.
+// Camina la cadena de ambitos igual que Buscar (respeta el shadowing). El
+// segundo retorno es false si la variable no existe en ningun ambito.
+func (e *Entorno) EsMutable(nombre string) (mutable bool, existe bool) {
+	for amb := e; amb != nil; amb = amb.Padre {
+		if _, ok := amb.variables[nombre]; ok {
+			return amb.mutable[nombre], true
+		}
+	}
+	return false, false
 }
 
 // Buscar resuelve un identificador subiendo por la cadena de ambitos.
