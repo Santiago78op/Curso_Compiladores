@@ -149,7 +149,7 @@
           </table>
         </div>
         <div class="callout"><p>La línea <code class="inline">instruccion ::= error PUNTO_COMA {: registrarError(…); :}</code> es la <strong>③ implementada con ①</strong>: la producción de error le dice a CUP «si una instrucción no matchea nada, entrar en pánico, descartar hasta el <code class="inline">;</code> y reducir esto como instrucción fallida». Un error por instrucción rota, y el análisis continúa — exactamente lo que exigen los reportes.</p></div>
-        <p class="muted">Fuente: Dragón §4.1.4 (estrategias), §4.8.3 (recuperación en Yacc con el token <code class="inline">error</code>).</p>
+        <p class="muted">Fuente: Dragón §4.1.4 (estrategias), §4.8.3 (modo pánico) y <strong>§4.9.4</strong> (el mecanismo del token <code class="inline">error</code> de Yacc/CUP — la sección exacta que hay que citar en la defensa).</p>
       </div>
     </section>
 
@@ -323,7 +323,7 @@ FOLLOW(E) = { ), $ }      FOLLOW(E') = { ), $ }    FOLLOW(T) = { +, ), $ }</pre>
               <tr><td>Operadores sin jerarquía de no terminales</td><td>Gramática ambigua + desempate declarado (§4.8)</td><td><code class="inline">precedence left PLUS, MINUS;</code> primero los débiles, abajo los fuertes</td></tr>
               <tr><td>Conflicto shift/reduce reportado</td><td>Dos ítems piden acciones distintas ante el mismo token (§4.7)</td><td>Conviene leer el estado en el reporte de CUP: ¿falta precedencia? ¿es el else colgante (shift está bien)?</td></tr>
               <tr><td>Conflicto <strong>reduce/reduce</strong></td><td>Dos producciones completas compiten — casi siempre gramática mal planteada</td><td>No conviene taparlo con precedencia: <strong>conviene rediseñar</strong> las producciones</td></tr>
-              <tr><td>Recuperación de errores</td><td>Producción de error + pánico hasta sincronizar (§4.8.3)</td><td><code class="inline">instruccion ::= error PUNTO_COMA</code> — reportar línea/columna y seguir</td></tr>
+              <tr><td>Recuperación de errores</td><td>Producción de error (§4.9.4) + pánico hasta sincronizar (§4.8.3)</td><td><code class="inline">instruccion ::= error PUNTO_COMA</code> — reportar línea/columna y seguir</td></tr>
               <tr><td>Declaraciones <code class="inline">non terminal</code></td><td>Convención de CUP</td><td><strong>Todas antes</strong> de la primera producción; tipos raw (<code class="inline">ArrayList</code>, sin genéricos)</td></tr>
             </tbody>
           </table>

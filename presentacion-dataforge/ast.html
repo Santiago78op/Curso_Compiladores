@@ -203,6 +203,28 @@ ArrayList&lt;Instruccion&gt; programa = (ArrayList&lt;Instruccion&gt;) parser.pa
       </div>
     </section>
 
+    <!-- 7b · La decisión como superficie de error -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">El argumento que nadie espera en la defensa</p>
+        <h2>Sin AST también significa <em>sin esas clases de bugs</em></h2>
+        <p>«DataForge no tiene AST» suena a limitación. Vale la pena darle vuelta: una decisión arquitectónica no solo define lo que el lenguaje <em>puede hacer</em> — define su <strong>superficie de error</strong>, o sea qué familias de bugs son siquiera posibles.</p>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>Lo que DataForge no tiene</th><th>El bug clásico que eso vuelve imposible</th><th>Dónde sí apareció</th></tr></thead>
+            <tbody>
+              <tr><td>Operadores lógicos <code class="inline">&amp;&amp;</code> / <code class="inline">||</code></td><td>Cortocircuito mal implementado: evaluar el lado derecho cuando el izquierdo ya decidió el resultado (<code class="inline">x != 0 &amp;&amp; 10/x &gt; 1</code> revienta)</td><td>Encontrado en 3 de los otros proyectos</td></tr>
+              <tr><td>Indexación de arreglos</td><td>Índice sin validar tipo: un <code class="inline">NaN</code> pasa los chequeos de rango y produce lecturas silenciosas</td><td>CompInterpreter</td></tr>
+              <tr><td>Ciclos y llamadas a funciones</td><td>Recursión o <code class="inline">while</code> infinitos sin guarda: cuelgan o tumban el proceso</td><td>VLangCherry</td></tr>
+              <tr><td>Ámbitos anidados</td><td>Alcance dinámico accidental: el hijo se cuelga del entorno del <em>llamador</em> en vez del global</td><td>CompScript (bug real, corregido)</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="callout"><p><strong>El argumento completo, en una frase:</strong> «DataForge ejecuta en las acciones de CUP porque su lenguaje no tiene control de flujo — toda instrucción corre exactamente una vez. Esa misma ausencia elimina de raíz cuatro familias de bugs que sí tuve que cazar en los proyectos con AST». Eso convierte una aparente carencia en una decisión de ingeniería medida.</p></div>
+        <p class="muted">Fuente: revisión de código de los 5 proyectos (Fase C, 2026-07-22). La contracara está una diapositiva atrás: en el momento en que el lenguaje gana un <code class="inline">if</code>, el AST deja de ser opcional.</p>
+      </div>
+    </section>
+
     <!-- 8 · Cierre -->
     <section class="slide">
       <div class="inner titleslide">

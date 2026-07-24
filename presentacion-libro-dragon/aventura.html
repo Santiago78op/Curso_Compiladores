@@ -1,0 +1,306 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>La aventura del compilador — Libro del Dragón</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%230d0e12'/><text x='16' y='24' font-size='20' text-anchor='middle'>🐉</text></svg>">
+<link rel="stylesheet" href="assets/fuentes.css">
+<link rel="stylesheet" href="assets/escenario.css">
+<style>
+  /* keyframes del diseño original, tal cual (incluidas emberRise y
+     dashFlow, que el diseño declaró y dejó sin usar — acá dan vida
+     a la portada del libro). */
+  @keyframes dragonFloat { 0%,100% { transform: translateY(0) rotate(-1deg); } 50% { transform: translateY(-14px) rotate(1deg); } }
+  @keyframes emberRise   { 0% { transform: translateY(0) scale(1); opacity: 0; } 15% { opacity: .9; } 100% { transform: translateY(-120px) scale(.3); opacity: 0; } }
+  @keyframes popIn       { 0% { transform: scale(.4) translateY(8px); opacity: 0; } 60% { transform: scale(1.08); } 100% { transform: scale(1) translateY(0); opacity: 1; } }
+  @keyframes blink       { 0%,100% { opacity: 1; } 50% { opacity: 0; } }
+  @keyframes glowPulse   { 0%,100% { box-shadow: 0 0 0 0 rgba(255,90,54,0); } 50% { box-shadow: 0 0 32px 4px rgba(255,90,54,.35); } }
+  @keyframes dashFlow    { to { stroke-dashoffset: -16; } }
+
+  /* la portada del libro: el image-slot del diseño quedó vacío
+     (ni el export HTML ni el PPTX traen imagen), así que acá va
+     una placa compuesta con los mismos colores y movimiento. */
+  .tapa { position: absolute; inset: 0; border-radius: 20px; overflow: hidden;
+          background: linear-gradient(155deg, #2c1b3a 0%, #1a1226 45%, #120f19 100%);
+          border: 1px solid rgba(255,255,255,.12);
+          display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 26px; }
+  .tapa .lomo { position: absolute; left: 0; top: 0; bottom: 0; width: 22px;
+                background: linear-gradient(90deg, rgba(0,0,0,.55), rgba(0,0,0,0)); }
+  .tapa .aro { position: absolute; width: 340px; height: 340px; top: 128px; }
+  .tapa .glifo { font-size: 190px; line-height: 1; position: relative; z-index: 2;
+                 filter: drop-shadow(0 0 34px rgba(155,140,255,.6)) drop-shadow(0 0 70px rgba(255,90,54,.28)); }
+  .tapa .titulo { position: relative; z-index: 2; text-align: center; padding: 0 34px; margin-top: 150px; }
+  .tapa .titulo b { display: block; font-family: 'Bricolage Grotesque', sans-serif; font-weight: 800;
+                    font-size: 34px; letter-spacing: -.02em; color: #f4f0e6; line-height: 1.05; }
+  .tapa .titulo span { display: block; margin-top: 10px; font-family: 'Space Grotesk', sans-serif;
+                       font-size: 15px; color: #9aa2b0; line-height: 1.4; }
+  .tapa .sello { position: absolute; bottom: 26px; font-family: 'JetBrains Mono', monospace;
+                 font-size: 12px; letter-spacing: .18em; text-transform: uppercase; color: #9b8cff; }
+  .brasa { position: absolute; bottom: 90px; width: 6px; height: 6px; border-radius: 50%;
+           background: #ff5a36; box-shadow: 0 0 10px #ff5a36; animation: emberRise 4s ease-out infinite; }
+</style>
+</head>
+<body>
+
+<div class="escenario" id="escenario">
+<div class="lienzo" id="lienzo">
+
+<!-- ══ 1 · Portada ═══════════════════════════════════════════════════════ -->
+<section data-label="Portada" data-speaker-notes="Bienvenida enérgica. El Libro del Dragón = la aventura de construir un compilador. Mencioná que cada diapositiva tiene algo con lo que interactuar." style="position:relative;width:100%;height:100%;background:radial-gradient(120% 100% at 80% 0%, #221420 0%, #0d0e12 55%);color:#f4f0e6;font-family:'Space Grotesk',sans-serif;overflow:hidden;display:flex;align-items:center;padding:0 120px;box-sizing:border-box">
+  <div style="position:absolute;top:44px;left:120px;display:flex;align-items:center;gap:12px;font-family:'JetBrains Mono',monospace;font-size:15px;letter-spacing:.18em;color:#ffb020;text-transform:uppercase">
+    <span style="width:9px;height:9px;border-radius:50%;background:#ff5a36;box-shadow:0 0 14px #ff5a36"></span>compiladores · olc1 · usac</div>
+  <div style="max-width:980px;z-index:3">
+    <div style="font-family:'JetBrains Mono',monospace;font-size:19px;color:#35d29b;margin-bottom:22px">$ ./aventura --start</div>
+    <h1 style="font-family:'Bricolage Grotesque',sans-serif;font-weight:800;font-size:118px;line-height:.92;margin:0;letter-spacing:-.02em">El Libro del<br><span style="color:#ff5a36;text-shadow:0 0 40px rgba(255,90,54,.4)">Dragón</span> 🐉</h1>
+    <p style="font-size:30px;line-height:1.35;color:#c9cdd6;margin:30px 0 0;max-width:760px">Cómo tu código se convierte en algo que la máquina entiende — <span style="color:#ffb020;font-weight:700">fase por fase</span>.</p>
+    <p style="font-family:'JetBrains Mono',monospace;font-size:16px;color:#9aa2b0;margin:44px 0 0">Compilers: Principles, Techniques &amp; Tools — Aho · Lam · Sethi · Ullman</p>
+    <div style="margin-top:40px;display:inline-flex;align-items:center;gap:12px;padding:14px 24px;border:1px solid rgba(255,255,255,.14);border-radius:999px;font-size:17px;color:#c9cdd6;animation:glowPulse 3s ease-in-out infinite">
+      <span style="color:#35d29b;font-family:'JetBrains Mono',monospace">▸</span> Presentación interactiva · hacé clic, arrastrá y probá en cada pantalla</div>
+  </div>
+  <!-- OJO: el centrado y la flotación van en divs SEPARADOS. En el diseño
+       original ambos viven en el mismo elemento y la animación pisa el
+       transform:translateY(-50%), así que la tapa se descuelga fuera de la
+       diapositiva. Un contenedor para posicionar, otro para animar. -->
+  <div style="position:absolute;right:96px;top:50%;transform:translateY(-50%);width:520px;height:660px;z-index:2">
+   <div style="position:absolute;inset:0;animation:dragonFloat 7s ease-in-out infinite">
+    <div style="position:absolute;inset:-30px;border-radius:28px;background:radial-gradient(60% 50% at 50% 40%,rgba(255,90,54,.28),transparent 70%);filter:blur(8px)"></div>
+    <div class="tapa">
+      <span class="lomo"></span>
+      <svg class="aro" viewBox="0 0 340 340" fill="none" aria-hidden="true">
+        <circle cx="170" cy="170" r="150" stroke="rgba(155,140,255,.28)" stroke-width="1.5" stroke-dasharray="6 10" style="animation:dashFlow 1.6s linear infinite"></circle>
+        <circle cx="170" cy="170" r="124" stroke="rgba(255,90,54,.22)" stroke-width="1.5" stroke-dasharray="3 13" style="animation:dashFlow 2.4s linear infinite reverse"></circle>
+      </svg>
+      <span class="brasa" style="left:31%;animation-delay:0s"></span>
+      <span class="brasa" style="left:47%;animation-delay:1.3s"></span>
+      <span class="brasa" style="left:63%;animation-delay:2.6s"></span>
+      <span class="glifo">🐉</span>
+      <div class="titulo">
+        <b>Compilers</b>
+        <span>Principles, Techniques &amp; Tools<br>Aho · Lam · Sethi · Ullman</span>
+      </div>
+      <span class="sello">2ª ed. · the purple dragon</span>
+    </div>
+   </div>
+  </div>
+</section>
+
+<!-- ══ 2 · Historia ══════════════════════════════════════════════════════ -->
+<section data-label="Historia" data-speaker-notes="Por qué se llama el Libro del Dragón: la portada muestra a un caballero (las herramientas de compilador) enfrentando a un dragón (la complejidad de compilar). 4 autores en la 2ª edición, apodada 'purple dragon'." style="width:100%;height:100%;background:#0d0e12;color:#f4f0e6;font-family:'Space Grotesk',sans-serif;padding:80px 120px;box-sizing:border-box;display:flex;flex-direction:column">
+  <div style="font-family:'JetBrains Mono',monospace;font-size:16px;letter-spacing:.16em;color:#ffb020;text-transform:uppercase;margin-bottom:8px">01 · Historia</div>
+  <h2 style="font-family:'Bricolage Grotesque',sans-serif;font-weight:800;font-size:74px;margin:0 0 12px;letter-spacing:-.02em">¿Por qué un <span style="color:#ff5a36">dragón</span>?</h2>
+  <div style="display:grid;grid-template-columns:1.15fr 1fr;gap:56px;flex:1;align-items:center;margin-top:16px">
+    <div>
+      <p style="font-size:27px;line-height:1.5;color:#c9cdd6;margin:0 0 26px">La portada es una metáfora: un <span style="color:#ffb020;font-weight:700">caballero</span> armado con las herramientas de la teoría de compiladores enfrenta al <span style="color:#ff5a36;font-weight:700">dragón</span> — la <em>complejidad</em> de traducir un lenguaje.</p>
+      <p style="font-size:23px;line-height:1.5;color:#9aa2b0;margin:0">Es el texto de referencia en cursos de compiladores desde 1986. La 2ª edición (2006) tiene el dragón morado — <span style="font-family:'JetBrains Mono',monospace;color:#9b8cff">the purple dragon</span>. Los capítulos 1 a 7 son el núcleo de OLC1.</p>
+      <div style="display:flex;gap:14px;flex-wrap:wrap;margin-top:36px">
+        <div style="padding:18px 22px;border:1px solid rgba(255,255,255,.1);border-radius:14px;background:#15171f"><div style="font-family:'Bricolage Grotesque',sans-serif;font-size:38px;font-weight:800;color:#35d29b">4</div><div style="font-size:15px;color:#9aa2b0">autores</div></div>
+        <div style="padding:18px 22px;border:1px solid rgba(255,255,255,.1);border-radius:14px;background:#15171f"><div style="font-family:'Bricolage Grotesque',sans-serif;font-size:38px;font-weight:800;color:#ffb020">1986</div><div style="font-size:15px;color:#9aa2b0">1ª edición</div></div>
+        <div style="padding:18px 22px;border:1px solid rgba(255,255,255,.1);border-radius:14px;background:#15171f"><div style="font-family:'Bricolage Grotesque',sans-serif;font-size:38px;font-weight:800;color:#ff5a36">1000+</div><div style="font-size:15px;color:#9aa2b0">páginas</div></div>
+      </div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:14px">
+      <div style="font-family:'JetBrains Mono',monospace;font-size:14px;color:#9aa2b0;letter-spacing:.1em">// LOS AUTORES</div>
+      <div style="display:flex;align-items:center;gap:18px;padding:18px 22px;border:1px solid rgba(255,255,255,.1);border-radius:16px;background:linear-gradient(90deg,#15171f,#12131a)">
+        <div style="width:46px;height:46px;border-radius:12px;background:#1c1f2a;border:1px solid rgba(255,255,255,.1);display:flex;align-items:center;justify-content:center;font-family:'Bricolage Grotesque',sans-serif;font-weight:800;font-size:20px;color:#ffb020">AA</div>
+        <div><div style="font-size:22px;font-weight:700">Alfred V. Aho</div><div style="font-size:15px;color:#9aa2b0;font-family:'JetBrains Mono',monospace">Columbia University</div></div>
+      </div>
+      <div style="display:flex;align-items:center;gap:18px;padding:18px 22px;border:1px solid rgba(255,255,255,.1);border-radius:16px;background:linear-gradient(90deg,#15171f,#12131a)">
+        <div style="width:46px;height:46px;border-radius:12px;background:#1c1f2a;border:1px solid rgba(255,255,255,.1);display:flex;align-items:center;justify-content:center;font-family:'Bricolage Grotesque',sans-serif;font-weight:800;font-size:20px;color:#ffb020">MSL</div>
+        <div><div style="font-size:22px;font-weight:700">Monica S. Lam</div><div style="font-size:15px;color:#9aa2b0;font-family:'JetBrains Mono',monospace">Stanford University</div></div>
+      </div>
+      <div style="display:flex;align-items:center;gap:18px;padding:18px 22px;border:1px solid rgba(255,255,255,.1);border-radius:16px;background:linear-gradient(90deg,#15171f,#12131a)">
+        <div style="width:46px;height:46px;border-radius:12px;background:#1c1f2a;border:1px solid rgba(255,255,255,.1);display:flex;align-items:center;justify-content:center;font-family:'Bricolage Grotesque',sans-serif;font-weight:800;font-size:20px;color:#ffb020">RS</div>
+        <div><div style="font-size:22px;font-weight:700">Ravi Sethi</div><div style="font-size:15px;color:#9aa2b0;font-family:'JetBrains Mono',monospace">Avaya Labs</div></div>
+      </div>
+      <div style="display:flex;align-items:center;gap:18px;padding:18px 22px;border:1px solid rgba(255,255,255,.1);border-radius:16px;background:linear-gradient(90deg,#15171f,#12131a)">
+        <div style="width:46px;height:46px;border-radius:12px;background:#1c1f2a;border:1px solid rgba(255,255,255,.1);display:flex;align-items:center;justify-content:center;font-family:'Bricolage Grotesque',sans-serif;font-weight:800;font-size:20px;color:#ffb020">JDU</div>
+        <div><div style="font-size:22px;font-weight:700">Jeffrey D. Ullman</div><div style="font-size:15px;color:#9aa2b0;font-family:'JetBrains Mono',monospace">Stanford University</div></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══ 3 · ¿Qué es un compilador? ════════════════════════════════════════ -->
+<section data-label="¿Qué es un compilador?" data-speaker-notes="Definición simple: un traductor. De lenguaje de alto nivel a código máquina. Hacé clic en las tres tarjetas para revelar la idea. Enfatizá análisis (entender) vs síntesis (construir)." style="width:100%;height:100%;background:radial-gradient(120% 90% at 15% 100%,#14201c 0%,#0d0e12 55%);color:#f4f0e6;font-family:'Space Grotesk',sans-serif;padding:80px 120px;box-sizing:border-box;display:flex;flex-direction:column">
+  <div style="font-family:'JetBrains Mono',monospace;font-size:16px;letter-spacing:.16em;color:#ffb020;text-transform:uppercase;margin-bottom:8px">02 · Concepto</div>
+  <h2 style="font-family:'Bricolage Grotesque',sans-serif;font-weight:800;font-size:74px;margin:0 0 6px;letter-spacing:-.02em">¿Qué es un compilador?</h2>
+  <p style="font-size:26px;color:#9aa2b0;margin:0 0 44px">Un <span style="color:#35d29b;font-weight:700">traductor</span>: convierte un programa en un lenguaje fuente a un programa equivalente en otro lenguaje. <span style="font-size:.8em">Dragón §1.1</span></p>
+  <div style="display:flex;align-items:center;justify-content:center;gap:34px;margin-bottom:40px">
+    <div style="text-align:center;padding:30px 40px;border:1.5px solid #35d29b;border-radius:20px;background:rgba(53,210,155,.08)"><div style="font-family:'JetBrains Mono',monospace;font-size:15px;color:#35d29b;margin-bottom:8px">SOURCE</div><div style="font-family:'JetBrains Mono',monospace;font-size:26px;font-weight:700">área = π·r²</div></div>
+    <div style="font-family:'Bricolage Grotesque',sans-serif;font-size:56px;color:#ffb020">→</div>
+    <div style="width:150px;height:110px;border:1.5px dashed rgba(255,255,255,.25);border-radius:20px;display:flex;align-items:center;justify-content:center;font-family:'JetBrains Mono',monospace;font-size:16px;color:#c9cdd6;background:#15171f">compilador</div>
+    <div style="font-family:'Bricolage Grotesque',sans-serif;font-size:56px;color:#ffb020">→</div>
+    <div style="text-align:center;padding:30px 40px;border:1.5px solid #ff5a36;border-radius:20px;background:rgba(255,90,54,.08)"><div style="font-family:'JetBrains Mono',monospace;font-size:15px;color:#ff5a36;margin-bottom:8px">TARGET</div><div style="font-family:'JetBrains Mono',monospace;font-size:22px;font-weight:700">1010 0110 …</div></div>
+  </div>
+  <div id="conceptos" style="display:grid;grid-template-columns:repeat(3,1fr);gap:22px"></div>
+</section>
+
+<!-- ══ 4 · Las fases ═════════════════════════════════════════════════════ -->
+<section data-label="Las fases (diagrama)" data-speaker-notes="El corazón de la presentación. Hacé clic en cada fase del pipeline para ver qué hace. Son 6 fases agrupadas en análisis (front-end) y síntesis (back-end). La tabla de símbolos y el manejo de errores acompañan a todas." style="width:100%;height:100%;background:#0d0e12;color:#f4f0e6;font-family:'Space Grotesk',sans-serif;padding:72px 100px;box-sizing:border-box;display:flex;flex-direction:column">
+  <div style="font-family:'JetBrains Mono',monospace;font-size:16px;letter-spacing:.16em;color:#ffb020;text-transform:uppercase;margin-bottom:8px">03 · El pipeline</div>
+  <h2 style="font-family:'Bricolage Grotesque',sans-serif;font-weight:800;font-size:64px;margin:0 0 4px;letter-spacing:-.02em">Las fases del compilador</h2>
+  <p style="font-size:22px;color:#9aa2b0;margin:0 0 30px">Hacé clic en cualquier fase para ver qué hace. <span style="color:#35d29b">Análisis (front-end)</span> · <span style="color:#ff5a36">Síntesis (back-end)</span> — <span style="font-size:.85em">Dragón §1.2, fig. 1.6</span></p>
+  <div id="chips-fase" style="display:flex;gap:14px;align-items:stretch;margin-bottom:26px"></div>
+  <div id="panel-fase" style="flex:1;display:grid;grid-template-columns:1.4fr 1fr;gap:28px;border:1px solid rgba(255,255,255,.1);border-radius:22px;background:linear-gradient(120deg,#15171f,#111219);padding:38px 42px"></div>
+</section>
+
+<!-- ══ 5 · Léxico ════════════════════════════════════════════════════════ -->
+<section data-label="Léxico (tokenizador)" data-speaker-notes="Interacción: pulsá TOKENIZAR y el analizador léxico parte la frase en tokens, cada uno con su tipo. Explicá que ignora espacios y agrupa lexemas en tokens." style="width:100%;height:100%;background:radial-gradient(110% 90% at 90% 10%,#1a1522 0%,#0d0e12 55%);color:#f4f0e6;font-family:'Space Grotesk',sans-serif;padding:80px 120px;box-sizing:border-box;display:flex;flex-direction:column">
+  <div style="font-family:'JetBrains Mono',monospace;font-size:16px;letter-spacing:.16em;color:#ffb020;text-transform:uppercase;margin-bottom:8px">04 · Análisis léxico</div>
+  <h2 style="font-family:'Bricolage Grotesque',sans-serif;font-weight:800;font-size:70px;margin:0 0 6px;letter-spacing:-.02em">De caracteres a <span style="color:#9b8cff">tokens</span></h2>
+  <p style="font-size:24px;color:#9aa2b0;margin:0 0 34px">El <em>scanner</em> agrupa caracteres en <span style="color:#9b8cff;font-weight:700">lexemas</span> y los clasifica en tokens. Probalo 👇 <span style="font-size:.85em">Dragón §3.1</span></p>
+  <div style="background:#0d0e12;border:1px solid rgba(255,255,255,.1);border-radius:16px;padding:26px 30px;font-family:'JetBrains Mono',monospace;font-size:30px;color:#e6e2d8;margin-bottom:26px">
+    <span style="color:#6f7683;font-size:18px">source&gt; </span>if (x &gt;= 10) return x;<span style="color:#35d29b;animation:blink 1s step-end infinite">▋</span>
+  </div>
+  <div style="display:flex;gap:16px;margin-bottom:30px">
+    <button id="btn-lex" type="button" style="font-family:'JetBrains Mono',monospace;font-size:19px;font-weight:700;color:#0d0e12;background:#35d29b;border:none;border-radius:12px;padding:16px 30px;cursor:pointer">▶ Tokenizar</button>
+    <button id="btn-lex-reset" type="button" style="font-family:'JetBrains Mono',monospace;font-size:19px;color:#c9cdd6;background:transparent;border:1px solid rgba(255,255,255,.18);border-radius:12px;padding:16px 26px;cursor:pointer">↺ Reiniciar</button>
+    <div id="lex-conteo" style="margin-left:auto;align-self:center;font-family:'JetBrains Mono',monospace;font-size:17px;color:#9aa2b0"></div>
+  </div>
+  <div id="lex-salida"></div>
+</section>
+
+<!-- ══ 6 · Sintáctico ════════════════════════════════════════════════════ -->
+<section data-label="Sintáctico (árbol)" data-speaker-notes="El parser toma los tokens y verifica que sigan la gramática, construyendo un árbol sintáctico. Mostrá la gramática y el árbol para la expresión. Los operadores quedan como nodos internos." style="width:100%;height:100%;background:#0d0e12;color:#f4f0e6;font-family:'Space Grotesk',sans-serif;padding:80px 110px;box-sizing:border-box;display:flex;flex-direction:column">
+  <div style="font-family:'JetBrains Mono',monospace;font-size:16px;letter-spacing:.16em;color:#ffb020;text-transform:uppercase;margin-bottom:8px">05 · Análisis sintáctico</div>
+  <h2 style="font-family:'Bricolage Grotesque',sans-serif;font-weight:800;font-size:70px;margin:0 0 6px;letter-spacing:-.02em">Tokens → <span style="color:#35d29b">árbol sintáctico</span></h2>
+  <p style="font-size:23px;color:#9aa2b0;margin:0 0 30px">El <em>parser</em> comprueba que los tokens sigan la <span style="color:#ffb020;font-weight:700">gramática</span> y construye la estructura jerárquica del programa. <span style="font-size:.85em">Dragón §2.2, §4.1</span></p>
+  <div style="display:grid;grid-template-columns:.85fr 1.15fr;gap:44px;flex:1">
+    <div>
+      <div style="font-family:'JetBrains Mono',monospace;font-size:15px;color:#6f7683;letter-spacing:.1em;margin-bottom:12px">// GRAMÁTICA (fragmento)</div>
+      <div style="font-family:'JetBrains Mono',monospace;font-size:20px;line-height:1.9;color:#e6e2d8;background:#15171f;border:1px solid rgba(255,255,255,.1);border-radius:14px;padding:24px 26px">
+        <div><span style="color:#9b8cff">expr</span> → expr <span style="color:#ff5a36">+</span> term</div>
+        <div><span style="color:#9b8cff">expr</span> → term</div>
+        <div><span style="color:#9b8cff">term</span> → term <span style="color:#ff5a36">*</span> factor</div>
+        <div><span style="color:#9b8cff">term</span> → factor</div>
+        <div><span style="color:#9b8cff">factor</span> → <span style="color:#35d29b">id</span> | <span style="color:#35d29b">num</span></div>
+      </div>
+      <div style="margin-top:26px;font-family:'JetBrains Mono',monospace;font-size:15px;color:#6f7683;letter-spacing:.1em;margin-bottom:10px">// ENTRADA</div>
+      <div style="font-family:'JetBrains Mono',monospace;font-size:24px;color:#ffb020;background:#15171f;border:1px solid rgba(255,255,255,.1);border-radius:12px;padding:16px 20px">initial + rate * 60</div>
+      <p style="font-size:18px;color:#9aa2b0;margin-top:22px;line-height:1.5">Fijate cómo <span style="color:#ff5a36">*</span> queda <em>debajo</em> de <span style="color:#ff5a36">+</span>: la gramática por niveles codifica la precedencia. Cuanto más abajo vive un operador, más fuerte liga.</p>
+    </div>
+    <div style="border:1px solid rgba(255,255,255,.1);border-radius:20px;background:linear-gradient(140deg,#15171f,#111219);display:flex;align-items:center;justify-content:center;position:relative">
+      <div style="font-family:'JetBrains Mono',monospace;font-size:22px;color:#e6e2d8;line-height:2;text-align:center">
+        <div style="font-size:15px;color:#6f7683;position:absolute;top:18px;left:24px">árbol sintáctico</div>
+        <pre style="margin:0;font-size:26px;line-height:1.7">        <span style="color:#ff5a36;font-weight:700">+</span>
+       ╱ ╲
+   <span style="color:#35d29b">initial</span>   <span style="color:#ff5a36;font-weight:700">*</span>
+          ╱ ╲
+      <span style="color:#35d29b">rate</span>   <span style="color:#9b8cff">60</span></pre>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══ 7 · Semántico ═════════════════════════════════════════════════════ -->
+<section data-label="Semántico" data-speaker-notes="El analizador semántico verifica coherencia: tipos, declaraciones, ámbitos. Usa la tabla de símbolos. Ejemplo clave del libro: inserta inttofloat para convertir el entero 60 a float antes de multiplicar." style="width:100%;height:100%;background:radial-gradient(110% 90% at 10% 0%,#221a12 0%,#0d0e12 55%);color:#f4f0e6;font-family:'Space Grotesk',sans-serif;padding:80px 120px;box-sizing:border-box;display:flex;flex-direction:column">
+  <div style="font-family:'JetBrains Mono',monospace;font-size:16px;letter-spacing:.16em;color:#ffb020;text-transform:uppercase;margin-bottom:8px">06 · Análisis semántico</div>
+  <h2 style="font-family:'Bricolage Grotesque',sans-serif;font-weight:800;font-size:70px;margin:0 0 6px;letter-spacing:-.02em">¿Tiene <span style="color:#ffb020">sentido</span> el programa?</h2>
+  <p style="font-size:24px;color:#9aa2b0;margin:0 0 40px;max-width:1100px">La sintaxis puede ser correcta y aun así el programa no tener sentido. Esta fase revisa <span style="color:#ffb020;font-weight:700">tipos</span>, <span style="color:#ffb020;font-weight:700">declaraciones</span> y <span style="color:#ffb020;font-weight:700">ámbitos</span> usando la <em>tabla de símbolos</em>. <span style="font-size:.85em">Dragón §1.2.4, §6.5</span></p>
+  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:22px;margin-bottom:40px">
+    <div style="border:1px solid rgba(255,255,255,.1);border-radius:16px;background:#15171f;padding:26px 28px"><div style="font-family:'Bricolage Grotesque',sans-serif;font-size:24px;font-weight:700;color:#35d29b;margin-bottom:8px">Chequeo de tipos</div><div style="font-size:18px;color:#c9cdd6;line-height:1.45">¿Se usan los operadores con operandos compatibles? <span style="font-family:'JetBrains Mono',monospace">"a" - 1</span> es sintaxis válida y semántica inválida.</div></div>
+    <div style="border:1px solid rgba(255,255,255,.1);border-radius:16px;background:#15171f;padding:26px 28px"><div style="font-family:'Bricolage Grotesque',sans-serif;font-size:24px;font-weight:700;color:#9b8cff;margin-bottom:8px">Ámbito</div><div style="font-size:18px;color:#c9cdd6;line-height:1.45">¿Cada variable fue declarada antes de usarse, y en un ámbito que la alcanza?</div></div>
+    <div style="border:1px solid rgba(255,255,255,.1);border-radius:16px;background:#15171f;padding:26px 28px"><div style="font-family:'Bricolage Grotesque',sans-serif;font-size:24px;font-weight:700;color:#ff5a36;margin-bottom:8px">Coerción</div><div style="font-size:18px;color:#c9cdd6;line-height:1.45">Inserta conversiones de tipo cuando hacen falta — <em>widening</em> callado, <em>narrowing</em> solo con cast.</div></div>
+  </div>
+  <div style="background:#0d0e12;border:1px solid rgba(255,255,255,.12);border-radius:16px;padding:28px 32px">
+    <div style="font-family:'JetBrains Mono',monospace;font-size:15px;color:#6f7683;letter-spacing:.1em;margin-bottom:14px">// COERCIÓN DE TIPOS · el clásico ejemplo del libro (fig. 1.7)</div>
+    <div style="display:flex;align-items:center;gap:30px;font-family:'JetBrains Mono',monospace;font-size:26px;flex-wrap:wrap">
+      <span style="color:#c9cdd6">rate <span style="color:#ff5a36">*</span> 60</span>
+      <span style="color:#ffb020;font-size:34px">→</span>
+      <span style="color:#c9cdd6">rate <span style="color:#ff5a36">*</span> <span style="background:rgba(53,210,155,.15);color:#35d29b;padding:4px 10px;border-radius:8px;border:1px solid rgba(53,210,155,.4)">inttofloat(60)</span></span>
+    </div>
+    <p style="font-size:19px;color:#9aa2b0;margin:20px 0 0"><span style="color:#35d29b">rate</span> es <span style="font-family:'JetBrains Mono',monospace">float</span> pero <span style="color:#9b8cff">60</span> es <span style="font-family:'JetBrains Mono',monospace">int</span> → el compilador inserta <span style="font-family:'JetBrains Mono',monospace;color:#35d29b">inttofloat</span> para que los tipos coincidan. Nadie lo escribió: lo agregó esta fase.</p>
+  </div>
+</section>
+
+<!-- ══ 8 · El viaje completo ═════════════════════════════════════════════ -->
+<section data-label="Transformación (animación)" data-speaker-notes="La joya interactiva. Recorré con los botones cómo la MISMA expresión (position = initial + rate*60) cambia de forma en cada fase, hasta el código máquina. Es el ejemplo estrella del Libro del Dragón." style="width:100%;height:100%;background:#0d0e12;color:#f4f0e6;font-family:'Space Grotesk',sans-serif;padding:70px 100px;box-sizing:border-box;display:flex;flex-direction:column">
+  <div style="font-family:'JetBrains Mono',monospace;font-size:16px;letter-spacing:.16em;color:#ffb020;text-transform:uppercase;margin-bottom:8px">07 · El viaje completo</div>
+  <h2 style="font-family:'Bricolage Grotesque',sans-serif;font-weight:800;font-size:60px;margin:0 0 4px;letter-spacing:-.02em">Una línea, siete formas</h2>
+  <p style="font-size:21px;color:#9aa2b0;margin:0 0 22px">Avanzá para ver cómo <span style="font-family:'JetBrains Mono',monospace;color:#ffb020">position = initial + rate * 60</span> se transforma fase a fase. <span style="font-size:.85em">Es la fig. 1.7, la figura que resume el libro entero.</span></p>
+  <div id="puntos" style="display:flex;gap:8px;margin-bottom:24px"></div>
+  <div id="marco-codigo" style="flex:1;display:grid;grid-template-columns:1fr;gap:0;border:1px solid rgba(255,255,255,.12);border-radius:20px;background:linear-gradient(135deg,#15171f,#101119);padding:34px 40px;position:relative;overflow:hidden"></div>
+  <div style="display:flex;gap:14px;margin-top:22px;align-items:center">
+    <button id="paso-prev" type="button" style="font-family:'JetBrains Mono',monospace;font-size:18px;color:#c9cdd6;background:transparent;border:1px solid rgba(255,255,255,.18);border-radius:12px;padding:14px 26px;cursor:pointer">← Anterior</button>
+    <button id="paso-next" type="button" style="font-family:'JetBrains Mono',monospace;font-size:18px;font-weight:700;color:#0d0e12;background:#ffb020;border:none;border-radius:12px;padding:14px 30px;cursor:pointer">Siguiente →</button>
+  </div>
+</section>
+
+<!-- ══ 9 · Arrastrá las fases ════════════════════════════════════════════ -->
+<section data-label="Arrastra las fases" data-speaker-notes="Actividad: arrastrá las tarjetas para ordenar las 6 fases del pipeline. El marcador dice cuántas están en su lugar correcto. Cuando estén las 6, se ilumina en verde." style="width:100%;height:100%;background:radial-gradient(110% 90% at 50% 120%,#12201c 0%,#0d0e12 55%);color:#f4f0e6;font-family:'Space Grotesk',sans-serif;padding:80px 120px;box-sizing:border-box;display:flex;flex-direction:column">
+  <div style="font-family:'JetBrains Mono',monospace;font-size:16px;letter-spacing:.16em;color:#ffb020;text-transform:uppercase;margin-bottom:8px">08 · Tu turno</div>
+  <h2 style="font-family:'Bricolage Grotesque',sans-serif;font-weight:800;font-size:66px;margin:0 0 6px;letter-spacing:-.02em">Ordená el <span style="color:#35d29b">pipeline</span></h2>
+  <p style="font-size:23px;color:#9aa2b0;margin:0 0 12px">Arrastrá las tarjetas hasta poner las 6 fases en el orden correcto, de la fuente al código objeto.</p>
+  <div id="marcador"></div>
+  <div id="fila-drag" style="display:flex;gap:16px;align-items:stretch;margin-top:28px;flex:1;max-height:430px"></div>
+  <button id="barajar" type="button" style="align-self:flex-start;margin-top:34px;font-family:'JetBrains Mono',monospace;font-size:17px;color:#c9cdd6;background:transparent;border:1px solid rgba(255,255,255,.18);border-radius:12px;padding:14px 26px;cursor:pointer">↺ Barajar de nuevo</button>
+</section>
+
+<!-- ══ 10 · Quiz ═════════════════════════════════════════════════════════ -->
+<section data-label="Quiz" data-speaker-notes="Cierre interactivo: preguntas de opción múltiple. Al hacer clic se marca correcta (verde) o incorrecta (roja) y aparece la explicación. El marcador de aciertos sube arriba a la derecha." style="width:100%;height:100%;background:#0d0e12;color:#f4f0e6;font-family:'Space Grotesk',sans-serif;padding:70px 110px;box-sizing:border-box;display:flex;flex-direction:column">
+  <div style="display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:26px">
+    <div>
+      <div style="font-family:'JetBrains Mono',monospace;font-size:16px;letter-spacing:.16em;color:#ffb020;text-transform:uppercase;margin-bottom:8px">09 · Poné a prueba</div>
+      <h2 style="font-family:'Bricolage Grotesque',sans-serif;font-weight:800;font-size:60px;margin:0;letter-spacing:-.02em">Quiz relámpago ⚡</h2>
+    </div>
+    <div style="text-align:right"><div id="quiz-score" style="font-family:'Bricolage Grotesque',sans-serif;font-size:52px;font-weight:800;color:#35d29b;line-height:1">0<span style="color:#6f7683;font-size:30px">/4</span></div><div style="font-family:'JetBrains Mono',monospace;font-size:14px;color:#9aa2b0">aciertos</div></div>
+  </div>
+  <div id="grid-quiz" style="display:grid;grid-template-columns:repeat(4,1fr);gap:20px;flex:1"></div>
+</section>
+
+<!-- ══ 11 · Cierre ═══════════════════════════════════════════════════════ -->
+<section data-label="Cierre" data-speaker-notes="Resumen: el compilador es un pipeline de análisis + síntesis. Recordá que los 4 proyectos del curso son intérpretes: cubren el análisis y ejecutan. Invitá a abrir los capítulos. Agradecé." style="position:relative;width:100%;height:100%;background:radial-gradient(120% 100% at 20% 0%,#221420 0%,#0d0e12 55%);color:#f4f0e6;font-family:'Space Grotesk',sans-serif;padding:0 120px;box-sizing:border-box;display:flex;flex-direction:column;justify-content:center;overflow:hidden">
+  <div style="font-family:'JetBrains Mono',monospace;font-size:19px;color:#35d29b;margin-bottom:20px">$ ./aventura --complete ✓</div>
+  <h2 style="font-family:'Bricolage Grotesque',sans-serif;font-weight:800;font-size:92px;line-height:.98;margin:0 0 28px;letter-spacing:-.02em;max-width:1200px">Venciste al <span style="color:#ff5a36;text-shadow:0 0 40px rgba(255,90,54,.4)">dragón</span> 🐉</h2>
+  <p style="font-size:28px;line-height:1.5;color:#c9cdd6;margin:0 0 34px;max-width:960px">Un compilador es un <span style="color:#ffb020;font-weight:700">pipeline</span>: análisis (léxico → sintáctico → semántico) y síntesis (código intermedio → optimización → generación).</p>
+  <div style="display:flex;gap:14px;flex-wrap:wrap">
+    <div style="padding:16px 24px;border:1px solid rgba(255,255,255,.14);border-radius:12px;font-family:'JetBrains Mono',monospace;font-size:18px;color:#35d29b">léxico</div>
+    <div style="padding:16px 24px;border:1px solid rgba(255,255,255,.14);border-radius:12px;font-family:'JetBrains Mono',monospace;font-size:18px;color:#35d29b">sintáctico</div>
+    <div style="padding:16px 24px;border:1px solid rgba(255,255,255,.14);border-radius:12px;font-family:'JetBrains Mono',monospace;font-size:18px;color:#35d29b">semántico</div>
+    <div style="padding:16px 24px;border:1px solid rgba(255,255,255,.14);border-radius:12px;font-family:'JetBrains Mono',monospace;font-size:18px;color:#ff5a36">cód. intermedio</div>
+    <div style="padding:16px 24px;border:1px solid rgba(255,255,255,.14);border-radius:12px;font-family:'JetBrains Mono',monospace;font-size:18px;color:#ff5a36">optimización</div>
+    <div style="padding:16px 24px;border:1px solid rgba(255,255,255,.14);border-radius:12px;font-family:'JetBrains Mono',monospace;font-size:18px;color:#ff5a36">generación</div>
+  </div>
+  <div style="margin-top:30px;padding:18px 24px;border-left:3px solid #ffb020;background:rgba(255,176,32,.07);border-radius:0 12px 12px 0;max-width:1180px">
+    <p style="font-size:20px;line-height:1.5;color:#c9cdd6;margin:0"><span style="color:#ffb020;font-weight:700">Para la defensa:</span> los 4 proyectos de OLC1 son <span style="font-weight:700">intérpretes</span> — recorren las 3 fases de análisis y después <em>ejecutan</em>, en vez de sintetizar código. Las 3 fichas naranjas (caps. 8–12) quedan fuera de alcance, y saber decirlo así es media defensa ganada.</p>
+  </div>
+  <div style="display:flex;gap:14px;flex-wrap:wrap;margin-top:32px">
+    <a href="cap1.html" style="padding:14px 26px;border-radius:12px;background:#ff5a36;color:#0d0e12;font-family:'JetBrains Mono',monospace;font-size:17px;font-weight:700;text-decoration:none">Empezar por el cap. 1 →</a>
+    <a href="panorama.html" style="padding:14px 26px;border-radius:12px;border:1px solid rgba(255,255,255,.18);color:#c9cdd6;font-family:'JetBrains Mono',monospace;font-size:17px;text-decoration:none">Panorama caps. 8–12</a>
+    <a href="index.html" style="padding:14px 26px;border-radius:12px;border:1px solid rgba(255,255,255,.18);color:#c9cdd6;font-family:'JetBrains Mono',monospace;font-size:17px;text-decoration:none">Índice</a>
+  </div>
+  <p style="font-family:'JetBrains Mono',monospace;font-size:17px;color:#9aa2b0;margin:36px 0 0">Seguí leyendo → Compilers: Principles, Techniques &amp; Tools (Aho, Lam, Sethi, Ullman, 2ª ed.)</p>
+</section>
+
+</div><!-- /lienzo -->
+</div><!-- /escenario -->
+
+<aside class="riel" id="riel" aria-label="Miniaturas de diapositivas"></aside>
+
+<div class="notas" id="notas"><h4>Notas del orador</h4><p id="notas-texto"></p></div>
+
+<div class="girar">Girá el teléfono para ver la presentación en grande</div>
+
+<div class="hud" id="hud" role="toolbar" aria-label="Controles de la presentación">
+  <a class="btn" href="index.html" title="Volver al índice" aria-label="Volver al índice">
+    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 7l6-5 6 5v7H2z"/></svg>
+  </a>
+  <span class="divisor"></span>
+  <button class="btn" id="hud-prev" type="button" aria-label="Diapositiva anterior" title="Anterior (←)">
+    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 3L5 8l5 5"/></svg>
+  </button>
+  <span class="cuenta" aria-live="polite"><span id="hud-cur">1</span><span class="sep">/</span><span class="total" id="hud-tot">11</span></span>
+  <button class="btn" id="hud-next" type="button" aria-label="Diapositiva siguiente" title="Siguiente (→)">
+    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3l5 5-5 5"/></svg>
+  </button>
+  <span class="divisor"></span>
+  <button class="btn texto" id="hud-riel" type="button" title="Miniaturas (T)"><span class="rotulo">Miniaturas</span><span class="kbd">T</span></button>
+  <button class="btn texto" id="hud-notas" type="button" title="Notas del orador (N)"><span class="rotulo">Notas</span><span class="kbd">N</span></button>
+  <button class="btn texto" id="hud-reset" type="button" title="Volver al inicio (R)"><span class="rotulo">Inicio</span><span class="kbd">R</span></button>
+</div>
+
+<script src="assets/escenario.js"></script>
+<script src="assets/aventura.js"></script>
+</body>
+</html>

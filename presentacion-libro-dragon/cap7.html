@@ -309,6 +309,7 @@ Entorno e = new Entorno(global);         Entorno e = new Entorno(entornoActual);
           </table>
         </div>
         <p class="muted">La cuarta fila es el truco de implementación más valioso del capítulo para OLC1: <code class="inline">return</code> no es un valor que se retorna hacia abajo — es un evento que <strong>interrumpe</strong> el recorrido hacia arriba.</p>
+        <div class="callout warn"><p><strong>La última fila no es igual en todos los lenguajes anfitriones — y esto se midió en este workspace.</strong> En Java, <code class="inline">StackOverflowError</code> es un <code class="inline">Throwable</code>: CompScript puede atraparlo y reportar «recursión demasiado profunda» con línea y columna, y el intérprete sobrevive. En Go <strong>no se puede</strong>: el desbordamiento de pila es un error fatal del runtime que <code class="inline">recover()</code> <em>no</em> intercepta — mata el proceso entero, y en VLangCherry eso significa que se cae el servidor, no solo la petición. Por eso ahí la protección tiene que ser <em>preventiva</em>: un contador de profundidad máxima en la invocación de funciones y un tope de iteraciones en los ciclos, antes de que la pila se agote. Misma teoría del cap. 7, dos consecuencias de ingeniería opuestas según el runtime.</p></div>
       </div>
     </section>
 

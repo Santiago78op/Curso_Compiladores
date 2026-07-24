@@ -309,6 +309,27 @@ L3:  ...                                          ejecutar(n.bloqueThen)</pre>
       </div>
     </section>
 
+    <!-- 9c · Qué hacer cuando el chequeo falla (Fase C) -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">Lo que el libro no decide por vos</p>
+        <h2>Tres políticas de error semántico, las tres correctas</h2>
+        <p>El Dragón describe <em>cómo</em> detectar un error de tipos, pero no <em>qué hacer después</em>: eso lo fija el enunciado de cada proyecto. Los cinco intérpretes del curso tomaron tres caminos distintos, y cada uno se defiende por su requisito:</p>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>Política</th><th>Quién</th><th>Mecanismo</th><th>Por qué es la correcta ahí</th></tr></thead>
+            <tbody>
+              <tr><td><strong>Propagar y seguir</strong></td><td>DataForge</td><td>La expresión con error devuelve <code class="inline">null</code>; toda operación que reciba <code class="inline">null</code> calla</td><td>Su enunciado (§6) pide un reporte de errores <em>completo</em>: abortar en el primero daría un reporte de una línea. Un error por causa, sin cascadas.</td></tr>
+              <tr><td><strong>Abortar</strong></td><td>CompScript</td><td>El error semántico corta la ejecución de esa instrucción</td><td>Su enunciado (§4.3) lo exige explícitamente. Seguir ejecutando con un valor inventado sería <em>menos</em> correcto.</td></tr>
+              <tr><td><strong>Acumular y seguir</strong></td><td>CompInterpreter · VLangCherry</td><td>El error se agrega a una lista y la ejecución continúa con un valor neutro</td><td>Son servicios: una petición devuelve <em>todos</em> los errores de una vez, porque no hay una segunda oportunidad interactiva.</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="callout"><p><strong>Cómo se usa esto en la defensa:</strong> si preguntan «¿por qué tu intérprete no se detiene en el primer error?» la respuesta no es «así lo programé», es <em>«porque mi enunciado pide un reporte completo, y esa decisión se paga con la disciplina de propagar <code class="inline">null</code> sin generar errores en cascada»</em>. La política es una decisión de diseño defendible, no un accidente — pero solo si sabés cuál elegiste y por qué.</p></div>
+        <p class="muted">Fuente: revisión de código de los 5 proyectos (Fase C, 2026-07-22) contra sus enunciados.</p>
+      </div>
+    </section>
+
     <!-- 10 · Checklist semántico -->
     <section class="slide">
       <div class="inner">

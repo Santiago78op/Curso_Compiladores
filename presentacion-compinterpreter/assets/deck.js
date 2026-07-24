@@ -32,10 +32,13 @@
   const bar = document.getElementById('bar');
   const prev = document.getElementById('prev');
   const next = document.getElementById('next');
+  const stage = document.querySelector('.stage');
   let i = 0;
   tot.textContent = slides.length;
 
   function show(n) {
+    /* dirección de la navegación: orienta la cascada de entrada (CSS --rise-y) */
+    if (stage) stage.classList.toggle('back', n < i);
     i = Math.max(0, Math.min(slides.length - 1, n));
     slides.forEach((s, k) => s.classList.toggle('active', k === i));
     cur.textContent = i + 1;

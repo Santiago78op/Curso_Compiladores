@@ -1,167 +1,300 @@
 /* ============================================================
-   estilo.css — sistema de diseño compartido de la presentación
-   "DataForge · curso guiado". Toda página (índice y etapas)
-   enlaza este archivo; los colores viven en tokens CSS.
+   estilo.css — SISTEMA DE DISEÑO COMPARTIDO de las 6
+   presentaciones del curso (libro-dragon, dataforge,
+   conjanalyzer, compscript, compinterpreter, vlangcherry).
+
+   Reestructuración total (2026-07-24): la paleta, la tipografía
+   y la capa de motion vienen del diseño "Libro del Dragón"
+   importado desde claude.ai/design (proyecto
+   75d5f387-df9e-49c0-8ec7-393cffeaf3ef).
+
+   REGLA DE ORO: los estilos locales de cada página usan SOLO
+   tokens (var(--surface), var(--accent), …). Cambiar un valor
+   acá rethematiza las 62 páginas. No hardcodear colores.
+
+   La única diferencia entre las 6 copias de este archivo es el
+   bloque "ACENTO DEL DECK" de abajo.
    ============================================================ */
 
+/* Tipografía del diseño, servida desde disco (los .woff2 salieron del
+   export de claude.ai/design). Cero pedidos de red: se ve igual sin
+   internet, que es la condición para la defensa. */
+@import url("fuentes.css");
+
+/* ============================================================
+   1. TOKENS — tema oscuro (el del diseño) por defecto
+   ============================================================ */
 :root {
-  --bg: #F5F7F6;
-  --surface: #FFFFFF;
-  --surface2: #EDF1EF;
-  --ink: #1C2321;
-  --muted: #5C6B66;
-  --line: #D8E0DD;
-  --accent: #0E7C6E;
-  --accent-ink: #FFFFFF;
-  --tk-res: #B45309;
-  --tk-id: #1D4ED8;
-  --tk-num: #BE185D;
-  --tk-str: #15803D;
-  --tk-sym: #64748B;
-  --code-bg: #1A2422;
-  --code-ink: #DCE7E3;
-  --shadow: 0 1px 3px rgba(28,35,33,.08), 0 8px 24px rgba(28,35,33,.07);
-}
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bg: #101816; --surface: #18221F; --surface2: #1F2B27; --ink: #E8EFEC;
-    --muted: #93A5A0; --line: #2B3833; --accent: #3FD0BC; --accent-ink: #08211C;
-    --tk-res: #F5A742; --tk-id: #7FB4FF; --tk-num: #FF7EB0; --tk-str: #7FD98F; --tk-sym: #8FA3A0;
-    --code-bg: #0B1210; --code-ink: #D5E2DD;
-    --shadow: 0 1px 3px rgba(0,0,0,.4), 0 8px 24px rgba(0,0,0,.35);
-  }
-}
-:root[data-theme="dark"] {
-  --bg: #101816; --surface: #18221F; --surface2: #1F2B27; --ink: #E8EFEC;
-  --muted: #93A5A0; --line: #2B3833; --accent: #3FD0BC; --accent-ink: #08211C;
-  --tk-res: #F5A742; --tk-id: #7FB4FF; --tk-num: #FF7EB0; --tk-str: #7FD98F; --tk-sym: #8FA3A0;
-  --code-bg: #0B1210; --code-ink: #D5E2DD;
-  --shadow: 0 1px 3px rgba(0,0,0,.4), 0 8px 24px rgba(0,0,0,.35);
-}
-:root[data-theme="light"] {
-  --bg: #F5F7F6; --surface: #FFFFFF; --surface2: #EDF1EF; --ink: #1C2321;
-  --muted: #5C6B66; --line: #D8E0DD; --accent: #0E7C6E; --accent-ink: #FFFFFF;
-  --tk-res: #B45309; --tk-id: #1D4ED8; --tk-num: #BE185D; --tk-str: #15803D; --tk-sym: #64748B;
-  --code-bg: #1A2422; --code-ink: #DCE7E3;
-  --shadow: 0 1px 3px rgba(28,35,33,.08), 0 8px 24px rgba(28,35,33,.07);
+  /* superficies */
+  --bg: #0d0e12;
+  --surface: #15171f;
+  --surface2: #1c1f2a;
+  --line: #262b36;
+
+  /* texto */
+  --ink: #f4f0e6;
+  --body: #c9cdd6;
+  --muted: #9aa2b0;
+  --dim: #6f7683;
+
+  /* acentos del diseño */
+  --fuego: #ff5a36;   /* naranja dragón  */
+  --ambar: #ffb020;   /* ámbar           */
+  --jade: #35d29b;    /* verde           */
+  --violeta: #9b8cff; /* violeta         */
+  --danger: #ff5a36;
+
+  /* ACENTO DEL DECK — lo único que cambia entre presentaciones */
+  --accent: #35d29b;
+  --accent-ink: #0d0e12;
+
+  /* categorías de token (idénticas al tokenizador del diseño) */
+  --tk-res: #ff5a36;  /* reservadas / keyword */
+  --tk-id:  #35d29b;  /* identificadores      */
+  --tk-num: #9b8cff;  /* números              */
+  --tk-str: #ffb020;  /* cadenas              */
+  --tk-sym: #9aa2b0;  /* símbolos / puntuación*/
+
+  /* código */
+  --code-bg: #0a0b0f;
+  --code-ink: #e6e2d8;
+
+  /* profundidad y movimiento */
+  --shadow: 0 1px 3px rgba(0,0,0,.5), 0 10px 30px rgba(0,0,0,.42);
+  --shadow-lift: 0 2px 8px rgba(0,0,0,.55), 0 20px 44px rgba(0,0,0,.5);
+  --ease-out: cubic-bezier(.2, .7, .2, 1);
+  --pop: cubic-bezier(.2, 1.4, .4, 1);
+  --radio: 16px;
+
+  /* tipografías */
+  --f-display: "Bricolage Grotesque", "Segoe UI Variable Display", "Segoe UI", system-ui, sans-serif;
+  --f-texto: "Space Grotesk", "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
+  --f-mono: "JetBrains Mono", "Cascadia Code", Consolas, "Courier New", monospace;
 }
 
+/* Tema claro — para imprimir o proyectar en salas muy iluminadas.
+   No es el modo por defecto: el diseño importado es oscuro. */
+:root[data-theme="light"] {
+  --bg: #f6f4ef;
+  --surface: #ffffff;
+  --surface2: #eeeae1;
+  --line: #ddd7cb;
+  --ink: #17181d;
+  --body: #33363f;
+  --muted: #5e6470;
+  --dim: #8a909c;
+  --fuego: #d63b17;
+  --ambar: #a86a00;
+  --jade: #0d7a58;
+  --violeta: #5b48d6;
+  --danger: #c02d0c;
+  --accent: #0d7a58;
+  --accent-ink: #ffffff;
+  --tk-res: #c2410c;
+  --tk-id:  #0d7a58;
+  --tk-num: #5b48d6;
+  --tk-str: #a16207;
+  --tk-sym: #64748b;
+  --code-bg: #14161d;
+  --code-ink: #e6e2d8;
+  --shadow: 0 1px 3px rgba(23,24,29,.09), 0 8px 24px rgba(23,24,29,.08);
+  --shadow-lift: 0 2px 6px rgba(23,24,29,.12), 0 16px 38px rgba(23,24,29,.14);
+}
+
+/* ============================================================
+   2. BASE
+   ============================================================ */
 * { box-sizing: border-box; }
 html, body { height: 100%; }
 body {
   margin: 0;
   background: var(--bg);
-  color: var(--ink);
-  font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+  color: var(--body);
+  font-family: var(--f-texto);
   font-size: 17px;
   line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
 }
 .deck { height: 100dvh; display: flex; flex-direction: column; overflow: hidden; }
 
-/* ---------- barra superior ---------- */
+/* ============================================================
+   3. BARRA SUPERIOR
+   ============================================================ */
 .topbar {
-  display: flex; align-items: center; gap: 12px;
-  padding: 12px 20px;
+  display: flex; align-items: center; gap: 14px;
+  padding: 13px 26px;
   border-bottom: 1px solid var(--line);
+  background: linear-gradient(180deg, var(--surface), transparent);
   flex: none;
 }
 .topbar .brand {
-  font-family: "Sitka Heading", Cambria, Georgia, serif;
-  font-weight: 700; font-size: 15px; letter-spacing: .01em;
-  color: inherit; text-decoration: none;
+  display: inline-flex; align-items: center; gap: 11px;
+  font-family: var(--f-display);
+  font-weight: 700; font-size: 15.5px; letter-spacing: -.01em;
+  color: var(--ink); text-decoration: none;
+}
+/* el punto que late de la portada del diseño */
+.topbar .brand::before {
+  content: ""; width: 9px; height: 9px; border-radius: 50%; flex: none;
+  background: var(--accent);
+  box-shadow: 0 0 14px var(--accent);
+  animation: latido 2.6s ease-in-out infinite;
 }
 .topbar .brand em { font-style: normal; color: var(--accent); }
 .topbar .brand:hover em { text-decoration: underline; }
 .chip {
-  font-size: 11.5px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase;
-  color: var(--accent); border: 1px solid var(--accent);
-  border-radius: 999px; padding: 2px 10px; white-space: nowrap;
+  font-family: var(--f-mono);
+  font-size: 11px; font-weight: 500; letter-spacing: .16em; text-transform: uppercase;
+  color: var(--ambar); border: 1px solid color-mix(in srgb, var(--ambar) 40%, transparent);
+  background: color-mix(in srgb, var(--ambar) 10%, transparent);
+  border-radius: 999px; padding: 3px 12px; white-space: nowrap;
 }
 .topbar .counter {
-  margin-left: auto; font-variant-numeric: tabular-nums;
-  color: var(--muted); font-size: 13.5px; white-space: nowrap;
+  margin-left: auto; font-family: var(--f-mono);
+  font-variant-numeric: tabular-nums;
+  color: var(--dim); font-size: 13px; white-space: nowrap;
 }
 #theme {
   font: inherit; font-size: 15px; line-height: 1;
-  background: var(--surface); color: var(--ink);
-  border: 1px solid var(--line); border-radius: 8px;
-  padding: 5px 10px; cursor: pointer;
+  background: var(--surface2); color: var(--muted);
+  border: 1px solid var(--line); border-radius: 10px;
+  padding: 6px 11px; cursor: pointer;
+  transition: color .2s var(--ease-out), border-color .2s var(--ease-out);
 }
-#theme:hover { border-color: var(--accent); }
-.progress { height: 3px; background: var(--line); flex: none; }
-.progress > div { height: 100%; width: 0%; background: var(--accent); transition: width .25s ease; }
+#theme:hover { border-color: var(--accent); color: var(--accent); }
 
-/* ---------- slides ---------- */
-.stage { flex: 1; position: relative; overflow: hidden; }
+/* barra de progreso — el degradado del diseño: jade → ámbar → fuego */
+.progress { height: 3px; background: var(--line); flex: none; }
+.progress > div {
+  height: 100%; width: 0%;
+  background: linear-gradient(90deg, var(--jade), var(--ambar), var(--fuego));
+  transition: width .45s var(--ease-out);
+}
+
+/* ============================================================
+   4. DIAPOSITIVAS
+   Motion: fundido de la diapositiva + cascada de sus bloques
+   (60 ms entre uno y otro). La dirección de navegación decide
+   si suben (avanzar) o bajan (retroceder) vía --rise-y.
+   ============================================================ */
+.stage {
+  flex: 1; position: relative; overflow: hidden; --rise-y: 18px;
+  background:
+    radial-gradient(120% 90% at 88% 2%, color-mix(in srgb, var(--accent) 9%, transparent) 0%, transparent 55%),
+    radial-gradient(100% 80% at 6% 100%, color-mix(in srgb, var(--jade) 7%, transparent) 0%, transparent 55%);
+}
+.stage.back { --rise-y: -18px; }
 .slide {
   position: absolute; inset: 0;
-  overflow-y: auto;
-  padding: 40px 24px 56px;
+  overflow: auto;               /* x también: si algo se pasa, scrollea en vez de romper */
+  /* Layout ancho, como el diseño (80px 120px): el contenido respira contra
+     los bordes en vez de quedar embotellado en una columna al centro. */
+  padding: 52px clamp(20px, 5vw, 108px) 72px;
   display: none;
 }
-.slide.active { display: block; animation: enter .3s ease; }
-@keyframes enter { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
-@media (prefers-reduced-motion: reduce) {
-  .slide.active { animation: none; }
-  .progress > div { transition: none; }
-}
-.slide .inner { max-width: 860px; margin: 0 auto; }
+.slide.active { display: block; animation: fade .28s ease both; }
+.slide.active .inner > * { animation: rise .5s var(--ease-out) both; animation-delay: .46s; }
+.slide.active .inner > *:nth-child(1) { animation-delay: .02s; }
+.slide.active .inner > *:nth-child(2) { animation-delay: .08s; }
+.slide.active .inner > *:nth-child(3) { animation-delay: .14s; }
+.slide.active .inner > *:nth-child(4) { animation-delay: .20s; }
+.slide.active .inner > *:nth-child(5) { animation-delay: .26s; }
+.slide.active .inner > *:nth-child(6) { animation-delay: .32s; }
+.slide.active .inner > *:nth-child(7) { animation-delay: .39s; }
+.slide.active .inner > *:nth-child(8) { animation-delay: .46s; }
+/* 1560px es tope de legibilidad en monitores grandes, no una columna:
+   por debajo de ~1780px de ventana el contenido ocupa todo el ancho útil. */
+.slide .inner { max-width: 1560px; margin: 0 auto; }
+/* Antídoto contra el "grid blowout": un hijo de grid/flex con contenido
+   largo (un <pre>, una tabla, un identificador sin espacios) tiene
+   min-width:auto por defecto y estira el contenedor hasta romper la
+   página. Con min-width:0 el hijo cede y su propio scroll se activa. */
+.slide .inner > *, .cards > *, .quiz > *, .tablewrap > * { min-width: 0; }
+img, svg, video, canvas { max-width: 100%; height: auto; }
 
+@keyframes fade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes rise {
+  from { opacity: 0; transform: translateY(var(--rise-y, 18px)); }
+  to   { opacity: 1; transform: none; }
+}
+/* keyframes del diseño, disponibles para las demos de cada página */
+@keyframes latido { 0%,100% { opacity: 1; transform: scale(1); } 50% { opacity: .55; transform: scale(.82); } }
+@keyframes popIn { 0% { transform: scale(.4) translateY(8px); opacity: 0; } 60% { transform: scale(1.08); } 100% { transform: scale(1) translateY(0); opacity: 1; } }
+@keyframes glowPulse { 0%,100% { box-shadow: 0 0 0 0 transparent; } 50% { box-shadow: 0 0 30px 3px color-mix(in srgb, var(--accent) 35%, transparent); } }
+@keyframes blink { 0%,100% { opacity: 1; } 50% { opacity: 0; } }
+@keyframes flotar { 0%,100% { transform: translateY(0) rotate(-1deg); } 50% { transform: translateY(-14px) rotate(1deg); } }
+
+/* ============================================================
+   5. TIPOGRAFÍA
+   ============================================================ */
 .eyebrow {
-  font-size: 12px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase;
-  color: var(--accent); margin: 0 0 10px;
+  font-family: var(--f-mono);
+  font-size: 12.5px; font-weight: 500; letter-spacing: .16em; text-transform: uppercase;
+  color: var(--ambar); margin: 0 0 12px;
+  max-width: none;          /* es <p>: sin esto hereda el tope de 78ch y parte la línea */
 }
-h1, h2 {
-  font-family: "Sitka Heading", Cambria, Georgia, serif;
-  text-wrap: balance; line-height: 1.15; margin: 0 0 18px;
+h1, h2, h3 {
+  font-family: var(--f-display);
+  font-weight: 800; color: var(--ink);
+  text-wrap: balance; line-height: 1.08; letter-spacing: -.022em;
+  margin: 0 0 18px;
 }
-h1 { font-size: clamp(34px, 6vw, 56px); }
-h2 { font-size: clamp(26px, 4vw, 38px); }
-p { max-width: 62ch; }
-.lead { font-size: 1.12em; color: var(--muted); max-width: 58ch; }
-strong { color: var(--ink); }
+h1 { font-size: clamp(38px, 6.4vw, 68px); }
+h2 { font-size: clamp(28px, 4.4vw, 46px); }
+h3 { font-size: clamp(19px, 2vw, 24px); line-height: 1.2; }
+/* currentColor y no --accent: así el resplandor sigue al color que la
+   página le haya puesto al <em> (violeta, jade…) y no queda desfasado. */
+h1 em, h2 em { font-style: normal; color: var(--accent); text-shadow: 0 0 38px color-mix(in srgb, currentColor 40%, transparent); }
+p { max-width: 78ch; color: var(--body); }
+.lead { font-size: 1.16em; color: var(--muted); max-width: 74ch; }
+strong { color: var(--ink); font-weight: 700; }
 .muted { color: var(--muted); }
+a { color: var(--accent); text-underline-offset: 3px; }
 
-/* ---------- código ---------- */
+/* ============================================================
+   6. CÓDIGO
+   ============================================================ */
 pre.code {
   background: var(--code-bg); color: var(--code-ink);
-  border-radius: 10px; padding: 18px 20px;
-  font-family: "Cascadia Code", Consolas, "Courier New", monospace;
-  font-size: 15.5px; line-height: 1.7;
+  border: 1px solid var(--line);
+  border-radius: 14px; padding: 20px 22px;
+  font-family: var(--f-mono);
+  font-size: 15px; line-height: 1.75;
   overflow-x: auto; box-shadow: var(--shadow);
-  margin: 20px 0;
+  margin: 22px 0;
 }
 code.inline {
-  font-family: "Cascadia Code", Consolas, monospace;
-  font-size: .92em;
+  font-family: var(--f-mono);
+  font-size: .88em;
+  color: var(--ink);
   background: var(--surface2);
   border: 1px solid var(--line);
-  border-radius: 5px; padding: 1px 6px;
+  border-radius: 6px; padding: 1px 7px;
   white-space: nowrap;
 }
 
-/* tokens coloreados dentro de pre oscuro (colores fijos para ese fondo) */
+/* tokens coloreados dentro del bloque oscuro */
 .tk { position: relative; border-radius: 4px; padding: 1px 2px; cursor: help; }
-.tk-res { color: #F5A742; }
-.tk-id  { color: #7FB4FF; }
-.tk-num { color: #FF7EB0; }
-.tk-str { color: #7FD98F; }
-.tk-sym { color: #9FB3AE; }
+.tk-res { color: var(--tk-res); }
+.tk-id  { color: var(--tk-id); }
+.tk-num { color: var(--tk-num); }
+.tk-str { color: var(--tk-str); }
+.tk-sym { color: var(--tk-sym); }
 .tk:hover, .tk:focus { outline: 1px solid currentColor; }
 .tk::after {
   content: attr(data-cat);
   position: absolute; left: 50%; bottom: calc(100% + 8px); transform: translateX(-50%);
-  background: var(--surface); color: var(--ink);
+  background: var(--surface2); color: var(--ink);
   border: 1px solid var(--line); box-shadow: var(--shadow);
-  font-family: "Segoe UI", system-ui, sans-serif; font-size: 12.5px; font-weight: 600;
-  padding: 4px 10px; border-radius: 6px; white-space: nowrap;
+  font-family: var(--f-mono); font-size: 12px; font-weight: 500;
+  padding: 5px 11px; border-radius: 7px; white-space: nowrap;
   opacity: 0; pointer-events: none; transition: opacity .15s;
 }
 .tk:hover::after, .tk:focus::after { opacity: 1; }
 
 /* leyenda de categorías */
-.legend { display: flex; flex-wrap: wrap; gap: 10px 18px; margin: 14px 0 0; padding: 0; list-style: none; font-size: 14px; }
-.legend li { display: flex; align-items: center; gap: 7px; color: var(--muted); }
+.legend { display: flex; flex-wrap: wrap; gap: 10px 20px; margin: 14px 0 0; padding: 0; list-style: none; font-size: 14px; }
+.legend li { display: flex; align-items: center; gap: 8px; color: var(--muted); }
 .dot { width: 11px; height: 11px; border-radius: 3px; flex: none; }
 .dot-res { background: var(--tk-res); }
 .dot-id  { background: var(--tk-id); }
@@ -169,100 +302,257 @@ code.inline {
 .dot-str { background: var(--tk-str); }
 .dot-sym { background: var(--tk-sym); }
 
-/* ---------- tablas ---------- */
-.tablewrap { overflow-x: auto; margin: 20px 0; }
+/* ============================================================
+   7. TABLAS
+   ============================================================ */
+.tablewrap {
+  overflow-x: auto; margin: 22px 0;
+  border: 1px solid var(--line); border-radius: var(--radio);
+  background: var(--surface);
+}
 table { border-collapse: collapse; width: 100%; font-size: 15px; }
-th, td { text-align: left; padding: 10px 14px; border-bottom: 1px solid var(--line); vertical-align: top; }
-th { font-size: 12.5px; text-transform: uppercase; letter-spacing: .07em; color: var(--muted); }
-td code { font-family: "Cascadia Code", Consolas, monospace; font-size: .92em; }
+th, td { text-align: left; padding: 12px 16px; border-bottom: 1px solid var(--line); vertical-align: top; color: var(--body); }
+tr:last-child td { border-bottom: none; }
+th {
+  font-family: var(--f-mono);
+  font-size: 11.5px; text-transform: uppercase; letter-spacing: .12em;
+  color: var(--dim); font-weight: 500;
+  background: var(--surface2);
+}
+td strong { color: var(--ink); }
+td code { font-family: var(--f-mono); font-size: .9em; color: var(--ink); }
 
-/* ---------- tarjetas / pasos ---------- */
-.cards { display: grid; gap: 14px; margin: 22px 0; }
-.cards.three { grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
+/* ============================================================
+   8. TARJETAS · CALLOUTS
+   ============================================================ */
+.cards { display: grid; gap: 16px; margin: 24px 0; }
+.cards.three { grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); }
 .card {
-  background: var(--surface); border: 1px solid var(--line);
-  border-radius: 12px; padding: 18px 20px; box-shadow: var(--shadow);
+  background: linear-gradient(160deg, var(--surface), color-mix(in srgb, var(--surface) 70%, var(--bg)));
+  border: 1px solid var(--line);
+  border-radius: 18px; padding: 22px 24px; box-shadow: var(--shadow);
+  transition: transform .25s var(--ease-out), box-shadow .25s var(--ease-out), border-color .25s var(--ease-out);
+}
+.card:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--shadow-lift), 0 0 34px -12px var(--accent);
+  border-color: color-mix(in srgb, var(--accent) 55%, var(--line));
 }
 .card .step {
-  font-family: "Sitka Heading", Cambria, Georgia, serif;
-  font-size: 26px; color: var(--accent); font-weight: 700; margin-bottom: 6px;
+  font-family: var(--f-display);
+  font-size: 32px; font-weight: 800; color: var(--accent);
+  line-height: 1; margin-bottom: 10px;
 }
-.card h3 { margin: 0 0 8px; font-size: 16.5px; }
+.card h3 { margin: 0 0 8px; font-size: 17.5px; letter-spacing: -.01em; }
 .card p { margin: 0; font-size: 14.5px; color: var(--muted); }
 
 .callout {
+  border: 1px solid var(--line);
   border-left: 3px solid var(--accent);
-  background: var(--surface2);
-  border-radius: 0 10px 10px 0;
-  padding: 14px 18px; margin: 22px 0;
+  background: var(--surface);
+  border-radius: 0 14px 14px 0;
+  padding: 16px 20px; margin: 24px 0;
 }
 .callout p { margin: 0; }
+.callout.warn {
+  border-left-color: var(--ambar);
+  background: color-mix(in srgb, var(--ambar) 8%, var(--surface));
+}
 
-/* ---------- quiz ---------- */
-.quiz { margin: 22px 0; display: grid; gap: 16px; }
+/* ============================================================
+   9. QUIZ
+   ============================================================ */
+.quiz { margin: 24px 0; display: grid; gap: 16px; }
 .q {
   background: var(--surface); border: 1px solid var(--line);
-  border-radius: 12px; padding: 18px 20px; box-shadow: var(--shadow);
+  border-radius: 18px; padding: 20px 22px; box-shadow: var(--shadow);
 }
-.q p.question { margin: 0 0 12px; font-weight: 600; }
-.q .answer { display: none; border-top: 1px dashed var(--line); padding-top: 12px; margin-top: 4px; }
+.q p.question { margin: 0 0 14px; font-weight: 700; color: var(--ink); }
+.q .answer { display: none; border-top: 1px dashed var(--line); padding-top: 14px; margin-top: 4px; }
 .q .answer p { margin: 0; color: var(--muted); font-size: 15px; }
-.q.revealed .answer { display: block; }
+.q.revealed .answer { display: block; animation: rise .45s var(--ease-out) both; }
 .q button {
-  font: inherit; font-size: 14px; font-weight: 600;
-  color: var(--accent); background: none;
-  border: 1px solid var(--accent); border-radius: 8px;
-  padding: 6px 14px; cursor: pointer;
+  font-family: var(--f-mono); font-size: 13.5px; font-weight: 500;
+  color: var(--accent); background: color-mix(in srgb, var(--accent) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent) 45%, transparent);
+  border-radius: 10px; padding: 8px 16px; cursor: pointer;
+  transition: background .2s var(--ease-out), color .2s var(--ease-out);
 }
 .q button:hover { background: var(--accent); color: var(--accent-ink); }
 .q.revealed button { display: none; }
 
-/* ---------- roadmap (índice) ---------- */
-.roadmap { list-style: none; margin: 24px 0; padding: 0; display: grid; gap: 10px; }
+/* ============================================================
+   10. ROADMAP (índice)
+   ============================================================ */
+.roadmap { list-style: none; margin: 26px 0; padding: 0; display: grid; gap: 11px; }
 .roadmap li {
-  display: flex; align-items: baseline; gap: 14px;
-  background: var(--surface); border: 1px solid var(--line);
-  border-radius: 10px; padding: 12px 16px;
+  display: flex; align-items: baseline; gap: 16px;
+  background: linear-gradient(90deg, var(--surface), color-mix(in srgb, var(--surface) 60%, var(--bg)));
+  border: 1px solid var(--line);
+  border-radius: 14px; padding: 14px 18px;
+  transition: transform .25s var(--ease-out), border-color .25s var(--ease-out), box-shadow .25s var(--ease-out);
 }
 .roadmap li.linked { padding: 0; }
 .roadmap li.linked > a {
-  display: flex; align-items: baseline; gap: 14px; flex: 1;
-  padding: 12px 16px; color: inherit; text-decoration: none; border-radius: 10px;
+  display: flex; align-items: baseline; gap: 16px; flex: 1;
+  padding: 14px 18px; color: var(--body); text-decoration: none; border-radius: 14px;
 }
-.roadmap li.linked:hover { border-color: var(--accent); }
+.roadmap li.linked:hover {
+  border-color: var(--accent);
+  transform: translateX(6px);
+  box-shadow: var(--shadow), 0 0 30px -14px var(--accent);
+}
 .roadmap .num {
-  font-family: "Cascadia Code", Consolas, monospace;
-  font-size: 13px; color: var(--muted); flex: none; width: 62px;
+  font-family: var(--f-mono);
+  font-size: 12.5px; color: var(--dim); flex: none; width: 66px;
 }
 .roadmap li.now { border-color: var(--accent); }
 .roadmap li.now .num { color: var(--accent); font-weight: 700; }
-.roadmap .state { margin-left: auto; font-size: 12px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); white-space: nowrap; }
+.roadmap .state {
+  margin-left: auto; font-family: var(--f-mono);
+  font-size: 11px; letter-spacing: .12em; text-transform: uppercase;
+  color: var(--dim); white-space: nowrap;
+}
 .roadmap li.now .state { color: var(--accent); font-weight: 700; }
 
-/* ---------- navegación inferior ---------- */
+/* ============================================================
+   11. NAVEGACIÓN INFERIOR
+   ============================================================ */
 .navbar {
   flex: none; display: flex; align-items: center; justify-content: center; gap: 14px;
-  padding: 12px 20px; border-top: 1px solid var(--line);
+  padding: 13px 20px; border-top: 1px solid var(--line);
+  background: linear-gradient(0deg, var(--surface), transparent);
 }
 .navbar button, .btn {
-  font: inherit; font-size: 15px; font-weight: 600;
-  background: var(--surface); color: var(--ink);
-  border: 1px solid var(--line); border-radius: 10px;
-  padding: 8px 22px; cursor: pointer; box-shadow: var(--shadow);
+  font-family: var(--f-mono); font-size: 14.5px; font-weight: 500;
+  background: var(--surface2); color: var(--body);
+  border: 1px solid var(--line); border-radius: 12px;
+  padding: 10px 24px; cursor: pointer; box-shadow: var(--shadow);
   text-decoration: none; display: inline-block;
+  transition: transform .2s var(--ease-out), border-color .2s var(--ease-out), color .2s var(--ease-out), box-shadow .2s var(--ease-out);
 }
-.navbar button:hover:not(:disabled), .btn:hover { border-color: var(--accent); color: var(--accent); }
-.navbar button:disabled { opacity: .35; cursor: default; }
-.navbar .hint { font-size: 12.5px; color: var(--muted); }
-.btn.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
-.btn.primary:hover { filter: brightness(1.08); color: var(--accent-ink); }
-button:focus-visible, .tk:focus-visible, a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.navbar button:hover:not(:disabled), .btn:hover {
+  border-color: var(--accent); color: var(--accent);
+  transform: translateY(-2px); box-shadow: var(--shadow-lift);
+}
+.navbar button:active:not(:disabled), .btn:active { transform: translateY(0); }
+.navbar button:disabled { opacity: .3; cursor: default; }
+.navbar .hint { font-family: var(--f-mono); font-size: 12px; color: var(--dim); }
+.btn.primary {
+  background: var(--accent); color: var(--accent-ink);
+  border-color: var(--accent); font-weight: 700;
+}
+.btn.primary:hover { filter: brightness(1.1); color: var(--accent-ink); }
+button:focus-visible, .tk:focus-visible, a:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
 
+/* ============================================================
+   12. DIAPOSITIVA DE TÍTULO
+   ============================================================ */
 .titleslide { display: flex; flex-direction: column; justify-content: center; min-height: 100%; }
-.titleslide .lead { font-size: 1.2em; }
-.kicker { color: var(--muted); font-size: 14px; margin-top: 26px; }
+.titleslide .lead { font-size: 1.24em; }
+.kicker { font-family: var(--f-mono); color: var(--dim); font-size: 13.5px; margin-top: 28px; max-width: 108ch; }
 
-/* ---------- página índice (hub) ---------- */
-.hub { min-height: 100dvh; display: flex; flex-direction: column; }
-.hub-main { flex: 1; width: 100%; max-width: 860px; margin: 0 auto; padding: 48px 24px 64px; }
-.hub-main h1 { margin-top: 8px; }
+/* ============================================================
+   13. PÁGINA ÍNDICE (hub)
+   ============================================================ */
+.hub {
+  min-height: 100dvh; display: flex; flex-direction: column;
+  background:
+    radial-gradient(120% 70% at 82% 0%, color-mix(in srgb, var(--accent) 11%, transparent) 0%, transparent 55%),
+    radial-gradient(90% 60% at 4% 100%, color-mix(in srgb, var(--jade) 8%, transparent) 0%, transparent 55%);
+}
+.hub-main { flex: 1; width: 100%; max-width: 1400px; margin: 0 auto; padding: 56px clamp(20px, 5vw, 96px) 80px; }
+.hub-main h1 { margin-top: 10px; }
+
+/* Motion del hub: el encabezado entra primero, el roadmap lo sigue. */
+.hub-main > * { animation: rise .55s var(--ease-out) both; }
+.hub-main > *:nth-child(1) { animation-delay: .02s; }
+.hub-main > *:nth-child(2) { animation-delay: .08s; }
+.hub-main > *:nth-child(3) { animation-delay: .14s; }
+.hub-main > *:nth-child(4) { animation-delay: .20s; }
+.hub-main > *:nth-child(5) { animation-delay: .26s; }
+.hub-main > *:nth-child(6) { animation-delay: .32s; }
+.hub-main > *:nth-child(7) { animation-delay: .38s; }
+.hub .roadmap li { animation: rise .5s var(--ease-out) both; }
+.hub .roadmap li:nth-child(1) { animation-delay: .22s; }
+.hub .roadmap li:nth-child(2) { animation-delay: .28s; }
+.hub .roadmap li:nth-child(3) { animation-delay: .34s; }
+.hub .roadmap li:nth-child(4) { animation-delay: .40s; }
+.hub .roadmap li:nth-child(5) { animation-delay: .46s; }
+.hub .roadmap li:nth-child(6) { animation-delay: .52s; }
+.hub .roadmap li:nth-child(7) { animation-delay: .58s; }
+.hub .roadmap li:nth-child(8) { animation-delay: .64s; }
+.hub .roadmap li:nth-child(9) { animation-delay: .70s; }
+.hub .roadmap li:nth-child(10) { animation-delay: .76s; }
+
+/* ============================================================
+   14. RESPONSIVE
+
+   Los decks se abren en el portátil, en el proyector del salón
+   y a veces en media pantalla. Estas reglas evitan los tres
+   modos de rotura reales: la barra superior que desborda, los
+   grids que no bajan a una columna, y el código que estira la
+   página a lo ancho.
+   ============================================================ */
+
+/* código: nunca estira la página; scrollea dentro de su caja */
+pre.code, .tablewrap { max-width: 100%; }
+pre.code { overscroll-behavior-x: contain; }
+
+/* --- ventana angosta o media pantalla --- */
+@media (max-width: 1100px) {
+  .cards.three { grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
+  .slide .inner { max-width: none; }
+}
+
+/* --- portátil chico / tablet --- */
+@media (max-width: 820px) {
+  body { font-size: 16px; }
+  .slide { padding: 34px 18px 60px; }
+  .hub-main { padding: 34px 18px 64px; }
+  .cards.three { grid-template-columns: 1fr; }
+
+  /* la barra superior deja de ser una sola línea */
+  .topbar { flex-wrap: wrap; gap: 8px 10px; padding: 10px 14px; }
+  .topbar .brand { font-size: 14px; }
+  .topbar .counter { margin-left: auto; }
+
+  .navbar { flex-wrap: wrap; padding: 10px 14px; }
+  .navbar .hint { display: none; }         /* no hay teclado que valga en táctil */
+  .navbar button, .btn { padding: 9px 18px; font-size: 14px; }
+
+  /* el roadmap del índice deja de empujar el estado fuera de la fila */
+  .roadmap li.linked > a, .roadmap li { flex-wrap: wrap; gap: 6px 12px; }
+  .roadmap .num { width: auto; }
+  .roadmap .state { margin-left: 0; }
+
+  /* grids de dos columnas de las páginas de demo */
+  .escena { grid-template-columns: 1fr !important; }
+}
+
+/* --- teléfono --- */
+@media (max-width: 520px) {
+  .slide { padding: 26px 14px 56px; }
+  .hub-main { padding: 26px 14px 56px; }
+  pre.code { font-size: 13.5px; padding: 14px 15px; }
+  th, td { padding: 9px 11px; }
+  .card { padding: 18px 18px; }
+  .topbar .chip { display: none; }         /* el título ya dice dónde estamos */
+}
+
+/* --- pantallas muy altas: que el contenido no quede pegado arriba --- */
+@media (min-height: 1100px) {
+  .slide { padding-top: 72px; }
+}
+
+/* ============================================================
+   15. ACCESIBILIDAD — sin movimiento si el sistema lo pide
+   ============================================================ */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: .01ms !important;
+    animation-delay: 0ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .01ms !important;
+  }
+}

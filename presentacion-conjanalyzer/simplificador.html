@@ -181,7 +181,26 @@
       </div>
     </section>
 
-    <!-- 6 · Cierre -->
+    <!-- 6 · El nodo inmutable -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">Por qué la reescritura es segura</p>
+        <h2>El nodo inmutable es lo que hace barato compartir subárboles</h2>
+        <p>Cada regla del simplificador construye un árbol <em>nuevo</em> reutilizando subárboles del viejo: la distributiva <code class="inline">(A∩B)∪(A∩C) → A∩(B∪C)</code> mete el mismo objeto <code class="inline">A</code> en el resultado en vez de clonarlo. Eso sería una bomba de tiempo — mutar <code class="inline">A</code> más tarde cambiaría el árbol original a espaldas de todos — salvo por una decisión tomada al principio:</p>
+        <pre class="code"><span class="tk-res">public class</span> NodoOperacion {
+    <span class="tk-res">public final char</span> op;                <span class="tk-sym">// 'U' '&amp;' '-' '^'  o  '\0' si es hoja</span>
+    <span class="tk-res">public final</span> String nombreConj;      <span class="tk-sym">// solo hojas</span>
+    <span class="tk-res">public final</span> NodoOperacion izq;      <span class="tk-sym">// hijos: tambien finales</span>
+    <span class="tk-res">public final</span> NodoOperacion der;
+
+    <span class="tk-sym">// se construye solo por fabricas estaticas: hoja(), unario(), binario()</span>
+}</pre>
+        <div class="callout"><p><strong>Los cuatro campos son <code class="inline">final</code>: el nodo no se puede mutar después de creado.</strong> Por eso compartir es seguro y no hacen falta copias defensivas — la reescritura crea nodos nuevos donde cambia algo y reutiliza referencias donde no. Es el mismo motivo por el que <code class="inline">String</code> es inmutable en Java. Si preguntan «¿no se corrompe el árbol original al simplificar?», la respuesta es esta línea de código, no una explicación.</p></div>
+        <p class="muted">Verificado en <code class="inline">NodoOperacion.java</code> durante la revisión de código (Fase C, 2026-07-22).</p>
+      </div>
+    </section>
+
+    <!-- 7 · Cierre -->
     <section class="slide">
       <div class="inner titleslide">
         <p class="eyebrow">Resumen en una pantalla</p>

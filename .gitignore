@@ -1,0 +1,11 @@
+# Conversiones a Markdown de los PDFs (caché de trabajo de /doc2md).
+# Se regeneran a demanda desde el PDF; son ~5.5 MB de texto derivado.
+doc/Boocks/dragon-md/
+doc/Boocks/*.md
+
+# Artefactos de build de los proyectos Java
+target/
+*.class
+
+# Node
+node_modules/

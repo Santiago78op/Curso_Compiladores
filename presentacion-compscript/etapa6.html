@@ -133,7 +133,15 @@ Valor retorno = <span class="tk-res">null</span>;
         caller.errorSemantico("el metodo '" + id + "' es void y no puede retornar un valor", l, c);
     <span class="tk-res">return</span> Valor.VOID;
 }</pre>
-        <p class="muted">Sin sobrecarga: el enunciado exige que un mismo identificador no pueda nombrar más de una función/método/struct — error semántico si se repite.</p>
+        <p class="muted">Sin sobrecarga <strong>de funciones</strong>: el enunciado exige que un mismo identificador no pueda nombrar más de una función/método/struct — error semántico si se repite.</p>
+        <div class="callout"><p><strong>Ojo con el término, que se presta a confusión en la defensa:</strong> lo de arriba es sobrecarga de <em>funciones</em>. CompScript <strong>sí</strong> tiene <strong>sobrecarga de operadores</strong> (Dragón <strong>§6.5.3</strong>), y está en <code class="inline">Operaciones.suma</code>: el mismo <code class="inline">+</code> significa cosas distintas según la <em>firma</em> ⟨operador, tipo izquierdo, tipo derecho⟩ — <code class="inline">int+int→int</code>, <code class="inline">char+char→string</code>, y cualquier primitivo con <code class="inline">string</code> concatena. Cada fila de la tabla de compatibilidad <em>es</em> una firma. Que el código nunca use la palabra no cambia el concepto.</p></div>
+        <div class="callout warn"><p><strong>Trampa de examen — el valor por defecto de <code class="inline">bool</code> no es <code class="inline">false</code>.</strong> La tabla 5.3 del enunciado fija los defaults y para booleano dice <strong><code class="inline">true</code></strong>, contra la intuición de quien viene de Java o C. Está implementado así en <code class="inline">A.defecto()</code>:</p>
+        <pre class="code"><span class="tk-res">case</span> INT:    <span class="tk-res">return</span> Valor.vInt(0);
+<span class="tk-res">case</span> DOUBLE: <span class="tk-res">return</span> Valor.vDouble(0.0);
+<span class="tk-res">case</span> BOOL:   <span class="tk-res">return</span> Valor.vBool(<span class="tk-res">true</span>);      <span class="tk-sym">// default true (5.3)  &lt;-- no es false</span>
+<span class="tk-res">case</span> CHAR:   <span class="tk-res">return</span> Valor.vChar(<span class="tk-str">' '</span>);
+<span class="tk-res">case</span> STRING: <span class="tk-res">return</span> Valor.vString(<span class="tk-str">""</span>);</pre></div>
+        <p class="muted">CompInterpreter implementa la misma tabla en <code class="inline">tipos.js → valorPorDefecto()</code>, también con <code class="inline">BOOL → true</code>. Si en la defensa se declara un <code class="inline">bool</code> sin inicializar y el intérprete imprime <code class="inline">true</code>, no es un bug: es el enunciado. Conviene tener la tabla 5.3 a mano para señalarla.</p>
       </div>
     </section>
 

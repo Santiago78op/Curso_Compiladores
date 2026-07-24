@@ -112,9 +112,9 @@
   .caja.current.shown { animation: brillo 1s ease 1; }
 
   /* error: cuando la derivación se atasca */
-  .t.err { border-color: #C43A3A; color: #C43A3A; }
+  .t.err { border-color: var(--danger); color: var(--danger); }
   .paso .veredicto-ok { color: var(--tk-str); font-weight: 700; }
-  .paso .veredicto-err { color: #C43A3A; font-weight: 700; }
+  .paso .veredicto-err { color: var(--danger); font-weight: 700; }
 
   /* dos árboles lado a lado (ambigüedad) */
   .dos { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px; margin: 20px 0; }
