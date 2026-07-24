@@ -1,7 +1,7 @@
 ---
 tags: [concepto, semantico]
-aliases: [frame, activation record, stack frame, pila de llamadas, árbol de activación, "enlace de acceso", "enlace de control", "alcance dinámico accidental", closure]
-fuente: "Libro del Dragón §7.2 (árbol de activación) y §7.3.5–7.3.7 (enlaces)"
+aliases: [frame, activation record, stack frame, pila de llamadas, árbol de activación, "enlace de acceso", "enlace de control", "alcance dinámico accidental", closure, "desbordamiento de pila", StackOverflowError, "guarda de profundidad", "recursión sin caso base"]
+fuente: "Libro del Dragón §7.2 (árbol de activación) y §7.3.5–7.3.7 (enlaces) · medición en CompScript vs VLangCherry (Fase C, 2026-07-22)"
 fecha: 2026-07-24
 ---
 
@@ -37,6 +37,19 @@ En `fib(5)`, cuando se está evaluando la rama más profunda, en la pila convive
 
 En un intérprete esta distinción **es** el bug: si al invocar una función creás su entorno como hijo del **entorno actual (el del llamador)** en vez del **entorno de declaración** (el global, o el de la función que la contiene), obtenés **alcance dinámico accidental** — una local del llamador se "filtra" a la función llamada. Por eso los proyectos crean el entorno de la función colgado del **global**, no del llamador: `NuevoEntorno(fn.Nombre, in.entGlobal)` en [[VLangCherry]], "el padre es siempre el global" en [[CompScript]], params en un hijo del global en [[CompInterpreter]]. Es la respuesta a *"¿por qué el entorno de una función cuelga del global y no de quien la llama?"* (ver [[Entornos y alcance]]).
 
+## Cuando la pila se acaba: la misma teoría, dos runtimes opuestos
+
+La pila es **finita**, así que una recursión sin caso base la agota. Lo interesante —y medido en los proyectos de este curso— es que **la consecuencia depende del lenguaje anfitrión del intérprete**, no de la teoría:
+
+| Anfitrión | Qué pasa al agotar la pila | ¿Se puede atrapar? | Consecuencia para el intérprete |
+|---|---|---|---|
+| **Java** ([[CompScript]]) | Lanza `StackOverflowError` | **Sí**: es un `Throwable`, se captura | Se reporta "recursión demasiado profunda" con línea y columna, y el intérprete sigue vivo |
+| **Go** ([[VLangCherry]]) | `fatal error: stack overflow` | **No**: `recover()` no intercepta errores fatales | **Muere el proceso entero** — y como es un servidor REST, se cae para todos, no solo para esa petición |
+
+De ahí una conclusión de ingeniería que la teoría sola no da: en Go la protección tiene que ser **preventiva**, no reactiva. [[VLangCherry]] lleva un contador de **profundidad de llamadas** (tope 2 000) en su `invocarFuncion` y un contador de **iteraciones por ciclo** (tope 1 000 000) en su `for`, que reportan un [[Políticas de error semántico|error semántico]] *antes* de que el problema llegue a ser fatal. `recover()` sigue estando, pero para panics normales; no alcanza para este caso.
+
+Es una buena respuesta a *"¿qué pasa si alguien manda una recursión infinita a tu servidor?"* — y la comparación Java/Go muestra que se entendió el porqué, no solo el qué.
+
 ## Funciones como parámetro = closures (§7.3.7)
 
 Cuando se pasa una función como argumento, se pasa el par **⟨función, enlace de acceso⟩** (fig. 7.13) — para que, al invocarla, siga viendo el entorno donde fue **declarada** y no donde se llama. Ese par es lo que los lenguajes modernos llaman **closure**. Es la teoría detrás de callbacks/funciones-valor (relevante para CompInterpreter en JS) y la respuesta a "¿qué pasaría si tu lenguaje devolviera funciones?".
@@ -47,4 +60,5 @@ Cuando se pasa una función como argumento, se pasa el par **⟨función, enlace
 - [[Recolección de basura]]
 - [[Tabla de símbolos]]
 - [[Recorridos de árboles (preorden y postorden)]]
+- [[Políticas de error semántico]]
 - [[Cap 7 - Entornos en tiempo de ejecución]]

@@ -1,7 +1,7 @@
 ---
 tags: [concepto, semantico]
-aliases: ["síntesis de tipos", "inferencia de tipos", "sobrecarga de operadores", "sobrecarga por firma", "resolución de sobrecarga"]
-fuente: "Libro del Dragón §6.5 (§6.5.3 sobrecarga) y §2.8.3"
+aliases: ["síntesis de tipos", "inferencia de tipos", "sobrecarga de operadores", "sobrecarga por firma", "resolución de sobrecarga", "valor por defecto", "valores por defecto de un tipo"]
+fuente: "Libro del Dragón §6.5 (§6.5.3 sobrecarga) y §2.8.3 · enunciados de CompScript y CompInterpreter (tabla 5.3)"
 fecha: 2026-07-24
 ---
 
@@ -21,8 +21,17 @@ Un símbolo **sobrecargado** tiene **distintos significados según su contexto**
 
 La resolución por firma se implementa eficientemente con el **número de valor** (hash de `⟨etiqueta, hijos⟩`), y es síntesis de tipos: la regla (6.10) elige `f(x): tₖ` según el tipo `sₖ` del argumento.
 
+## El valor por defecto de cada tipo — y una trampa
+
+Un sistema de tipos también define con qué valor arranca una variable **declarada sin inicializar**. Es puro convenio del lenguaje, no teoría: hay que leer la tabla del enunciado y no asumir la del lenguaje anfitrión.
+
+La trampa concreta del curso: en [[CompScript]] y [[CompInterpreter]] la tabla 5.3 fija el default de **`bool` en `true`**, contra la intuición de quien viene de Java o C (donde es `false`). Ambos lo implementan así — `A.defecto()` y `valorPorDefecto()` respectivamente. Si en la defensa se declara un `bool` sin inicializar y el intérprete imprime `true`, **no es un bug: es el enunciado**. Conviene tener la tabla a mano para señalarla.
+
+Caso aparte son los tipos **compuestos** (slice, struct): su valor por defecto debe conservar el **tipo declarado** aunque el contenido arranque en nil, o toda asignación posterior falla al compararse contra un "nil sin tipo" — bug real encontrado en [[VLangCherry]] y corregido.
+
 ## Relacionadas
 - [[Conversión de tipos (coerción y cast)]]
 - [[Manejo de errores (léxicos, sintácticos, semánticos)]]
+- [[Políticas de error semántico]]
 - [[Atributos sintetizados y heredados]]
 - [[Cap 6 - Generación de código intermedio]]

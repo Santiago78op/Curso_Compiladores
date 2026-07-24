@@ -27,9 +27,16 @@ Es la implementación concreta del pánico sintáctico en un parser LR, y es exa
 
 El efecto: **un error por instrucción rota, y el análisis sigue** — justo lo que exige el reporte de errores del curso. (Las otras 3 estrategias del §4.1.4: nivel de frase, producciones de error, corrección global.)
 
-Los errores **semánticos** no usan modo pánico: se reportan donde se detectan y (según el proyecto) se aborta o se acumula y sigue. Los 4 proyectos generan un **reporte de errores** con tipo, descripción, línea y columna.
+## Los semánticos no tienen modo pánico
+
+Los errores **semánticos** se reportan donde se detectan, y qué hacer después **no lo define el libro sino el enunciado**: abortar, propagar un valor nulo, o acumular y seguir. Los cinco proyectos del curso eligieron tres caminos distintos y los tres se defienden — la comparación completa está en [[Políticas de error semántico]].
+
+Los 4 proyectos generan un **reporte de errores** con tipo, descripción, línea y columna.
+
+> **Detalle de implementación que se paga caro:** si el pipeline es *best-effort* (sigue traduciendo aunque el parseo haya fallado, para juntar todos los errores), hay que evitar que el panic esperable de recorrer un árbol roto se presente al usuario como un "error interno". Junto a un error sintáctico real, ese ruido hace parecer que el intérprete se rompió cuando en realidad detectó bien el problema. Bug real corregido en [[VLangCherry]].
 
 ## Relacionadas
+- [[Políticas de error semántico]]
 - [[Comprobación de tipos]]
 - [[FIRST y FOLLOW]]
 - [[Elementos LR(0) y la tabla SLR]]
