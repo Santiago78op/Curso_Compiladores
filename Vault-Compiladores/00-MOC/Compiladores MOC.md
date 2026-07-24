@@ -13,7 +13,7 @@ Mapa de contenido del segundo cerebro de **teoría de compiladores** (curso *Org
 
 **Léxico** `#lexico`: [[Token, lexema y patrón]] · [[Expresiones regulares]] · [[Definiciones regulares]] · [[Autómata finito (AFN y AFD)]] · [[Construcción de Thompson]] · [[Construcción de subconjuntos]] · [[Minimización de AFD]] · [[Del autómata al analizador léxico]]
 
-**Sintáctico** `#sintactico`: [[Gramática libre de contexto (BNF)]] · [[Derivaciones y árbol de análisis sintáctico]] · [[Ambigüedad, precedencia y asociatividad]] · [[Recursividad por la izquierda y factorización]] · [[FIRST y FOLLOW]] · [[Análisis sintáctico descendente LL(1)]] · [[Análisis sintáctico ascendente LR]] · [[Conflictos shift-reduce y reduce-reduce]]
+**Sintáctico** `#sintactico`: [[Gramática libre de contexto (BNF)]] · [[Derivaciones y árbol de análisis sintáctico]] · [[Ambigüedad, precedencia y asociatividad]] · [[Recursividad por la izquierda y factorización]] · [[FIRST y FOLLOW]] · [[Análisis sintáctico descendente LL(1)]] · [[Análisis sintáctico ascendente LR]] · [[Elementos LR(0) y la tabla SLR]] · [[Conflictos shift-reduce y reduce-reduce]]
 
 **Semántico** `#semantico`: [[Traducción dirigida por la sintaxis]] · [[Atributos sintetizados y heredados]] · [[Árbol de sintaxis abstracta (AST)]] · [[Recorridos de árboles (preorden y postorden)]] · [[Comprobación de tipos]] · [[Conversión de tipos (coerción y cast)]] · [[Flujo de control y switch]] · [[Tabla de símbolos]] · [[Entornos y alcance]] · [[Paso de parámetros]] · [[Registro de activación y pila de control]]
 

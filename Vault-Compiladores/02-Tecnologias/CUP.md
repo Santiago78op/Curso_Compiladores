@@ -31,6 +31,7 @@ expr ::= expr:a PLUS expr:b {: RESULT = (Double)a + (Double)b; :}
 
 - `:x` nombra el valor de un símbolo; `RESULT` = valor de la regla.
 - `precedence left/right/nonassoc` resuelve [[Conflictos shift-reduce y reduce-reduce|conflictos]].
+- El token reservado `error` en una producción (`instruccion ::= error PUNTO_COMA`) activa la recuperación en modo pánico — ver la mecánica en [[Manejo de errores (léxicos, sintácticos, semánticos)]] (§4.9.4).
 - **Comando manual:** `java -jar java-cup-11b.jar -parser Parser -symbols sym Sintaxis.cup` → genera `Parser.java` y `sym.java`.
 
 ## Integración con Maven (recomendado)
