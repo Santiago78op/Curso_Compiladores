@@ -3,9 +3,17 @@
 doc/Boocks/dragon-md/
 doc/Boocks/*.md
 
-# Artefactos de build de los proyectos Java
+# Artefactos de build de los proyectos Java (Maven).
+# Ojo: target/ contiene TAMBIÉN el código generado por JFlex y CUP
+# (Lexer.java, Parser.java, sym.java en target/generated-sources/).
+# Es correcto no versionarlo: lo regenera `mvn compile` en la fase
+# generate-sources. Las fuentes de verdad son los .flex y los .cup.
 target/
 *.class
 
 # Node
 node_modules/
+
+# NO ignorar *.jar de forma global: VLangCherry/tools/antlr.jar es una
+# herramienta versionada a propósito — es la que regenera el parser
+# (ver presentacion-vlangcherry/GuionClase.md:299).
