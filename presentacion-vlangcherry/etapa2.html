@@ -58,7 +58,7 @@
       <div class="inner">
         <p class="eyebrow">Decisión de diseño 2 — la más importante de la etapa</p>
         <h2>El traductor: <code class="inline">type-switch</code> en vez de Visitor generado</h2>
-        <p>ANTLR genera una interfaz <code class="inline">VLangCherryVisitor</code> con un método por cada regla/alternativa etiquetada — el patrón <em>Visitor</em> clásico del Dragón (doble despacho <code class="inline">accept</code>/<code class="inline">visit</code>). Implementarla completa significa escribir <strong>~60 firmas</strong> en <code class="inline">BaseVLangCherryVisitor</code>.</p>
+        <p>ANTLR genera una interfaz <code class="inline">VLangCherryVisitor</code> con un método por cada regla/alternativa etiquetada — el patrón <em>Visitor</em> clásico (de GoF, doble despacho <code class="inline">accept</code>/<code class="inline">visit</code>), emparentado con los recorridos y definiciones dirigidas por sintaxis del Dragón (§2.3/§5.4). Implementarla completa significa escribir <strong>~60 firmas</strong> en <code class="inline">BaseVLangCherryVisitor</code>.</p>
         <p>El comentario de cabecera de <code class="inline">internal/traductor/traductor.go</code> documenta la alternativa elegida:</p>
         <pre class="code">// Package traductor convierte el parse tree que genera ANTLR en el AST
 // propio de internal/ast. No usa el patron Visitor generado: como cada

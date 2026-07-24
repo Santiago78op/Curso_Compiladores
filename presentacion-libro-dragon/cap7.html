@@ -140,7 +140,7 @@
 └───────────────────┘</pre>
         <p>La división responde a una pregunta por zona: ¿cuánto vive cada dato? El código y lo estático viven <em>todo el programa</em>; lo de la pila vive <em>lo que dura su llamada</em>; lo del heap vive <em>hasta que nadie lo usa</em>.</p>
         <div class="callout"><p>El intérprete corre <em>dentro</em> de la JVM, que ya tiene sus cuatro zonas. Pero el vocabulario aplica también acá: cuando CompScript ejecute una recursión sin caso base, la pila de entornos crecerá hasta reventar — y queda claro que el <code class="inline">StackOverflowError</code> de Java es literalmente esto: la pila chocando contra el heap.</p></div>
-        <p class="muted">Fuente: Dragón §7.1.1, fig. 7.2 (subdivisión típica de la memoria).</p>
+        <p class="muted">Fuente: Dragón §7.1.1, fig. 7.1 (subdivisión típica de la memoria).</p>
       </div>
     </section>
 

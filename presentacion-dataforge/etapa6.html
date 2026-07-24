@@ -75,7 +75,7 @@
     <!-- 4 · Modo pánico -->
     <section class="slide">
       <div class="inner">
-        <p class="eyebrow">Pieza 2 · la teoría de la etapa · Dragón §4.8.3</p>
+        <p class="eyebrow">Pieza 2 · la teoría de la etapa · Dragón §4.8.3 (modo pánico) y §4.9.4 (el token <code class="inline">error</code> de Yacc/CUP)</p>
         <h2>Recuperación en modo pánico: el terminal <code class="inline">error</code></h2>
         <p>Hasta hoy, el primer error sintáctico mataba el análisis (<em>«Couldn't repair and continue parse»</em>). Pero el reporte quiere <strong>todos</strong> los errores. La herramienta es un terminal especial que CUP (y Yacc, y Jison) traen de fábrica:</p>
         <pre class="code">instruccion ::= decl_var | decl_arr | imprimir | columna | grafica

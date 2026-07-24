@@ -148,7 +148,7 @@
             </tbody>
           </table>
         </div>
-        <div class="callout"><p>La línea <code class="inline">instruccion ::= error PUNTO_COMA {: registrarError(…); :}</code> es la <strong>③ hecha con ②①</strong>: la producción de error le dice a CUP «si una instrucción no matchea nada, entrar en pánico, descartar hasta el <code class="inline">;</code> y reducir esto como instrucción fallida». Un error por instrucción rota, y el análisis continúa — exactamente lo que exigen los reportes.</p></div>
+        <div class="callout"><p>La línea <code class="inline">instruccion ::= error PUNTO_COMA {: registrarError(…); :}</code> es la <strong>③ implementada con ①</strong>: la producción de error le dice a CUP «si una instrucción no matchea nada, entrar en pánico, descartar hasta el <code class="inline">;</code> y reducir esto como instrucción fallida». Un error por instrucción rota, y el análisis continúa — exactamente lo que exigen los reportes.</p></div>
         <p class="muted">Fuente: Dragón §4.1.4 (estrategias), §4.8.3 (recuperación en Yacc con el token <code class="inline">error</code>).</p>
       </div>
     </section>

@@ -130,7 +130,7 @@ operacion   ::= UNION operacion:a operacion:b
 
 sentencia   ::= def_conj | def_opera | evaluar_stmt
               | error PUNTO_COMA ;   <span class="tk-sym">// recuperacion en modo panico</span></pre>
-        <p>La alternativa con el terminal especial <code class="inline">error</code> es la misma técnica de DataForge (Dragón §4.8.3): ante un error sintáctico, CUP descarta símbolos hasta poder desplazar <code class="inline">error</code>, y luego descarta tokens hasta el siguiente <code class="inline">;</code>. El análisis <strong>continúa</strong> — no se detiene en la primera falla.</p>
+        <p>La alternativa con el terminal especial <code class="inline">error</code> es la misma técnica de DataForge (Dragón §4.9.4, el mecanismo del token <code class="inline">error</code> de Yacc/CUP): ante un error sintáctico, CUP descarta símbolos hasta poder desplazar <code class="inline">error</code>, y luego descarta tokens hasta el siguiente <code class="inline">;</code>. El análisis <strong>continúa</strong> — no se detiene en la primera falla.</p>
         <div class="callout"><p><strong>Verificado con <code class="inline">ejemplo2_errores.ca</code>:</strong> <code class="inline">CONJ : -> a~z;</code> (falta el ID) reporta <em>"no se esperaba '->'"</em>, y <code class="inline">OPERA : mala -> U {vocales} ;</code> (falta el segundo operando) reporta <em>"no se esperaba ';'"</em>. Ambos errores se registran y la sentencia <code class="inline">buena</code> que viene después se define y evalúa sin problema.</p></div>
       </div>
     </section>

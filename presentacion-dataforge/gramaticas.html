@@ -457,7 +457,7 @@
             </tbody>
           </table>
         </div>
-        <div class="callout"><p>La jerarquía del libro (§4.5): las gramáticas LL(1) son un subconjunto de las LR(1). Por eso los generadores serios eligieron LR: <strong>aceptan más gramáticas escritas de forma natural</strong> — como la nuestra, con su recursión izquierda y sin transformaciones raras.</p></div>
+        <div class="callout"><p>La jerarquía del libro (§4.6.1): las gramáticas LL(1) son un subconjunto de las LR(1). Por eso los generadores serios eligieron LR: <strong>aceptan más gramáticas escritas de forma natural</strong> — como la nuestra, con su recursión izquierda y sin transformaciones raras.</p></div>
       </div>
     </section>
 
@@ -581,7 +581,7 @@ expr ::= expr MAS expr   {: ... :}
           <li><strong>Entre líneas distintas:</strong> gana la de más abajo → ante <code class="inline">2+3*4</code>, el <code class="inline">POR</code> puede shiftear sobre la suma: <code class="inline">2+(3*4)</code> ✓.</li>
           <li><strong><code class="inline">left</code></strong> (asociatividad): ante empate del mismo nivel — <code class="inline">10-4-3</code> — reduce primero lo de la izquierda: <code class="inline">(10-4)-3</code> ✓. <code class="inline">right</code> haría lo contrario; <code class="inline">nonassoc</code> convierte el empate en error (útil para <code class="inline">a &lt; b &lt; c</code>).</li>
         </ul>
-        <div class="callout"><p><strong>El mapa de los proyectos:</strong> DataForge no necesita nada de esto (funciones con paréntesis = sin ambigüedad, por eso nuestro .cup no tiene ni un <code class="inline">precedence</code>). Pero <strong>CompInterpreter</strong> tendrá expresiones infijas (<code class="inline">a+b*c</code>) — ahí se escribirá exactamente este bloque, en la sección <code class="inline">%left</code> de [[Jison]]. Conviene recordar esta diapositiva.</p></div>
+        <div class="callout"><p><strong>El mapa de los proyectos:</strong> DataForge no necesita nada de esto (funciones con paréntesis = sin ambigüedad, por eso nuestro .cup no tiene ni un <code class="inline">precedence</code>). Pero <strong>CompInterpreter</strong> tendrá expresiones infijas (<code class="inline">a+b*c</code>) — ahí se escribirá exactamente este bloque, en la sección <code class="inline">%left</code> de Jison. Conviene recordar esta diapositiva.</p></div>
       </div>
     </section>
 

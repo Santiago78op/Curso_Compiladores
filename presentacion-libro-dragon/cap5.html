@@ -210,7 +210,7 @@ F → digit             F.val = digit.lexval</pre>
     <!-- 6 · §5.3 S-atribuidas y L-atribuidas -->
     <section class="slide">
       <div class="inner">
-        <p class="eyebrow">Dragón §5.3 — las dos clases que importan en la práctica</p>
+        <p class="eyebrow">Dragón §5.2 — las dos clases que importan en la práctica</p>
         <h2>S-atribuidas y L-atribuidas</h2>
         <p>Para no analizar grafos caso por caso, el libro define dos clases de SDD «garantizadas evaluables»:</p>
         <div class="tablewrap">
@@ -225,7 +225,7 @@ F → digit             F.val = digit.lexval</pre>
           </table>
         </div>
         <div class="callout"><p>Toda S-atribuida es L-atribuida (cero heredados cumplen cualquier restricción). El nombre que corresponde: <strong>DataForge es una gramática S-atribuida</strong> — cada <code class="inline">RESULT</code> se calcula solo con los atributos de los símbolos del lado derecho. Por eso CUP puede evaluarla al vuelo, sin árbol.</p></div>
-        <p class="muted">Fuente: Dragón §5.3 (definiciones), §5.4.2 (por qué LR ♥ S-atribuidas).</p>
+        <p class="muted">Fuente: Dragón §5.2.3–5.2.4 (definiciones de S-atribuidas y L-atribuidas), §5.4.2 (por qué LR ♥ S-atribuidas).</p>
       </div>
     </section>
 
@@ -274,7 +274,7 @@ bloque → INICIO { print("entrando") }  instrucciones  FIN</pre>
         <pre class="code">bloque → INICIO M instrucciones FIN
 M → ε   { print("entrando") }     <span class="tk-sym">// reduce apenas el parser pasa por ahí</span></pre>
         <div class="callout"><p>Este truco tiene costo: cada marcador agrega estados y puede <strong>introducir conflictos</strong> LALR. Regla práctica para los proyectos del curso: <strong>conviene diseñar las acciones para que vivan al final de la producción</strong> — si aparece la necesidad de una acción a la mitad, suele ser señal de que ese trabajo pertenece al recorrido del AST, no al parser.</p></div>
-        <p class="muted">Fuente: Dragón §5.4.4 (SDT con acciones internas), §5.5.4 (marcadores). Detalle fino: los heredados «de verdad» en LR son incómodos justamente porque el padre aún no existe cuando los hijos se reducen.</p>
+        <p class="muted">Fuente: Dragón §5.4.3 (SDT con acciones internas), §5.5.4 (marcadores). Detalle fino: los heredados «de verdad» en LR son incómodos justamente porque el padre aún no existe cuando los hijos se reducen.</p>
       </div>
     </section>
 

@@ -80,7 +80,7 @@
         <h2>¿De quién cuelga el entorno de una función?</h2>
         <pre class="code"><span class="tk-sym">// A.invocar(...) — el entorno de la funcion SIEMPRE cuelga del global:</span>
 Entorno local = ctx.global.crearHijo(f.id);   <span class="tk-sym">// NO: caller.crearHijo(f.id)</span></pre>
-        <p>Cada llamada a función crea un <strong>nuevo registro de activación</strong> ([[Registro de activación y pila de control]], Dragón cap. 7) cuyo padre es siempre el entorno global — nunca el entorno de quien la invoca. Esto es lo que hace que CompScript tenga <strong>alcance estático</strong>: una función no ve las variables locales de quien la llama, sin importar desde dónde se invoque.</p>
+        <p>Cada llamada a función crea un <strong>nuevo registro de activación</strong> (Registro de activación y pila de control, Dragón cap. 7) cuyo padre es siempre el entorno global — nunca el entorno de quien la invoca. Esto es lo que hace que CompScript tenga <strong>alcance estático</strong>: una función no ve las variables locales de quien la llama, sin importar desde dónde se invoque.</p>
         <div class="callout"><p><strong>Error común documentado:</strong> si por accidente se cuelga del entorno del invocador (<code class="inline">caller.crearHijo(...)</code>), las funciones dejarían de tener alcance estático y empezarían a ver variables locales de quien las invoca — el clásico bug de <em>dynamic scoping</em> no deseado.</p></div>
       </div>
     </section>

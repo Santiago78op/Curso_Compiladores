@@ -80,7 +80,7 @@
             </tbody>
           </table>
         </div>
-        <div class="callout"><p><strong>Regla del match más largo, otra vez:</strong> <code class="inline">-&gt;</code> (FLECHA) y <code class="inline">-</code> (DIFERENCIA) comparten el primer carácter. JFlex siempre prefiere el lexema más largo posible, pero <strong>solo si la regla más larga está declarada</strong> — por eso <code class="inline">"->"</code> se escribe ANTES que <code class="inline">"-"</code> en el <code class="inline">.flex</code> real (a igual intento, el orden de declaración también participa cuando dos reglas podrían calzar el mismo prefijo).</p></div>
+        <div class="callout"><p><strong>Regla del match más largo, otra vez:</strong> <code class="inline">-&gt;</code> (FLECHA) y <code class="inline">-</code> (DIFERENCIA) comparten el primer carácter. JFlex prefiere el lexema más largo posible: <code class="inline">"->"</code> le gana a <code class="inline">"-"</code> <strong>sin importar el orden</strong> en que estén declaradas, porque son de distinta longitud. Basta con que la regla de <code class="inline">"->"</code> exista. El orden de declaración solo desempata cuando dos reglas calzan la <strong>misma longitud</strong> (por ejemplo, una reservada frente a <code class="inline">{Id}</code>).</p></div>
       </div>
     </section>
 
@@ -135,7 +135,7 @@ CONJ : conjuñ -> a~c;</pre>
           <div class="q">
             <p class="question">1 · ¿Cuántos tokens produce <code class="inline">CONJ : a -> 1~3;</code>?</p>
             <button type="button" onclick="this.parentElement.classList.add('revealed')">Revelar respuesta</button>
-            <div class="answer"><p><strong>7:</strong> <code class="inline">CONJ</code> · <code class="inline">:</code> · <code class="inline">a</code> (ID) · <code class="inline">-&gt;</code> · <code class="inline">1</code> (NUMERO) · <code class="inline">~</code> · <code class="inline">3</code> (NUMERO) — y el <code class="inline">;</code> final hacen 8 en total si se cuenta el punto y coma; los espacios no cuentan.</p></div>
+            <div class="answer"><p><strong>8:</strong> <code class="inline">CONJ</code> · <code class="inline">:</code> · <code class="inline">a</code> (ID) · <code class="inline">-&gt;</code> · <code class="inline">1</code> (NUMERO) · <code class="inline">~</code> · <code class="inline">3</code> (NUMERO) · <code class="inline">;</code> (PUNTO_COMA). El punto y coma <strong>sí</strong> es un token; los espacios no cuentan.</p></div>
           </div>
           <div class="q">
             <p class="question">2 · ¿Qué token produce el carácter <code class="inline">@</code> suelto en el código fuente?</p>

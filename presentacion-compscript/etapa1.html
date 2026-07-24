@@ -156,7 +156,7 @@ contexto.error("Lexico", descripcion, yyline, yycolumn);     <span class="tk-sym
           <div class="q">
             <p class="question">2 · ¿Cuántos tokens produce <code class="inline">console.log("ab\n");</code> aproximadamente, y qué pasó con el <code class="inline">\n</code>?</p>
             <button type="button" onclick="this.parentElement.classList.add('revealed')">Revelar respuesta</button>
-            <div class="answer"><p>8 tokens: <code class="inline">console</code> <code class="inline">.</code> <code class="inline">log</code> <code class="inline">(</code> <code class="inline">CADENA</code> <code class="inline">)</code> <code class="inline">;</code>… el <code class="inline">\n</code> NO es un token aparte: es parte del contenido de la <code class="inline">CADENA</code>, y <code class="inline">procesarEscapes()</code> ya lo tradujo a un salto de línea real antes de que el token saliera del lexer.</p></div>
+            <div class="answer"><p>7 tokens: <code class="inline">console</code> <code class="inline">.</code> <code class="inline">log</code> <code class="inline">(</code> <code class="inline">CADENA</code> <code class="inline">)</code> <code class="inline">;</code> — el <code class="inline">\n</code> NO es un token aparte: es parte del contenido de la <code class="inline">CADENA</code>, y <code class="inline">procesarEscapes()</code> ya lo tradujo a un salto de línea real antes de que el token saliera del lexer.</p></div>
           </div>
           <div class="q">
             <p class="question">3 · Si el analizador léxico encuentra un error, ¿se detiene el análisis del archivo completo?</p>

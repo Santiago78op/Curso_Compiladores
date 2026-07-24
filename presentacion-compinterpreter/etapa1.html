@@ -99,7 +99,7 @@
 "+"                                 return 'MAS';
 "-"                                 return 'MENOS';
 <span class="tk-sym">/* ... resto de un solo caracter: * / ^ $ % &lt; &gt; ! = ( ) { } [ ] ; : , */</span></pre>
-        <p class="muted">Es exactamente el mismo principio de <em>longest match</em> que en JFlex (Etapa 1 de DataForge): si <code class="inline">"="</code> estuviera escrito antes que <code class="inline">"=="</code>, Jison devolvería dos tokens <code class="inline">ASIGNA</code> seguidos en vez de un <code class="inline">IGUAL</code>.</p>
+        <p class="muted">Es exactamente el mismo principio de <em>longest match</em> que en JFlex (Etapa 1 de DataForge): con la opción <code class="inline">flex</code> (diapositiva 2), Jison prefiere el lexema más largo, así que <code class="inline">"=="</code> gana a <code class="inline">"="</code> <strong>sin importar el orden</strong> en que se declaren — son de distinta longitud. El orden solo decide empates de <strong>igual</strong> longitud (el caso reservada vs identificador de arriba).</p>
       </div>
     </section>
 
