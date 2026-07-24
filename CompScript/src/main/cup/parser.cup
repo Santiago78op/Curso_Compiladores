@@ -122,7 +122,9 @@ mut ::= LET   {: RESULT = Boolean.FALSE; :}
 /* --- declaracion de variables / vectores / listas / structs (5.11, 5.18-5.20) --- */
 declaracion ::= mut:m ID:id DOS_PUNTOS tipo_dato:t opt_init:e
                 {: if (t.cat == Tipo.Cat.LIST && ((Boolean) m).booleanValue()) {
-                       parser.contexto.error("Sintactico",
+                       // B2: es una regla SEMANTICA (sobre la mutabilidad del tipo),
+                       // no un error de sintaxis; se categoriza como "Semantico".
+                       parser.contexto.error("Semantico",
                            "una lista dinamica no puede declararse como const", idleft, idright);
                        RESULT = new A.Declaracion(false, id, t, e, idleft, idright);
                    } else {
@@ -255,8 +257,10 @@ param ::= ID:id DOS_PUNTOS tipo_param:t             {: RESULT = new A.Parametro(
 /* --- bloque de instrucciones --- */
 bloque ::= LLAVE_IZQ lista_inst:l LLAVE_DER {: RESULT = l; :} ;
 
-/* --- if / if-else / if-else if (5.15.1). El else colgante se resuelve
-       por defecto con SHIFT (se une al if mas cercano). --- */
+/* --- if / if-else / if-else if (5.15.1). No hay ambiguedad de "else
+       colgante": como cada rama es un <bloque> delimitado por llaves
+       obligatorias (LLAVE_IZQ ... LLAVE_DER), el ELSE siempre sigue a un
+       bloque completo y no existe el conflicto shift/reduce clasico. --- */
 if_stmt ::= IF:f PAR_IZQ expr:c PAR_DER bloque:b
             {: RESULT = new A.If(c, b, null, null, fleft, fright); :}
           | IF:f PAR_IZQ expr:c PAR_DER bloque:b ELSE bloque:e

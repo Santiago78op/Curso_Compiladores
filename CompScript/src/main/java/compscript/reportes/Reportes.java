@@ -136,7 +136,8 @@ public class Reportes {
     private static int astDotNodo(A.Nodo nodo, StringBuilder sb, int[] contador) {
         int id = contador[0]++;
         sb.append("  n").append(id).append(" [label=\"")
-          .append(nodo.etiquetaAst().replace("\\", "\\\\").replace("\"", "\\\"")).append("\"];\n");
+          .append(nodo.etiquetaAst().replace("\\", "\\\\").replace("\"", "\\\"")
+                  .replace("\n", "\\n").replace("\r", "\\r")).append("\"];\n");
         for (A.Nodo h : nodo.hijosAst()) {
             if (h == null) continue;
             int hijoId = astDotNodo(h, sb, contador);

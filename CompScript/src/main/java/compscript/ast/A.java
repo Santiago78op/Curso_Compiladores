@@ -423,6 +423,11 @@ public final class A {
                     val = (init == null) ? defecto(tipo, e, linea, columna)
                             : validarVector(init.evaluar(e), tipo, e); break;
                 case LIST:
+                    // M1: una lista dinamica se declara SIEMPRE vacia y se llena
+                    // con push(); un init aqui (let l: list<int> = [1,2];) se
+                    // descartaba en silencio. Ahora es error semantico explicito.
+                    if (init != null)
+                        e.errorSemantico("una lista dinamica '" + id + "' se declara vacia; agrega elementos con push()", linea, columna);
                     val = new Valor(tipo, new ArrayList<Valor>()); break;
                 default: {
                     if (init == null) { val = defecto(tipo, e, linea, columna); break; }
