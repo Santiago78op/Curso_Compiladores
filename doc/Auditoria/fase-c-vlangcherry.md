@@ -3,6 +3,30 @@
 **Qué se revisó:** los ~2,760 renglones del servidor leídos completos — `runtime/` (interprete, operaciones, nativas, entorno, valores, tipos, errores), `traductor/`, `analizar/`, más la gramática `.g4` y `docs/` en los puntos que los hallazgos exigieron. El cliente React se revisó solo por contrato (espeja al de CompInterpreter, ya auditado en B.3).
 **Fecha:** 2026-07-22 · **Auditor:** Claude (Fable 5) · Incluye y supera el hallazgo V1 de C.0.
 
+> ## ✅ LOS 5 ALTOS, CERRADOS Y VERIFICADOS EJECUTANDO — 2026-07-24
+> No basta con leer el código: cada hallazgo se comprobó corriendo su **repro exacto** por `cmd/cli`. Resultados:
+>
+> | | Repro | Resultado observado |
+> |---|---|---|
+> | **A1** `mut` decorativo | `x := 5` · `x = 6` | `[Semántico] línea 5 col 5: no se puede reasignar "x": fue declarada sin "mut"`, y `x` queda en 5. **Aristas también cubiertas:** `+=` y `++` sobre variable sin `mut` reportan igual; los **parámetros** de función y las variables de `for` (clásico y rango) siguen siendo **mutables**, como recomendaba el informe. |
+> | **A2** cortocircuito | `x := 0` · `if x != 0 && 10/x > 1 {}` | **Cero errores**: la división nunca se evalúa. El espejo con `\|\|` también cortocircuita. |
+> | **A3** guardas | `for true {}` | `[Semántico] línea 3 col 9: posible ciclo infinito en el for (se superó el máximo de iteraciones)` — corta y devuelve. |
+> | **A3** guardas | `func f() int { return f() }` | `[Semántico] recursión demasiado profunda al llamar "f"` — **el proceso sobrevive**, que era el punto: en Go el desbordamiento de pila es fatal y `recover()` no lo atrapa. Constantes en `interprete.go:38-39` (`maxIteraciones` 1 000 000, `maxProfundidad` 2 000). |
+> | **A4** receptor por valor | método con receptor `(p Persona)` que muta | Clonado con `ClonarPorValor` (`valores.go:56`, recursivo en structs anidados); por valor no muta al llamador, por puntero sí. |
+> | **A5** slice/struct sin init | `mut xs []int` · `xs = []int{1,2}` | Sin error: imprime `nil`, `len` 0, asigna y hace `append`. Ídem con struct: `nil` → `Punto{X: 1, Y: 2}` → acceso a campo. `ValorPorDefecto` conserva el tipo declarado (`tipos.go:101-105`). |
+>
+> **También cerrados (medios/bajos que el informe listaba):** M1 (`return` sin valor en función tipada → error), M2 (`return v` en void → error), M3 (`append`/`join` sobre slice nil, sin panic), B2 (campo duplicado en literal de struct → error). Existe `entradas/ejemplo7_semantica.vch` ejercitando los caminos felices.
+>
+> ### ⚠️ Lo que SIGUE abierto (reproducido el 2026-07-24)
+>
+> - **B3 — ✅ CORREGIDO 2026-07-24.** El síntoma era: con `func main() { x := }` la salida traía el error sintáctico correcto **y además** `[Semántico] línea 0 col 0: error interno durante la ejecución: runtime error: invalid memory address or nil pointer dereference`. Aparecía con cualquier typo y hacía parecer roto al intérprete.
+>   **Fix aplicado** (`errores.go` + `analizar.go`, ~12 líneas): se agrega `ListaErrores.HayDeEntrada()` y el pipeline recuerda *antes* de traducir si el parseo ya había fallado. Si venía roto, el panic del traductor se traga en silencio — el error sintáctico ya explica todo. Si el código **parseó limpio** y aun así hubo panic, eso sí se reporta: esconderlo sería peor que el ruido.
+>   Se descartó la opción «saltar la interpretación si hay errores sintácticos» porque habría matado el criterio *best-effort* documentado en §8.1: verificado que con entrada rota los errores **semánticos se siguen recolectando** (test `TestBestEffortSigueReportandoSemanticos`).
+>   **Regresión:** `internal/analizar/analizar_test.go`, 13 casos que cubren B3, best-effort, y los altos A1/A2/A3/A5 + M1 — los que sobrevivieron tanto tiempo justamente porque ningún ejemplo los ejercitaba. La diapositiva del `recover()` de `presentacion-vlangcherry/etapa6.html` quedó sincronizada con el código nuevo.
+> - **M4 — ✅ RESUELTO como decisión de diseño documentada** (no es un bug). El informe pedía «decidir y documentar»: está hecho en el comentario de `registrarSimbolo` (`interprete.go:169-180`). La tabla es un **registro de declaraciones — una fila por sitio de declaración en el fuente**, y la clave pasó de `ambito::nombre` a `ambito::nombre::linea:col`, con lo que (a) dos bloques hermanos que declaran el mismo nombre ya no se pisan y (b) una declaración dentro de un ciclo o de una función recursiva ocupa siempre la misma posición → una fila, no 177. La columna Valor es el valor **al declarar** (snapshot), deliberadamente: «la tabla describe el programa, no cada activación en runtime; para ver valores finales se usa `print`».
+>   *Nota de lectura:* observar `0` donde la variable terminó en `999` es el comportamiento correcto bajo esa decisión, no una regresión.
+> - **Observación nueva (no estaba en el informe):** cuando la guarda de ciclo infinito salta, la ejecución **continúa** después del `for` (imprime lo que sigue). Es coherente con la política «acumular y seguir» del proyecto, pero conviene decidirlo a conciencia: tras un ciclo cortado por guarda, lo que se imprima después puede confundir.
+
 ## Veredicto
 
 Arquitectura **muy limpia** (traductor desacoplado, type-switch, reflection para el grafo, coerción aplicada con uniformidad notable en los 6 puntos de chequeo) y las 4 correcciones de la auditoría anterior están todas en su lugar. Pero el review encontró **4 bugs ALTOS** — dos de semántica del lenguaje que contradicen la propia documentación del proyecto, uno de robustez que puede matar el proceso del servidor, y el ya conocido de receptores — más una cola de medios/bajos. Ninguno lo ejercita ningún `entradas/*.vch`: todos son latentes.

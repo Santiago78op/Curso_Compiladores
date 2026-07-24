@@ -57,9 +57,18 @@ func Analizar(codigo string) Resultado {
 	// Best-effort: aunque haya errores lexicos/sintacticos ya reportados,
 	// se intenta traducir y ejecutar lo que se pudo parsear (igual criterio
 	// que los demas proyectos del curso: recolectar TODOS los errores).
+	//
+	// Se recuerda ANTES de intentarlo si la entrada ya venia rota: si el
+	// parseo fallo, el arbol tiene huecos (contextos nil) y que el traductor
+	// entre en panic es la consecuencia esperable, no un defecto que valga
+	// la pena mostrar. En ese caso el panic se traga en silencio y el usuario
+	// se queda con el error sintactico, que es el que explica todo.
+	// Si en cambio el codigo parseo LIMPIO y aun asi hubo panic, eso si es un
+	// bug del interprete y se reporta: esconderlo seria peor. (Hallazgo B3.)
+	entradaRota := errores.HayDeEntrada()
 	func() {
 		defer func() {
-			if r := recover(); r != nil {
+			if r := recover(); r != nil && !entradaRota {
 				errores.Semantico(fmt.Sprintf("error interno durante la ejecución: %v", r), 0, 0)
 			}
 		}()

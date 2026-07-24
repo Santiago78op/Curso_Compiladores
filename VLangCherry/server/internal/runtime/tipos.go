@@ -106,4 +106,3 @@ func ValorPorDefecto(t Tipo) Valor {
 		return Valor{Tipo: t}
 	}
 }
-

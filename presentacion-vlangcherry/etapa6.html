@@ -112,10 +112,13 @@ func (o *oyenteErrores) SyntaxError(recognizer antlr.Recognizer, offendingSymbol
       <div class="inner">
         <p class="eyebrow">Robustez de un servicio de larga duración</p>
         <h2>Un <code class="inline">defer recover()</code> alrededor de todo el pipeline</h2>
-        <pre class="code">func() {
+        <pre class="code"><span class="tk-sym">// si el parseo fallo, el arbol tiene huecos: que el traductor entre
+// en panic es la consecuencia esperable, no un bug que valga mostrar</span>
+entradaRota := errores.HayDeEntrada()
+func() {
     defer func() {
-        if r := recover(); r != nil {
-            errores.Semantico(fmt.Sprintf("error interno durante la ejecucion: %v", r), 0, 0)
+        <span class="tk-res">if</span> r := recover(); r != <span class="tk-res">nil</span> &amp;&amp; !entradaRota {
+            errores.Semantico(fmt.Sprintf(<span class="tk-str">"error interno durante la ejecucion: %v"</span>, r), 0, 0)
         }
     }()
     programa := traductor.Traducir(arbolParse)
@@ -123,6 +126,7 @@ func (o *oyenteErrores) SyntaxError(recognizer antlr.Recognizer, offendingSymbol
     interprete.Interpretar(programa)
 }()</pre>
         <div class="callout"><p><strong>Por qué importa en un servidor:</strong> un <em>panic</em> interno no contemplado (por ejemplo, un tipo de nodo del AST sin manejar en algún <code class="inline">switch</code>) no debe derribar el proceso completo del servidor — que sigue atendiendo otras peticiones. En vez de eso, se reporta como un error semántico adicional al usuario que envió ese código puntual.</p></div>
+        <div class="callout"><p><strong>El matiz de <code class="inline">entradaRota</code> — por qué el <code class="inline">recover()</code> a veces calla:</strong> el pipeline es <em>best-effort</em>: aunque el parseo falle, se sigue traduciendo y ejecutando para juntar <strong>todos</strong> los errores (§8.1). Pero si el parseo falló, el árbol viene con contextos nil y el panic del traductor es esperable — reportarlo como «error interno … línea 0» junto al error sintáctico real solo confunde, y hacía parecer roto al intérprete ante cualquier typo. Por eso se recuerda <em>antes</em> si la entrada ya venía rota y en ese caso el panic se traga. <strong>Al revés no:</strong> si el código parseó limpio y aun así hubo panic, eso sí es un bug propio y se reporta — esconderlo sería peor que el ruido. Hallazgo <strong>B3</strong> de la auditoría, con pruebas de regresión en <code class="inline">analizar_test.go</code>.</p></div>
         <div class="callout warn"><p><strong>Pero <code class="inline">recover()</code> no lo atrapa todo:</strong> solo captura <em>panics</em>, no los <code class="inline">fatal error</code> de Go. El caso crítico es el <strong>stack overflow</strong> por una recursión sin caso base (<code class="inline">func f() int { return f() }</code>): Go lo termina de forma no recuperable y <em>mataría el proceso entero</em> a pesar de este <code class="inline">recover()</code>. Por eso la robustez no descansa solo aquí: el intérprete lleva guardas de <strong>profundidad de recursión</strong> (2000) en <code class="inline">invocarFuncion</code> y de <strong>iteraciones por ciclo</strong> (1 000 000) en <code class="inline">ejecutarFor</code>, que reportan un error semántico —"recursión demasiado profunda" / "posible ciclo infinito"— antes de que el problema llegue a ser fatal.</p></div>
       </div>
     </section>

@@ -175,6 +175,7 @@ func (in *Interprete) registrarSimboloGlobal(nombre, categoria string, linea, co
 //   - una declaracion dentro de un ciclo o de una funcion recursiva ocupa
 //     SIEMPRE la misma posicion -> queda UNA fila (la ultima activacion), no
 //     177: la tabla describe el programa, no cada activacion en runtime.
+//
 // La columna Valor es el valor AL DECLARAR (snapshot): una reasignacion
 // posterior NO actualiza la fila. Es una eleccion consistente (declaraciones,
 // no estado final); para ver valores finales se usa print.

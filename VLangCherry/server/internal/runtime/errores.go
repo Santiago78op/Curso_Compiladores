@@ -32,3 +32,16 @@ func (l *ListaErrores) Semantico(desc string, linea, columna int) {
 	l.agregar("Semántico", desc, linea, columna)
 }
 func (l *ListaErrores) Hay() bool { return len(l.Errores) > 0 }
+
+// HayDeEntrada informa si ya se reporto algun error lexico o sintactico,
+// es decir, si el parse tree que sigue esta incompleto. Lo consulta el
+// pipeline para no convertir el panic esperable de traducir un arbol roto
+// en un "error interno" que confunde al usuario (hallazgo B3).
+func (l *ListaErrores) HayDeEntrada() bool {
+	for _, e := range l.Errores {
+		if e.Tipo == "Léxico" || e.Tipo == "Sintáctico" {
+			return true
+		}
+	}
+	return false
+}
