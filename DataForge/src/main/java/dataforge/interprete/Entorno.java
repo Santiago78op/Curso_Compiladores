@@ -229,6 +229,13 @@ public class Entorno {
     private boolean exigirLista(String tipo, LinkedHashMap<String, Object> m, String attr,
                                 Class<?> elemento, int l, int c) {
         Object v = m.get(attr);
+        // B4: distinguir "presente pero vacío" de "falta / no es arreglo".
+        // Un `ejex :: double = [] end;` SÍ trae el atributo, solo que vacío;
+        // decir "falta el atributo" era engañoso.
+        if (v instanceof ArrayList<?> vacia && vacia.isEmpty()) {
+            error("Semántico", tipo + ": el atributo '" + attr + "' está vacío", l, c);
+            return false;
+        }
         if (v instanceof ArrayList<?> lista && !lista.isEmpty()) {
             boolean todos = true;
             for (Object e : lista) todos &= elemento.isInstance(e);

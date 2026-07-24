@@ -68,3 +68,17 @@ Convenciones:
 
 <valor-atributo> ::= <expresion>
                    | <arreglo>
+
+----------------------------------------------------------------
+ NOTAS SEMANTICAS (decisiones documentadas)
+----------------------------------------------------------------
+
+  - El <tipo> declarado en un atributo ( ID "::" <tipo> "=" ... ) se parsea
+    pero NO valida el valor: la comprobacion efectiva la hace validarGrafica
+    por atributo (segun lo que cada tipo de grafica espera). Por eso un
+    `titulo :: double = "hola" end;` si se reporta, pero con el mensaje de
+    validarGrafica, no por incoherencia declarado-vs-real.
+  - El <tipo-grafica> del "EXEC <tipo-grafica> end;" es requerido por sintaxis
+    (5.10) pero su valor NO se compara con el tipo del bloque contenedor: un
+    `exec graphPie end;` dentro de un graphBar(...) se acepta. Es informativo,
+    no un discriminador semantico; se documenta como decision deliberada.
