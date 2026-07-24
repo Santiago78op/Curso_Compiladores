@@ -240,6 +240,31 @@ Entorno e = new Entorno(global);         Entorno e = new Entorno(entornoActual);
       </div>
     </section>
 
+    <!-- 7b · §1.6.6 paso de parámetros -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">Dragón §1.6.6–1.6.7 — "¿cómo pasa parámetros tu lenguaje?"</p>
+        <h2>Cómo llega un argumento a su parámetro</h2>
+        <p>Al invocar, los argumentos se depositan en el registro de activación (el entorno nuevo). El <strong>mecanismo</strong> de paso decide si mutar el parámetro se ve o no afuera:</p>
+        <div class="cards three">
+          <div class="card">
+            <h3>Por valor</h3>
+            <p>El formal recibe una <strong>copia</strong>. Mutarlo <strong>no</strong> afecta al llamador. Es C, C++ por defecto y la mayoría.</p>
+          </div>
+          <div class="card">
+            <h3>Por referencia</h3>
+            <p>El formal es un <strong>alias</strong> de la variable del llamador (se pasa su dirección). Asignarlo <strong>sí</strong> se ve afuera. Los <code class="inline">ref</code> de C++.</p>
+          </div>
+          <div class="card">
+            <h3>Por nombre</h3>
+            <p>Sustitución literal estilo macro (Algol 60). Comportamientos no intuitivos; hoy no se usa.</p>
+          </div>
+        </div>
+        <div class="callout"><p><strong>El matiz de Java (y de los proyectos):</strong> Java usa <strong>solo</strong> llamada por valor — pero las <em>referencias a objetos</em> se pasan por valor, así que se comporta <em>como si</em> fuera por referencia para los objetos: mutar sus campos se ve afuera, pero reasignar el parámetro a otro objeto no. De ahí que dos formales puedan quedar como <strong>alias</strong> (§1.6.7, <code class="inline">q(a,a)</code>). Es exactamente la distinción que VLangCherry hace explícita: receptor <strong>por valor</strong> clona el struct; <strong>por puntero</strong> lo comparte.</p></div>
+        <p class="muted">Fuente: Dragón §1.6.6 (mecanismos), §1.6.7 (alias) · nota del vault: Paso de parámetros.</p>
+      </div>
+    </section>
+
     <!-- 8 · §7.4-7.6 heap y GC -->
     <section class="slide">
       <div class="inner">

@@ -265,6 +265,29 @@ FOLLOW(E) = { ), $ }      FOLLOW(E') = { ), $ }    FOLLOW(T) = { +, ), $ }</pre>
       </div>
     </section>
 
+    <!-- 8b · §4.6 la tabla ACCION/ir_A -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">Dragón §4.6 — "los 5 estados SON la tabla"</p>
+        <h2>El autómata, hecho matriz: la tabla SLR</h2>
+        <p>Cada estado I0–I4 del autómata anterior es una fila; cada símbolo, una columna. <strong>ACCION</strong> (terminales): <code class="inline">s<i>j</i></code> = shift al estado <i>j</i>, <code class="inline">r</code> = reduce con esa producción, <code class="inline">acc</code> = aceptar. <strong>ir_A</strong> (no terminales): a qué estado ir tras reducir. Los <code class="inline">reduce</code> se ponen en las columnas de <strong>SIGUIENTE(E) = {+, $}</strong>.</p>
+        <div style="overflow-x:auto">
+        <table>
+          <thead><tr><th>Estado</th><th><code>n</code></th><th><code>+</code></th><th><code>$</code></th><th>ir_A <code>E</code></th></tr></thead>
+          <tbody>
+            <tr><td><b>I0</b></td><td>s2</td><td></td><td></td><td>1</td></tr>
+            <tr><td><b>I1</b></td><td></td><td>s3</td><td><b>acc</b></td><td></td></tr>
+            <tr><td><b>I2</b> · E→n·</td><td></td><td>r: E→n</td><td>r: E→n</td><td></td></tr>
+            <tr><td><b>I3</b></td><td>s4</td><td></td><td></td><td></td></tr>
+            <tr><td><b>I4</b> · E→E+n·</td><td></td><td>r: E→E+n</td><td>r: E→E+n</td><td></td></tr>
+          </tbody>
+        </table>
+        </div>
+        <div class="callout"><p>La fila <b>I1</b> tiene <code class="inline">acc</code> ante <code class="inline">$</code> y <code class="inline">s3</code> ante <code class="inline">+</code> — <strong>no es conflicto</strong>: son símbolos distintos (es el quiz de esta etapa). Un conflicto sería <em>dos</em> acciones en <em>la misma</em> celda. Esta matriz es, literal, el <code class="inline">int[][]</code> que CUP escribe en <code class="inline">Parser.java</code>.</p></div>
+        <p class="muted">Fuente: Dragón §4.6 (Algoritmo 4.46, tabla SLR) · nota del vault: Elementos LR(0) y la tabla SLR. Reduce en SIGUIENTE(E)={+,$}; ver FIRST y FOLLOW.</p>
+      </div>
+    </section>
+
     <!-- 9 · §4.6-4.7 SLR → LALR -->
     <section class="slide">
       <div class="inner">

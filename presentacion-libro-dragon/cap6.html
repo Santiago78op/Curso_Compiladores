@@ -225,6 +225,21 @@ E → E₁ + E₂     si E₁.tipo = int   y E₂.tipo = int   → E.tipo = int
       </div>
     </section>
 
+    <!-- 6b · §6.5.3 sobrecarga de operadores -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">Dragón §6.5.3 — el término que el tribunal va a nombrar</p>
+        <h2>Sobrecarga: el <code class="inline">+</code> que suma <em>o</em> concatena</h2>
+        <p>Un símbolo <strong>sobrecargado</strong> tiene distintos significados según su contexto, y se resuelve eligiendo uno por la <strong>firma</strong> = el operador <em>más</em> los tipos de sus operandos:</p>
+        <pre class="code"><span class="tk-sym">// el mismo + , dos significados, resueltos por los tipos:</span>
++ (int,    int)    → suma          3 + 4      = 7
++ (string, string) → concatenación "ho"+"la"  = "hola"
++ (string, int)    → concatenación "x="+5     = "x=5"</pre>
+        <div class="callout"><p><strong>Conexión directa con los proyectos:</strong> las <strong>tablas de compatibilidad de tipos</strong> de CompScript/CompInterpreter y el <code class="inline">Operaciones.suma</code> de DataForge <em>son</em> sobrecarga de operadores — cada celda <code class="inline">⟨op, tipoIzq, tipoDer⟩ → tipoResultado</code> es una firma. Aunque el código nunca use la palabra, es exactamente §6.5.3. Ojo con la trampa: el "sin sobrecarga" que a veces se dice de estos lenguajes se refiere a <em>funciones</em> de usuario con igual nombre — otro concepto.</p></div>
+        <p class="muted">Fuente: Dragón §6.5.3 (resolución por firma) · §2.8.3 (comprobación estática) · nota del vault: Comprobación de tipos.</p>
+      </div>
+    </section>
+
     <!-- 7 · Demo chequeo de tipos -->
     <section class="slide">
       <div class="inner">
