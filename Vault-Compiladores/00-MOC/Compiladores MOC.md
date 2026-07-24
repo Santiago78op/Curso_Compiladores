@@ -11,7 +11,7 @@ Mapa de contenido del segundo cerebro de **teoría de compiladores** (curso *Org
 ## 🧩 Conceptos (fases del compilador)
 **Panorama:** [[Fases de un compilador]] · [[Compilador vs intérprete]] · [[Manejo de errores (léxicos, sintácticos, semánticos)]]
 
-**Léxico** `#lexico`: [[Token, lexema y patrón]] · [[Expresiones regulares]] · [[Definiciones regulares]] · [[Autómata finito (AFN y AFD)]] · [[Construcción de Thompson]] · [[Construcción de subconjuntos]] · [[Minimización de AFD]]
+**Léxico** `#lexico`: [[Token, lexema y patrón]] · [[Expresiones regulares]] · [[Definiciones regulares]] · [[Autómata finito (AFN y AFD)]] · [[Construcción de Thompson]] · [[Construcción de subconjuntos]] · [[Minimización de AFD]] · [[Del autómata al analizador léxico]]
 
 **Sintáctico** `#sintactico`: [[Gramática libre de contexto (BNF)]] · [[Derivaciones y árbol de análisis sintáctico]] · [[Ambigüedad, precedencia y asociatividad]] · [[Recursividad por la izquierda y factorización]] · [[FIRST y FOLLOW]] · [[Análisis sintáctico descendente LL(1)]] · [[Análisis sintáctico ascendente LR]] · [[Conflictos shift-reduce y reduce-reduce]]
 
