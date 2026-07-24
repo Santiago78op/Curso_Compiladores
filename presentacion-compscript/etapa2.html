@@ -87,11 +87,13 @@ expr ::= MENOS expr:e   {: RESULT = new A.Unaria("NEG", e, ...); :}  %prec UMENO
       <div class="inner">
         <p class="eyebrow">El otro conflicto clásico</p>
         <h2>El <code class="inline">else</code> colgante</h2>
-        <p>Con <code class="inline">if (a) if (b) x; else y;</code>, ¿el <code class="inline">else</code> pertenece al <code class="inline">if (a)</code> o al <code class="inline">if (b)</code>? CompScript lo resuelve estructuralmente, con el orden de las producciones de <code class="inline">if_stmt</code>:</p>
+        <p>La ambigüedad clásica del <code class="inline">else</code> colgante (¿a qué <code class="inline">if</code> pertenece el <code class="inline">else</code> en <code class="inline">if (a) if (b) x; else y;</code>?) aparece <strong>solo</strong> cuando el cuerpo de un <code class="inline">if</code> puede ser una sentencia suelta. En CompScript, cada rama es un <code class="inline">&lt;bloque&gt;</code> delimitado por llaves obligatorias:</p>
         <pre class="code">&lt;if&gt;  ::= "if" "(" &lt;expresion&gt; ")" &lt;bloque&gt;
        | "if" "(" &lt;expresion&gt; ")" &lt;bloque&gt; "else" &lt;bloque&gt;
-       | "if" "(" &lt;expresion&gt; ")" &lt;bloque&gt; "else" &lt;if&gt;</pre>
-        <p>CUP no reportó ningún conflicto shift-reduce al generar este parser: por diseño de la gramática, un <code class="inline">else</code> siempre se asocia con el <code class="inline">if</code> abierto más cercano — la resolución clásica del Dragón §4.8.2, lograda sin necesitar ninguna directiva de precedencia especial para <code class="inline">if</code>/<code class="inline">else</code>.</p>
+       | "if" "(" &lt;expresion&gt; ")" &lt;bloque&gt; "else" &lt;if&gt;
+
+// &lt;bloque&gt; ::= "{" &lt;instrucciones&gt; "}"   (llaves SIEMPRE)</pre>
+        <p>Como <code class="inline">&lt;bloque&gt;</code> exige <code class="inline">{ }</code>, un <code class="inline">else</code> siempre sigue a un bloque completo y cerrado: el ejemplo ambiguo ni siquiera parsea (habría que escribir <code class="inline">if (a) { if (b) { x; } else { y; } }</code>, sin ambigüedad posible). Por eso CUP no reporta ningún conflicto shift-reduce — no porque el orden de las producciones lo desempate, sino porque <strong>las llaves obligatorias eliminan la ambigüedad de raíz</strong>. La resolución por SHIFT del Dragón (§4.8.2) solo haría falta si los cuerpos pudieran ser sentencias sueltas.</p>
       </div>
     </section>
 
@@ -152,7 +154,7 @@ expr ::= MENOS expr:e   {: RESULT = new A.Unaria("NEG", e, ...); :}  %prec UMENO
       <div class="inner titleslide">
         <p class="eyebrow">Etapa 2 · construida</p>
         <h1>Queda construido el analizador sintáctico</h1>
-        <p class="lead">Expresiones infijas desambiguadas por tabla de precedencia, el pseudo-terminal <code class="inline">UMENOS</code>, el <em>dangling else</em> resuelto por orden de producciones, y cada acción construyendo un nodo del AST en vez de calcular un valor.</p>
+        <p class="lead">Expresiones infijas desambiguadas por tabla de precedencia, el pseudo-terminal <code class="inline">UMENOS</code>, el <em>dangling else</em> evitado de raíz por las llaves obligatorias de cada bloque, y cada acción construyendo un nodo del AST en vez de calcular un valor.</p>
         <p class="kicker">Próxima: <strong>Etapa 3 — el árbol mismo, <code class="inline">ast/A.java</code></strong>, la pieza que no tienen los proyectos hermanos.<br><a class="btn" href="index.html" style="margin-top:14px">⌂ Volver al índice</a></p>
       </div>
     </section>

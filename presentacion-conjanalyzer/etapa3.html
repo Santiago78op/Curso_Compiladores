@@ -71,6 +71,7 @@ public static NodoOperacion binario(char op, NodoOperacion a, NodoOperacion b)  
         return r;
     }
     Set&lt;Character&gt; b = der.evaluar(conjuntos, universo);
+    Set&lt;Character&gt; r = new LinkedHashSet&lt;&gt;(a);   <span class="tk-sym">// r arranca como copia de A</span>
     switch (op) {
         case 'U' -&gt; r.addAll(b);        <span class="tk-sym">// union (6.1)</span>
         case '&amp;' -&gt; r.retainAll(b);    <span class="tk-sym">// interseccion (6.2)</span>
