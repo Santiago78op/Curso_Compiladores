@@ -1,7 +1,8 @@
 ---
 tags: [concepto, compiladores]
-fuente: "Libro del Dragón, cap. 1"
-fecha: 2026-07-10
+aliases: ["fases vs pasadas", "front-end y back-end"]
+fuente: "Libro del Dragón cap. 1 (§1.2 fases, §1.2.8 pasadas)"
+fecha: 2026-07-24
 ---
 
 # Fases de un compilador
@@ -31,6 +32,15 @@ flowchart TD
 - **Intermedio / Optimización / Código** → back-end.
 
 En los proyectos del curso solo se implementa el **front-end + intérprete** (ver [[Compilador vs intérprete]]).
+
+## Fases vs pasadas (§1.2.8, p. 11)
+
+No hay que confundir los dos términos —es una distinción clásica de examen—:
+
+- Una **fase** es una **organización lógica** del trabajo del compilador (léxico, sintáctico, semántico…).
+- Una **pasada** es una lectura de la entrada que **escribe una salida**, y puede **agrupar varias fases**. Por ejemplo, el análisis léxico, el sintáctico, el semántico y la generación de código intermedio suelen agruparse en **una sola pasada** (el front-end); la optimización puede ser una pasada aparte y opcional, y el back-end otra.
+
+Los intérpretes del curso hacen esencialmente **una pasada** de front-end y ejecutan sobre el AST, sin generar código objeto.
 
 ## Relacionadas
 - [[Compilador vs intérprete]]
