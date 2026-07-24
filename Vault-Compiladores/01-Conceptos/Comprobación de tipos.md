@@ -1,7 +1,8 @@
 ---
 tags: [concepto, semantico]
-fuente: "Libro del Dragón, cap. 6.5"
-fecha: 2026-07-10
+aliases: ["síntesis de tipos", "inferencia de tipos", "sobrecarga de operadores", "sobrecarga por firma", "resolución de sobrecarga"]
+fuente: "Libro del Dragón §6.5 (§6.5.3 sobrecarga) y §2.8.3"
+fecha: 2026-07-24
 ---
 
 # Comprobación de tipos
@@ -12,9 +13,16 @@ Parte del **análisis semántico**: verifica que los operadores reciban operando
 
 Las instrucciones se tratan como funciones: `if (E) S` espera `(bool, void) → void`.
 
-> Las **tablas de compatibilidad de tipos** de CompScript/CompInterpreter (qué da `+` entre int y string, etc.) son reglas de síntesis; una combinación no permitida = **error semántico**.
+## Sobrecarga de operadores y funciones (§6.5.3)
+
+Un símbolo **sobrecargado** tiene **distintos significados según su contexto**, y la sobrecarga se **resuelve** eligiendo un significado único por la **firma** (el operador/nombre **más** los tipos de sus operandos/argumentos). El caso emblema (ejemplo 6.13): el **`+`** de Java es **suma** entre números y **concatenación** entre cadenas — se decide mirando los tipos de los operandos.
+
+> **Conexión directa con los proyectos:** las **tablas de compatibilidad de tipos** de [[CompScript]]/[[CompInterpreter]] y el método `Operaciones.suma` de [[DataForge]] (que resuelve `+` como suma numérica **o** concatenación según los tipos) **son sobrecarga de operadores** en el sentido de §6.5.3 — aunque el código nunca use la palabra. Cada celda de la tabla `⟨op, tipoIzq, tipoDer⟩ → tipoResultado` es una firma; una combinación sin entrada = **error semántico**. (El "sin sobrecarga" que a veces se dice de estos lenguajes se refiere a *funciones* de usuario con igual nombre, concepto distinto.)
+
+La resolución por firma se implementa eficientemente con el **número de valor** (hash de `⟨etiqueta, hijos⟩`), y es síntesis de tipos: la regla (6.10) elige `f(x): tₖ` según el tipo `sₖ` del argumento.
 
 ## Relacionadas
 - [[Conversión de tipos (coerción y cast)]]
 - [[Manejo de errores (léxicos, sintácticos, semánticos)]]
 - [[Atributos sintetizados y heredados]]
+- [[Cap 6 - Generación de código intermedio]]
