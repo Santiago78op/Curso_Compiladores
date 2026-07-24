@@ -52,9 +52,13 @@ Blancos      = [ \t\r\n]+
 
 /* ============================================================
  * SECCION 3: reglas — "cuando veas esto → entregá este token"
- * Orden importante: reservadas y operadores ANTES que {Id} y que el
- * comodin de simbolo. A igual longitud de match, gana la regla escrita
- * primero (por eso "->" va antes que "-", y "<!...!>" antes que "<").
+ * Dos mecanismos DISTINTOS, no confundirlos:
+ *  - Longest match: entre lexemas de DISTINTA longitud gana el mas largo,
+ *    sin importar el orden de las reglas ("->" le gana a "-", "<!...!>" a "<").
+ *  - Orden de declaracion: solo desempata cuando dos reglas matchean la MISMA
+ *    longitud. Por eso las reservadas y operadores van ANTES que {Id} y que el
+ *    comodin de simbolo: asi "CONJ" (misma longitud que un Id de 4 letras) se
+ *    reconoce como palabra reservada y no como identificador.
  * ============================================================ */
 
 /* ---- 1. Se reconoce pero se DESCARTA (no produce token) ---- */

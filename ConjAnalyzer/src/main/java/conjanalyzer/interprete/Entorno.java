@@ -80,7 +80,11 @@ public class Entorno {
         LinkedHashSet<Character> set = new LinkedHashSet<>();
         for (String elem : elementos) {
             Character ch = charUnico(elem, l, c);
-            if (ch == null) return;   // el error ya quedo registrado
+            // B1: se OMITE el elemento invalido (charUnico ya registro el error)
+            // y se sigue con los demas, en vez de abortar el conjunto completo.
+            // Mismo criterio por-elemento que usa evaluar() (4.8): el conjunto
+            // queda definido con los elementos validos + un error por invalido.
+            if (ch == null) continue;
             set.add(ch);
         }
         conjuntos.put(id, new Conjunto(id, set, String.join(", ", elementos), l + 1, c + 1));

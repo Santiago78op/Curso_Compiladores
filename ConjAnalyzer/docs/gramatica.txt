@@ -101,3 +101,10 @@ El lenguaje es CASE SENSITIVE: las palabras reservadas van en MAYUSCULAS
   - Un conjunto no puede definirse en terminos de otro conjunto; solo una
     operacion puede referenciar conjuntos (y anidar otras operaciones).
   - Cada elemento de un rango o de una lista es un unico caracter.
+  - Un CONJ y una OPERA pueden compartir el mismo nombre: viven en espacios
+    de nombres separados y el contexto sintactico siempre desambigua ( {X}
+    refiere a un conjunto; EVALUAR(..., X) refiere a una operacion ). Es una
+    decision deliberada, no un descuido.
+  - Un elemento invalido en una lista de conjunto NO aborta la definicion: el
+    conjunto se define con los elementos validos y se reporta un error por
+    cada invalido (mismo criterio por-elemento que usa EVALUAR en 4.8).

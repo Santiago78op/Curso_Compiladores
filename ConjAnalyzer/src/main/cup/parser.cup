@@ -18,11 +18,11 @@ parser code {:
     public Entorno entorno = new Entorno();
 
     public void syntax_error(Symbol s) {
+        // B4: el error queda registrado en el entorno (unica fuente del reporte
+        // 4.9); no se imprime ademas a System.err para no duplicar el mensaje
+        // como ruido de consola.
         entorno.error("Sintactico",
             "no se esperaba '" + s.value + "'", s.left, s.right);
-        System.err.printf(
-            "Error sintactico: no se esperaba '%s' (linea %d, columna %d)%n",
-            s.value, s.left + 1, s.right + 1);
     }
 :};
 
