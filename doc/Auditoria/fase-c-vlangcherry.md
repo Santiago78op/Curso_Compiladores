@@ -78,10 +78,10 @@ El zero-value de `Tipo` es `TInt` (iota 0): en `SentenciaReturn` sin expresión,
 
 ## Hallazgos BAJOS
 
-- **B1** `resolverLugar` y `evaluar` en su caso default devuelven `false` **sin mensaje** (interprete.go:447, :716) — un nodo no soportado falla en silencio. Agregar error defensivo "expresión no soportada".
+- **B1** — ✅ **CERRADO.** Los dos puntos ya reportan con posición: `resolverLugar` cierra con `"destino de asignación no válido"` y `evaluar` con `"expresión no soportada"`, ambos vía `nodo.Pos()`. Son redes de seguridad: con un AST bien formado no se alcanzan.
 - **B2** Campo duplicado en literal de struct (`Persona{Nombre:"a", Nombre:"b"}`) no reporta — el último gana en silencio.
 - **B3** Tras errores sintácticos, traducir el parse tree roto puede acabar en panic→"error interno (línea 0)" — ruido junto a los errores reales. Opcional: si hubo errores sintácticos, saltar la interpretación (decisión de diseño; hoy es "best-effort" documentado).
-- **B4** `print` y `println` son idénticos (cada entrada de consola ya es una línea) — inofensivo, pero documentarlo si el enunciado los distingue.
+- **B4** — ✅ **CERRADO (2026-07-27), como documentación.** Verificado que el enunciado **no** los distingue: §7.2.1 solo define `fmt.Println`, y `print` es un sinónimo que agregó el proyecto. Tampoco hay comportamiento que corregir: `in.consola` es un `[]string` y viaja al cliente como `ConsolaLineas`, o sea que **la unidad mínima es la línea** y la noción de "escribir sin avanzar de línea" no existe en ese modelo. Documentado en `ManualUsuario.md` (qué esperar y cómo componer una línea con varios valores) y en `ManualTecnico.md` (el porqué del diseño y dónde se localizaría el cambio si alguna vez hiciera falta distinguirlas).
 
 ## Lo que está BIEN (para la defensa)
 

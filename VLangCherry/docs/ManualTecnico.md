@@ -329,6 +329,14 @@ func (in *Interprete) convertirTipo(destino string, args []Valor, linea, col int
 
 `EsNombreNativa` reconoce tanto las funciones embebidas del enunciado (`print`, `println`, `len`, `append`, `indexOf`, `join`, `Atoi`, `parseFloat`, `typeOf` — todas sin el prefijo de paquete que aparece únicamente en los títulos de sección del enunciado, ver `docs/gramatica.txt` punto 4) como los nombres de conversión de tipo estilo Go (`int`, `float64`, `string`, `bool`, `rune`), resolviendo la ausencia de una sección dedicada a "casteos" en el enunciado (`docs/gramatica.txt`, punto 5) mediante el único ejemplo real que sí aparece (`f64(10 + 1)`).
 
+#### `print` y `println` comparten implementación — y por qué
+
+Las dos comparten la misma rama del `switch` de `llamarNativa` (`case "print", "println":`) y hacen exactamente lo mismo: convierten cada argumento con `AImprimir`, los unen con un espacio y **agregan una entrada** a `in.consola`.
+
+No es un descuido, es consecuencia del modelo de consola. `in.consola` es un `[]string` y viaja al cliente como `ConsolaLineas []string` (más un `Consola` de conveniencia con las líneas unidas por `\n`). En ese modelo **la unidad mínima es la línea**: no existe la noción de "escribir sin avanzar de línea", que es justamente lo que distinguiría un `print` de un `println` en una consola de flujo de caracteres. Implementar la diferencia obligaría a que la consola fuera un buffer de texto y a definir cuándo se corta una línea — un rediseño que el enunciado no pide.
+
+El enunciado (§7.2.1) solo define **`fmt.Println`**; `print` se acepta como sinónimo por comodidad y no aparece en sus ejemplos. Si en una versión futura hiciera falta distinguirlas, el cambio se localiza en `llamarNativa` y en el tipo del campo `consola`, no en el resto del intérprete.
+
 ### 8.7 Validaciones semánticas reforzadas (auditoría 2026-07-21)
 
 Una auditoría posterior a la primera versión funcional detectó y corrigió 3 huecos de validación semántica que cambian el comportamiento en tiempo de ejecución (un cuarto hallazgo de esa misma auditoría, la comparación relacional lexicográfica de strings, ya está documentado en `docs/gramatica.txt`, punto 8, e implementado en la función `Relacional` de `operaciones.go`):

@@ -126,6 +126,7 @@ Aspectos principales (la gramática completa y las decisiones de diseño frente 
 - **Structs y métodos**: `struct Persona { string Nombre; int Edad }`, con métodos asociados por valor o por referencia (`func (p Persona) Saludar() string` / `func (p *Persona) Cumplir()`).
 - **Control de flujo**: `if/else if/else`, `switch/case` (sin encadenamiento entre casos — cada `case` finaliza automáticamente), y `for` en sus tres formas (con condición, con inicialización/incremento, y `for indice, valor in slice`). Las sentencias `break` y `continue` solo son válidas dentro de un `for` (`break` también dentro de un `switch`); usarlas fuera de ese contexto se reporta como error semántico.
 - **Funciones nativas**: `print`/`println`, `len`, `append`, `indexOf`, `join`, `Atoi`, `parseFloat`, `typeOf`, y conversión explícita de tipo (`int(x)`, `float64(x)`, `string(x)`, `bool(x)`, `rune(x)`).
+  - **`print` y `println` se comportan igual: ambos emiten una línea.** El enunciado (§7.2.1) solo define `Println`; `print` se acepta como sinónimo por comodidad. No existe una variante que escriba *sin* salto de línea, porque la consola de este intérprete es una **lista de líneas** y no un flujo de caracteres (ver 8.1). Para armar una línea a partir de varios valores, pasálos como argumentos —`println("x =", x, "y =", y)`, que los separa con un espacio— o concatenalos con `+`.
 - **Nombres en el ámbito global**: una función, una variable global y un `struct` no pueden compartir el mismo nombre; el sistema lo reporta como error semántico si ocurre.
 
 Los archivos de ejemplo de la carpeta `entradas/` en la raíz del proyecto ilustran cada uno de estos aspectos por separado.
@@ -150,6 +151,8 @@ Si el código fuente contiene errores léxicos, sintácticos o semánticos, la e
 ### 8.1 Consola
 
 Muestra, línea por línea, la salida producida por las llamadas a `print`/`println` durante la ejecución del programa.
+
+La consola es una **secuencia de líneas**, no un flujo de caracteres: cada llamada a `print` o `println` agrega exactamente **una** entrada, y el servidor la envía al cliente como un arreglo de cadenas. Esa es la razón por la que las dos funciones son equivalentes y por la que no hay forma de escribir "a media línea".
 
 ### 8.2 Reporte de errores
 
