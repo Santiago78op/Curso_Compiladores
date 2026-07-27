@@ -17,11 +17,11 @@ parser code {:
     public Entorno entorno = new Entorno();
 
     public void syntax_error(Symbol s) {
+        // B4: el error queda registrado en el entorno, que es la única fuente
+        // del reporte de errores (§6.2); no se imprime además a System.err
+        // para no duplicar el mensaje como ruido en la consola del IDE.
         entorno.error("Sintáctico",
             "no se esperaba '" + s.value + "'", s.left, s.right);
-        System.err.printf(
-            "Error sintáctico: no se esperaba '%s' (línea %d, columna %d)%n",
-            s.value, s.left + 1, s.right + 1);
     }
 :};
 

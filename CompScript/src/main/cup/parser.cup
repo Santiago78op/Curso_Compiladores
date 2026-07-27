@@ -22,10 +22,11 @@ parser code {:
     public ArrayList raiz = new ArrayList();
 
     public void syntax_error(Symbol s) {
+        // B4: el error queda registrado en el contexto, que es la unica fuente
+        // del reporte de errores; no se imprime ademas a System.err para no
+        // duplicar el mensaje como ruido en la consola del IDE.
         contexto.error("Sintactico",
             "error de sintaxis, no se esperaba '" + s.value + "'", s.left, s.right);
-        System.err.printf("Error sintactico: '%s' (linea %d, col %d)%n",
-            s.value, s.left + 1, s.right + 1);
     }
 :};
 

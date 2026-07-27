@@ -44,6 +44,10 @@ La gramática de acceso/asignación de campo es de UN nivel (`ID PUNTO ID`, pars
 ### Observación (no es bug — es el diseño exigido)
 Un error semántico **aborta** la ejecución (`Entorno.errorSemantico` lanza; `Interprete` captura) — incluido un `match` cuyo caso tiene tipo incomparable. Es lo que pide el enunciado 4.3 ("poder terminar la ejecución ante un error semántico") y la diferencia deliberada con DataForge (propagación por null) y VLangCherry (acumula y sigue). Tres proyectos, tres políticas — las tres correctas respecto a su enunciado. Excelente material de defensa comparada.
 
+## Cerrado el 2026-07-27
+
+- **`syntax_error` ya no imprime a `System.err`** (`parser.cup`). El error se registra en el `Contexto`, que es la única fuente del reporte; el `printf` extra solo duplicaba el mensaje como ruido en la consola del IDE. El hallazgo estaba anotado en el informe de ConjAnalyzer (su B4, *"también en CompScript"*) y se había corregido allá sin propagarse — el mismo patrón que esta fase documenta como lección. Aplicado ahora en los tres proyectos con CUP. Verificado: los 3 errores de `ejemplo6_errores.cs` siguen apareciendo en el reporte, `stderr` queda limpio y los 6 ejemplos no cambiaron de comportamiento.
+
 ## Insumos para Fase D
 
 1. Fix M1 (una decisión + ~5 líneas) y B2/B3/B4 (mecánicos).

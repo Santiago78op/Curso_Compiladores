@@ -15,6 +15,17 @@
 
 El resto acompaña: caso 4.8 del enunciado (la salida matemáticamente incorrecta) documentado en el javadoc de `Entorno.evaluar` con la decisión tomada; validación de referencias ANTES de evaluar; `charUnico` valida longitud Y universo; Venn píxel-exacto reutilizando `pertenenciaRegion` con el complemento sombreando "afuera" en tono claro; JSON con el string literal exacto y `disableHtmlEscaping` justificado; `esc()` aplicado en todas las celdas de los reportes; entorno fresco por ejecución en GUI y consola.
 
+> ## ✅ LOS 4 BAJOS, CERRADOS — verificado 2026-07-27
+>
+> | | Cómo se cerró |
+> |---|---|
+> | **B1** criterio elemento-inválido | `definirConjuntoLista` (`Entorno.java`) ahora **omite** el elemento inválido y sigue (`continue`), en vez de abortar el conjunto entero. Mismo criterio por-elemento que `evaluar()` (4.8): el conjunto queda definido con los válidos + un error por cada inválido. |
+> | **B2** `CONJ` y `OPERA` homónimos | Documentado en `docs/gramatica.txt:104` como decisión: viven en espacios de nombres distintos. |
+> | **B3** comentario del `.flex` | Reescrito: separa explícitamente *longest match* (entre lexemas de distinta longitud, sin importar el orden) de *orden de declaración* (solo desempata a igual longitud). Ya no atribuye a uno lo que hace el otro. |
+> | **B4** `syntax_error` a `System.err` | Eliminado el `printf`: el error queda solo en el `Entorno`, única fuente del reporte 4.9. |
+>
+> **Nota:** el fix de B4 se había quedado acá y no se propagó — DataForge y CompScript seguían imprimiendo el duplicado. Corregido en los tres el 2026-07-27.
+
 ## Hallazgos (todos BAJOS)
 
 - **B1** — `definirConjuntoLista` **aborta el conjunto completo** ante un elemento inválido (`return` en el loop, Entorno.java:83), mientras que `evaluar()` usa `continue` por elemento. Dos criterios distintos para el mismo tipo de falla. Ambos defendibles; elegir uno y documentarlo (sugerencia: definir el conjunto con los elementos válidos + error por cada inválido, como hace EVALUAR).
