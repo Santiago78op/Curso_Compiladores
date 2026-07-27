@@ -1,0 +1,339 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>El arquetipo de Maven — curso guiado</title>
+<link rel="stylesheet" href="assets/estilo.css">
+<style>
+  /* terminal: comandos ejecutados de verdad */
+  .term {
+    background: var(--code-bg); border: 1px solid var(--line); border-radius: 14px;
+    padding: 18px 20px; margin: 20px 0; overflow-x: auto;
+    font-family: var(--f-mono); font-size: 14.5px; line-height: 1.75; color: var(--code-ink);
+  }
+  .term .p { color: var(--accent); user-select: none; }
+  .term .c { color: var(--dim); }
+  .term .out { color: var(--muted); }
+  .term .ok { color: var(--jade); }
+
+  /* comparación filtrado sí / no */
+  .filtro { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; margin: 22px 0; }
+  .filtro > div { border: 1px solid var(--line); border-radius: 16px; padding: 20px 22px; background: var(--surface); }
+  .filtro .si { border-left: 3px solid var(--jade); }
+  .filtro .no { border-left: 3px solid var(--fuego); }
+  .filtro h3 { margin: 0 0 10px; font-size: 18px; }
+  .filtro code { font-family: var(--f-mono); font-size: 13.5px; }
+</style>
+</head>
+<body>
+
+<div class="deck">
+  <div class="topbar">
+    <a class="brand" href="index.html" title="Volver al índice">Maven · <em>y los arquetipos</em></a>
+    <span class="chip">2 · El arquetipo</span>
+    <span class="counter"><span id="cur">1</span> / <span id="tot">?</span></span>
+    <button id="theme" type="button" title="Cambiar tema claro/oscuro" aria-label="Cambiar tema claro/oscuro">◐</button>
+  </div>
+  <div class="progress"><div id="bar"></div></div>
+
+  <div class="stage">
+
+    <!-- 1 · Portada -->
+    <section class="slide">
+      <div class="inner titleslide">
+        <p class="eyebrow">Parte 2 de 2</p>
+        <h1>El <em>arquetipo</em></h1>
+        <p class="lead">Un proyecto vacío nunca está vacío: hay que crear carpetas, escribir un POM, fijar la versión de Java, agregar JUnit… Todo eso es trabajo repetido y propenso a olvidos. Un arquetipo lo convierte en un comando.</p>
+        <p class="kicker">Todo lo que se muestra acá se ejecutó de verdad: los comandos, la estructura generada y la salida son reales, no ilustrativos.</p>
+      </div>
+    </section>
+
+    <!-- 2 · Qué es -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">La definición, sin rodeos</p>
+        <h2>Qué es un arquetipo</h2>
+        <p class="lead">Una <strong>plantilla de proyecto parametrizada</strong>, empaquetada y distribuida como un artefacto Maven más.</p>
+        <p>Esa última parte es la que suele pasarse por alto y la que lo explica todo. Un arquetipo <em>no</em> es un archivo de configuración ni un asistente del IDE: es un <code class="inline">.jar</code> publicado en un repositorio, con sus coordenadas GAV, igual que una librería. Por eso se puede versionar, compartir y depender de él.</p>
+        <div class="cards three">
+          <div class="card"><h3>Lleva adentro</h3><p>El esqueleto de archivos y carpetas del proyecto que querés poder repetir.</p></div>
+          <div class="card"><h3>Tiene huecos</h3><p>Los datos que cambian en cada uso —<code class="inline">groupId</code>, <code class="inline">artifactId</code>, <code class="inline">version</code>, <code class="inline">package</code>— quedan como variables.</p></div>
+          <div class="card"><h3>Se resuelve al usarlo</h3><p>Al generar, Maven rellena esos huecos con lo que le pases y escribe el proyecto en disco.</p></div>
+        </div>
+        <div class="callout"><p><strong>La analogía útil:</strong> si una clase es un molde para objetos, un arquetipo es un molde para <em>proyectos</em>. Y como todo molde, su valor no está en la primera pieza sino en la centésima — o en que las cien salgan iguales.</p></div>
+      </div>
+    </section>
+
+    <!-- 3 · Cómo se usa -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">Cómo se usa · 1 de 2</p>
+        <h2>Un comando: <code class="inline">archetype:generate</code></h2>
+        <p>Tiene dos modos. <strong>Interactivo</strong> —escribís <code class="inline">mvn archetype:generate</code> a secas y te pregunta todo, empezando por cuál de los miles de arquetipos del catálogo querés—, y <strong>por lotes</strong>, que es el que sirve para documentar y automatizar porque no pregunta nada:</p>
+        <div class="term">
+<span class="p">$</span> mvn archetype:generate <span class="c">-B</span> \
+    -DarchetypeGroupId=org.apache.maven.archetypes \
+    -DarchetypeArtifactId=maven-archetype-quickstart \
+    -DarchetypeVersion=1.5 \
+    -DgroupId=com.olc1 \
+    -DartifactId=demo-arquetipo \
+    -Dversion=1.0.0 \
+    -Dpackage=com.olc1.demo
+<span class="ok">EXIT=0</span></div>
+        <p>Los parámetros se leen en dos bloques, y confundirlos es el error más común:</p>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>Prefijo</th><th>Se refiere a</th><th>En el ejemplo</th></tr></thead>
+            <tbody>
+              <tr><td><code>-Darchetype*</code></td><td>El <strong>molde</strong>: qué plantilla usar</td><td><code>maven-archetype-quickstart</code> versión <code>1.5</code></td></tr>
+              <tr><td><code>-DgroupId</code>, <code>-DartifactId</code>, <code>-Dversion</code>, <code>-Dpackage</code></td><td>La <strong>pieza</strong>: qué proyecto querés que salga</td><td><code>com.olc1:demo-arquetipo:1.0.0</code></td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="muted">El <code class="inline">-B</code> (batch) es lo que evita las preguntas. Sin él, y sin los <code class="inline">-D</code>, Maven abre el asistente.</p>
+      </div>
+    </section>
+
+    <!-- 4 · Qué generó -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">Cómo se usa · 2 de 2</p>
+        <h2>Qué apareció en el disco</h2>
+        <p>Esta es la estructura exacta que produjo el comando anterior:</p>
+        <pre class="code">demo-arquetipo/
+├── pom.xml
+└── src/
+    ├── main/java/com/olc1/demo/App.java
+    └── test/java/com/olc1/demo/AppTest.java</pre>
+        <p>Fijate en un detalle que revela cómo funciona el mecanismo: la carpeta <code class="inline">com/olc1/demo</code> <strong>no estaba</strong> en la plantilla. El arquetipo trae el archivo en una ruta con una variable, y Maven la expandió a partir del <code class="inline">-Dpackage</code> que le pasamos. Cambiar ese parámetro cambia el árbol de carpetas.</p>
+        <pre class="code"><span class="tk-res">package</span> com.olc1.demo;
+
+<span class="tk-sym">/**
+ * Hello world!
+ */</span>
+<span class="tk-res">public class</span> App {
+    <span class="tk-res">public static void</span> main(String[] args) {
+        System.out.println(<span class="tk-str">"Hello World!"</span>);
+    }
+}</pre>
+        <div class="callout"><p>El <code class="inline">package</code> de la primera línea también salió de la variable. Un arquetipo no copia archivos: los <strong>renderiza</strong>.</p></div>
+      </div>
+    </section>
+
+    <!-- 5 · El POM generado -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">Lo que trae de regalo</p>
+        <h2>El proyecto nace compilando y con pruebas que pasan</h2>
+        <p>El POM generado no es un esqueleto vacío: viene con decisiones ya tomadas que uno olvidaría.</p>
+        <pre class="code">&lt;properties&gt;
+    &lt;project.build.sourceEncoding&gt;UTF-8&lt;/project.build.sourceEncoding&gt;
+    &lt;maven.compiler.release&gt;17&lt;/maven.compiler.release&gt;
+&lt;/properties&gt;
+
+&lt;dependencyManagement&gt;
+    &lt;dependencies&gt;
+        &lt;dependency&gt;
+            &lt;groupId&gt;org.junit&lt;/groupId&gt;
+            &lt;artifactId&gt;junit-bom&lt;/artifactId&gt;
+            &lt;version&gt;5.11.0&lt;/version&gt;
+            &lt;type&gt;pom&lt;/type&gt;
+            &lt;scope&gt;import&lt;/scope&gt;
+        &lt;/dependency&gt;
+    &lt;/dependencies&gt;
+&lt;/dependencyManagement&gt;</pre>
+        <p>Ahí hay tres buenas prácticas de fábrica: <strong>codificación UTF-8 explícita</strong> (la que evita que las tildes se rompan), <strong><code class="inline">maven.compiler.release</code></strong> en vez de <code class="inline">source</code>/<code class="inline">target</code> —más correcto, porque también valida contra la API de esa versión—, y un <strong>BOM</strong> de JUnit que fija las versiones de todo el conjunto de una sola vez.</p>
+        <div class="term">
+<span class="p">$</span> mvn test   <span class="c"># en el proyecto recién generado</span>
+<span class="ok">exit=0</span>  <span class="out">— compila y las pruebas pasan sin tocar nada</span></div>
+      </div>
+    </section>
+
+    <!-- 6 · Aplicaciones -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">Para qué sirven de verdad</p>
+        <h2>Aplicaciones: dónde un arquetipo gana su lugar</h2>
+        <p>Para un proyecto suelto, escribir el POM a mano cuesta cinco minutos. El arquetipo se justifica cuando aparece <strong>la repetición o la necesidad de uniformidad</strong>:</p>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>Escenario</th><th>Qué resuelve</th></tr></thead>
+            <tbody>
+              <tr><td><strong>Estándar de un equipo o empresa</strong></td><td>Que los 40 microservicios nazcan con la misma estructura, el mismo logging, las mismas versiones y el mismo pipeline. Deja de depender de que alguien «copie el del vecino».</td></tr>
+              <tr><td><strong>Un curso o laboratorio</strong></td><td>Que los 120 estudiantes arranquen desde una base idéntica y verificada. El auxiliar no pierde la primera semana depurando entornos rotos.</td></tr>
+              <tr><td><strong>Un framework</strong></td><td>Es cómo se estrena casi cualquier tecnología Java: un comando y ya tenés el «hola mundo» funcionando con todo cableado.</td></tr>
+              <tr><td><strong>Onboarding</strong></td><td>El conocimiento sobre «cómo se arma un proyecto acá» queda escrito y ejecutable, en vez de vivir en la memoria del que lleva más tiempo.</td></tr>
+              <tr><td><strong>Prototipos</strong></td><td>Probar una idea sin pagar el peaje del andamiaje.</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="callout warn"><p><strong>Cuándo <em>no</em> conviene:</strong> si el arquetipo se usa una vez cada seis meses, mantenerlo cuesta más de lo que ahorra — se desactualiza y genera proyectos con versiones viejas, que es peor que no tenerlo. Un arquetipo es código: si nadie lo mantiene, se pudre.</p></div>
+      </div>
+    </section>
+
+    <!-- 7 · Crear el propio -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">Fabricar el molde · 1 de 3</p>
+        <h2>El atajo: convertir un proyecto que ya funciona</h2>
+        <p>Se puede escribir un arquetipo desde cero, pero casi nadie lo hace. El camino sensato es partir de un proyecto real y pedirle a Maven que lo convierta:</p>
+        <div class="term">
+<span class="p">$</span> <span class="c"># parado en la raíz del proyecto que querés convertir</span>
+<span class="p">$</span> mvn archetype:create-from-project</div>
+        <p>Lo probamos con <strong>DataForge</strong>, que es el candidato natural: un proyecto de compiladores ya cableado con JFlex, CUP y JavaFX. El plugin dejó el arquetipo en <code class="inline">target/generated-sources/archetype</code>, con esta forma:</p>
+        <pre class="code">target/generated-sources/archetype/
+├── pom.xml                                  <span class="tk-sym">← el POM DEL ARQUETIPO</span>
+└── src/main/resources/
+    ├── META-INF/maven/archetype-metadata.xml <span class="tk-sym">← el descriptor</span>
+    └── archetype-resources/                  <span class="tk-sym">← la plantilla</span>
+        ├── pom.xml                           <span class="tk-sym">← el POM del proyecto futuro</span>
+        ├── docs/gramatica.txt
+        └── src/main/java/__artifactId__/…</pre>
+        <div class="callout"><p><strong>Dos POM distintos, y conviene no mezclarlos:</strong> el de arriba describe <em>el arquetipo</em> como artefacto publicable; el de <code class="inline">archetype-resources/</code> es la plantilla del proyecto <em>que el arquetipo va a generar</em>.</p></div>
+      </div>
+    </section>
+
+    <!-- 8 · La plantilla -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">Fabricar el molde · 2 de 3</p>
+        <h2>Dónde quedaron los huecos</h2>
+        <p>El plugin recorrió el proyecto y reemplazó los valores concretos por variables. El POM de DataForge, que decía <code class="inline">com.olc1</code> / <code class="inline">dataforge</code> / <code class="inline">1.0.0</code>, quedó así en la plantilla:</p>
+        <pre class="code">&lt;groupId&gt;<span class="tk-num">${groupId}</span>&lt;/groupId&gt;
+&lt;artifactId&gt;<span class="tk-num">${artifactId}</span>&lt;/artifactId&gt;
+&lt;version&gt;<span class="tk-num">${version}</span>&lt;/version&gt;
+&lt;packaging&gt;jar&lt;/packaging&gt;</pre>
+        <p>Los huecos aparecen en <strong>dos lugares distintos</strong>, con sintaxis distinta:</p>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>Dónde</th><th>Sintaxis</th><th>Ejemplo real</th></tr></thead>
+            <tbody>
+              <tr><td>Dentro del <strong>contenido</strong> de un archivo</td><td><code>${variable}</code></td><td><code>&lt;groupId&gt;${groupId}&lt;/groupId&gt;</code></td></tr>
+              <tr><td>En el <strong>nombre</strong> de un archivo o carpeta</td><td><code>__variable__</code></td><td><code>src/main/java/__artifactId__/</code></td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="muted">La sintaxis con guiones bajos existe porque un nombre de archivo no puede llevar <code class="inline">$</code>, <code class="inline">{</code> ni <code class="inline">}</code> en todos los sistemas operativos. Es el mismo mecanismo que expandió <code class="inline">com/olc1/demo</code> en el ejemplo de <code class="inline">quickstart</code>.</p>
+      </div>
+    </section>
+
+    <!-- 9 · El descriptor y la trampa del filtrado -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">Fabricar el molde · 3 de 3 — <strong>la parte delicada</strong></p>
+        <h2>El descriptor decide qué archivo se toca y cuál no</h2>
+        <p>El <code class="inline">archetype-metadata.xml</code> lista los conjuntos de archivos de la plantilla. El atributo que importa es <code class="inline">filtered</code>:</p>
+        <div class="filtro">
+          <div class="si">
+            <h3 style="color:var(--jade)">filtered="true" → se renderiza</h3>
+            <p style="font-size:15px">El contenido pasa por el motor de plantillas: los <code>${…}</code> se sustituyen.</p>
+            <pre class="code" style="margin:12px 0 0;font-size:13px">&lt;fileSet <span class="tk-res">filtered="true"</span> encoding="UTF-8"&gt;
+  &lt;directory&gt;src/main/java&lt;/directory&gt;
+  &lt;includes&gt;&lt;include&gt;**/*.java&lt;/include&gt;&lt;/includes&gt;
+&lt;/fileSet&gt;</pre>
+          </div>
+          <div class="no">
+            <h3 style="color:var(--fuego)">sin filtered → se copia tal cual</h3>
+            <p style="font-size:15px">Byte por byte. Nada se sustituye.</p>
+            <pre class="code" style="margin:12px 0 0;font-size:13px">&lt;fileSet encoding="UTF-8"&gt;
+  &lt;directory&gt;src/main/cup&lt;/directory&gt;
+  &lt;includes&gt;&lt;include&gt;**/*.cup&lt;/include&gt;&lt;/includes&gt;
+&lt;/fileSet&gt;</pre>
+          </div>
+        </div>
+        <p>Los dos bloques son <strong>salida literal</strong> del descriptor que se generó a partir de DataForge. El plugin decidió por extensión: filtró los <code class="inline">.java</code> y los <code class="inline">.txt</code>, y dejó sin filtrar los <code class="inline">.flex</code> y los <code class="inline">.cup</code>, que no conoce.</p>
+        <div class="callout warn"><p><strong>Y acá está la trampa, que en un proyecto de compiladores es seria:</strong> una gramática está llena de símbolos que el motor de plantillas interpretaría como suyos. Si filtráramos un <code class="inline">.cup</code> o un <code class="inline">.flex</code>, la gramática podría salir <em>corrompida</em> del otro lado. Que hayan quedado sin filtrar es lo correcto — pero conviene <strong>verificarlo</strong>, no confiar. La lista de extensiones que se filtran se controla con la propiedad <code class="inline">archetype.filteredExtentions</code> (sí, con ese error de tipeo histórico en el nombre).</p></div>
+      </div>
+    </section>
+
+    <!-- 10 · Publicar y usar -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">El último paso</p>
+        <h2>Publicar el arquetipo y estrenarlo</h2>
+        <p>Un arquetipo es un artefacto: para poder usarlo hay que <strong>instalarlo en el repositorio local</strong> (o desplegarlo en uno remoto, si es para el equipo).</p>
+        <div class="term">
+<span class="p">$</span> <span class="c"># 1. entrar al arquetipo generado e instalarlo</span>
+<span class="p">$</span> cd target/generated-sources/archetype
+<span class="p">$</span> mvn install
+
+<span class="p">$</span> <span class="c"># 2. desde otra carpeta, crear un proyecto nuevo con él</span>
+<span class="p">$</span> mvn archetype:generate -B \
+    -DarchetypeCatalog=local \
+    -DarchetypeGroupId=com.olc1 \
+    -DarchetypeArtifactId=dataforge-archetype \
+    -DgroupId=com.olc1 -DartifactId=mi-compilador -Dversion=1.0.0</div>
+        <p>El <code class="inline">-DarchetypeCatalog=local</code> es lo que le dice a Maven que busque en tu repositorio local en vez de salir a internet.</p>
+        <div class="callout"><p><strong>El resultado, para este curso:</strong> un compañero que empieza ConjAnalyzer no arranca de un proyecto vacío — arranca de uno que ya trae JFlex y CUP enganchados a <code class="inline">generate-sources</code>, la estructura de carpetas correcta y las dependencias resueltas. Le queda el trabajo que importa: escribir la gramática.</p></div>
+      </div>
+    </section>
+
+    <!-- 11 · La trampa real -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">Honestidad sobre lo que pasó al probarlo</p>
+        <h2>El comando falló, y el motivo enseña algo</h2>
+        <p>Al correr <code class="inline">create-from-project</code> sobre DataForge, el arquetipo <strong>se generó bien</strong> pero el comando terminó con error:</p>
+        <div class="term">
+<span class="out">[ERROR] Error executing Maven.</span>
+<span class="out">[ERROR] The specified user settings file does not exist: C:\Users\…\.m2\settings.xml</span>
+<span class="out">[ERROR] Failed to execute goal …:create-from-project:</span>
+<span class="out">        Invoker process ended with result different than 0!</span></div>
+        <p>La pista es <strong><em>Invoker process</em></strong>. Este goal no hace todo en el mismo proceso: lanza un <strong>Maven anidado</strong> para construir el arquetipo recién armado. Ese segundo Maven no heredó la configuración del primero y fue a buscar un <code class="inline">settings.xml</code> que en esta máquina no existe.</p>
+        <div class="callout"><p><strong>Las dos lecciones:</strong> primero, que un error al final no significa que no se haya hecho nada — el descriptor y la plantilla estaban completos en <code class="inline">target/</code>, y se pueden instalar a mano. Segundo, que <em>«funciona en mi máquina»</em> también le pasa a las herramientas: este fallo no es del proyecto ni del plugin, es del entorno. Saber leer de quién es el problema ahorra horas.</p></div>
+      </div>
+    </section>
+
+    <!-- 12 · Quiz -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">Chequeo rápido</p>
+        <h2>¿Quedó claro? Probate</h2>
+        <div class="quiz">
+          <div class="q">
+            <p class="question">1 · ¿Cuál es la diferencia entre <code class="inline">-DarchetypeArtifactId</code> y <code class="inline">-DartifactId</code>?</p>
+            <button type="button" onclick="this.parentElement.classList.add('revealed')">Revelar respuesta</button>
+            <div class="answer"><p>El primero identifica <strong>el molde</strong> (qué plantilla usar); el segundo, <strong>la pieza</strong> (cómo se va a llamar el proyecto que sale). Confundirlos es el error más común: se termina pidiendo un arquetipo que no existe, o generando un proyecto llamado <code class="inline">maven-archetype-quickstart</code>.</p></div>
+          </div>
+          <div class="q">
+            <p class="question">2 · En la plantilla, ¿por qué el nombre de carpeta es <code class="inline">__artifactId__</code> y no <code class="inline">${artifactId}</code>?</p>
+            <button type="button" onclick="this.parentElement.classList.add('revealed')">Revelar respuesta</button>
+            <div class="answer"><p>Porque los caracteres <code class="inline">$</code>, <code class="inline">{</code> y <code class="inline">}</code> no son válidos —o no son portables— en nombres de archivo. Se necesitaba una sintaxis distinta para el <em>nombre</em>, aunque el mecanismo de sustitución sea el mismo que dentro del contenido.</p></div>
+          </div>
+          <div class="q">
+            <p class="question">3 · Estás armando un arquetipo de compiladores. ¿Marcarías el <code class="inline">.cup</code> como <code class="inline">filtered="true"</code>?</p>
+            <button type="button" onclick="this.parentElement.classList.add('revealed')">Revelar respuesta</button>
+            <div class="answer"><p><strong>No.</strong> Filtrar significa pasar el archivo por el motor de plantillas, y una gramática está llena de símbolos que ese motor podría interpretar como propios y alterar. Un <code class="inline">.cup</code> corrompido produce un parser que no compila, con un error que apunta a un lugar que no es la causa. Se copia tal cual — que es, de hecho, lo que hizo el plugin por su cuenta al no reconocer la extensión.</p></div>
+          </div>
+          <div class="q">
+            <p class="question">4 · Instalaste tu arquetipo con <code class="inline">mvn install</code> y al generar te dice que no lo encuentra. ¿Qué falta?</p>
+            <button type="button" onclick="this.parentElement.classList.add('revealed')">Revelar respuesta</button>
+            <div class="answer"><p>Casi siempre, <code class="inline">-DarchetypeCatalog=local</code>: sin eso Maven busca en el catálogo remoto, donde tu arquetipo no está publicado. El segundo sospechoso es un GAV mal escrito — recordá que el arquetipo tiene <em>sus propias</em> coordenadas, distintas de las del proyecto que genera.</p></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 13 · Cierre -->
+    <section class="slide">
+      <div class="inner titleslide">
+        <p class="eyebrow">Resumen en una pantalla</p>
+        <h1>Un molde para <em>proyectos</em></h1>
+        <p class="lead">Un arquetipo es una plantilla parametrizada distribuida como artefacto Maven. Se usa con <code class="inline">archetype:generate</code> separando el molde (<code class="inline">-Darchetype*</code>) de la pieza (<code class="inline">-DgroupId</code>, <code class="inline">-DartifactId</code>). Se fabrica con <code class="inline">create-from-project</code> a partir de algo que ya funciona, se parametriza con <code class="inline">${…}</code> en el contenido y <code class="inline">__…__</code> en los nombres, y se publica con <code class="inline">mvn install</code>. Su valor no está en la primera pieza: está en que la número cien salga igual que la primera.</p>
+        <p class="kicker"><a class="btn primary" href="maven.html">← Volver a la parte 1</a>&nbsp;&nbsp;<a class="btn" href="index.html">⌂ Índice</a></p>
+      </div>
+    </section>
+
+  </div>
+
+  <div class="navbar">
+    <button id="prev" type="button">← Anterior</button>
+    <button id="next" type="button">Siguiente →</button>
+    <span class="hint">también se pueden usar las flechas del teclado</span>
+  </div>
+</div>
+
+<script src="assets/deck.js"></script>
+</body>
+</html>

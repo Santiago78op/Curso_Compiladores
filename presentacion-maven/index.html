@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Maven y los arquetipos — curso guiado</title>
+<link rel="stylesheet" href="assets/estilo.css">
+</head>
+<body>
+
+<div class="hub">
+  <div class="topbar">
+    <a class="brand" href="index.html">Maven · <em>y los arquetipos</em></a>
+    <span class="chip">Índice</span>
+    <span class="counter">OLC1 · USAC</span>
+    <button id="theme" type="button" title="Cambiar tema claro/oscuro" aria-label="Cambiar tema claro/oscuro">◐</button>
+  </div>
+
+  <main class="hub-main">
+    <p class="eyebrow">Herramienta transversal · la usan DataForge, ConjAnalyzer y CompScript</p>
+    <h1>La herramienta que construye los proyectos, contada por dentro</h1>
+    <p class="lead">Maven no es «el botón que compila»: es un modelo de proyecto. Esta presentación explica <strong>cómo funciona</strong> —coordenadas, POM, ciclo de vida, plugins— y después entra a fondo en los <strong>arquetipos</strong>: qué son, cómo se usan, para qué sirven y cómo se fabrica uno propio. Todos los ejemplos salen del <code class="inline">pom.xml</code> real de los proyectos del curso o de comandos ejecutados de verdad.</p>
+
+    <ol class="roadmap">
+      <li class="linked"><a href="maven.html"><span class="num">1</span> Cómo funciona Maven — coordenadas, POM, convención sobre configuración, ciclo de vida y el trío fase/plugin/goal <span class="state">✓ lista</span></a></li>
+      <li class="linked"><a href="arquetipos.html"><span class="num">2</span> El arquetipo — plantillas de proyecto: usarlas, para qué sirven y cómo fabricar la propia <span class="state">✓ lista</span></a></li>
+    </ol>
+
+    <div class="callout"><p><strong>Por qué importa en este curso:</strong> los tres proyectos Java dependen de que <code class="inline">jflex-maven-plugin</code> y <code class="inline">cup-maven-plugin</code> corran <em>antes</em> de compilar, en la fase <code class="inline">generate-sources</code>. Entender el ciclo de vida es lo que convierte «me da error de que no encuentra la clase <code class="inline">Parser</code>» en un problema con diagnóstico.</p></div>
+
+    <p class="eyebrow" style="margin-top:36px">El resto del material</p>
+    <ol class="roadmap">
+      <li class="linked"><a href="../presentacion-libro-dragon/index.html"><span class="num">★</span> El Libro del Dragón — la teoría, capítulo a capítulo</a></li>
+      <li class="linked"><a href="../presentacion-dataforge/index.html"><span class="num">↔</span> DataForge — el curso guiado que usa este <code class="inline">pom.xml</code></a></li>
+    </ol>
+  </main>
+</div>
+
+<script src="assets/deck.js"></script>
+</body>
+</html>

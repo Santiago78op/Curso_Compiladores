@@ -1,0 +1,325 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cómo funciona Maven — curso guiado</title>
+<link rel="stylesheet" href="assets/estilo.css">
+<style>
+  /* pipeline de fases del ciclo de vida */
+  .fases { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 22px 0; }
+  .fase {
+    font-family: var(--f-mono); font-size: 14px;
+    padding: 9px 15px; border-radius: 10px;
+    border: 1.5px solid var(--line); background: var(--surface); color: var(--muted);
+    white-space: nowrap;
+  }
+  .fase.clave { border-color: var(--accent); color: var(--accent); font-weight: 700; }
+  .fase.destino { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-weight: 700; }
+  .fases .sep { color: var(--dim); font-family: var(--f-mono); }
+  .nota-fase { font-size: 14.5px; color: var(--muted); margin: 0; }
+
+  /* coordenadas GAV */
+  .gav { display: flex; flex-wrap: wrap; gap: 12px; margin: 22px 0; }
+  .gav div {
+    flex: 1 1 190px; min-width: 0; padding: 16px 18px; border-radius: 14px;
+    border: 1px solid var(--line); background: var(--surface);
+  }
+  .gav b { display: block; font-family: var(--f-mono); font-size: 13px; color: var(--accent); margin-bottom: 6px; }
+  .gav code { font-family: var(--f-mono); font-size: 15px; color: var(--ink); }
+  .gav span { display: block; font-size: 14px; color: var(--muted); margin-top: 6px; }
+</style>
+</head>
+<body>
+
+<div class="deck">
+  <div class="topbar">
+    <a class="brand" href="index.html" title="Volver al índice">Maven · <em>y los arquetipos</em></a>
+    <span class="chip">1 · Cómo funciona</span>
+    <span class="counter"><span id="cur">1</span> / <span id="tot">?</span></span>
+    <button id="theme" type="button" title="Cambiar tema claro/oscuro" aria-label="Cambiar tema claro/oscuro">◐</button>
+  </div>
+  <div class="progress"><div id="bar"></div></div>
+
+  <div class="stage">
+
+    <!-- 1 · Portada -->
+    <section class="slide">
+      <div class="inner titleslide">
+        <p class="eyebrow">Parte 1 de 2</p>
+        <h1>Cómo funciona <em>Maven</em></h1>
+        <p class="lead">No es «el botón que compila». Es un <strong>modelo de proyecto</strong>: una forma estándar de decir qué es tu software, de qué depende y cómo se construye — de modo que cualquier máquina llegue al mismo resultado.</p>
+        <p class="kicker">Todos los ejemplos salen del <code class="inline">pom.xml</code> real de DataForge.<br>Se navega con ← → o con los botones.</p>
+      </div>
+    </section>
+
+    <!-- 2 · El problema -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">Antes de la herramienta, el problema</p>
+        <h2>«En mi máquina sí funciona»</h2>
+        <p>Un proyecto Java sin gestor de build se construye a mano, y eso trae cuatro problemas que se agravan con el tiempo:</p>
+        <div class="cards three">
+          <div class="card"><h3>Las librerías</h3><p>Los <code class="inline">.jar</code> se bajan a ojo y se guardan en una carpeta <code class="inline">lib/</code>. Nadie sabe qué versión es cada uno ni de dónde salió.</p></div>
+          <div class="card"><h3>El classpath</h3><p>Cada comando de compilación arrastra una lista de rutas cada vez más larga, distinta en cada computadora.</p></div>
+          <div class="card"><h3>El orden</h3><p>Si hay que <em>generar</em> código antes de compilar (nuestro caso: JFlex y CUP), el orden vive en la cabeza de quien lo escribió.</p></div>
+          <div class="card"><h3>Lo transitivo</h3><p>Una librería necesita otra, que necesita otra. Resolverlo a mano es un trabajo sin fin.</p></div>
+        </div>
+        <div class="callout"><p>Maven ataca las cuatro con una idea sola: <strong>describir el proyecto en un archivo declarativo</strong> y dejar que la herramienta deduzca los pasos. Vos decís <em>qué</em> es el proyecto; Maven decide <em>cómo</em> construirlo.</p></div>
+      </div>
+    </section>
+
+    <!-- 3 · Coordenadas GAV -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">La pieza fundacional</p>
+        <h2>Coordenadas: la dirección universal de un artefacto</h2>
+        <p>Todo en Maven —tu proyecto, cada dependencia, cada plugin— se identifica con la misma terna, que se abrevia <strong>GAV</strong>:</p>
+        <div class="gav">
+          <div><b>groupId</b><code>com.olc1</code><span>Quién lo publica. Por convención, un dominio al revés — evita choques de nombres entre organizaciones.</span></div>
+          <div><b>artifactId</b><code>dataforge</code><span>Cómo se llama el artefacto dentro de ese grupo.</span></div>
+          <div><b>version</b><code>1.0.0</code><span>Qué versión. Un <code class="inline">-SNAPSHOT</code> al final marca «en desarrollo, puede cambiar».</span></div>
+        </div>
+        <p>Con esa terna, cualquier máquina del mundo puede localizar exactamente el mismo binario. Es lo que hace posible escribir una dependencia en tres líneas y olvidarse:</p>
+        <pre class="code">&lt;dependency&gt;
+    &lt;groupId&gt;com.github.vbmacher&lt;/groupId&gt;
+    &lt;artifactId&gt;java-cup-runtime&lt;/artifactId&gt;
+    &lt;version&gt;11b-20160615&lt;/version&gt;
+&lt;/dependency&gt;</pre>
+        <p class="muted">Fuente: <code class="inline">DataForge/pom.xml</code>. Ese runtime es el que aporta la clase <code class="inline">Symbol</code> que devuelve el lexer.</p>
+      </div>
+    </section>
+
+    <!-- 4 · El POM -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">El corazón: <code class="inline">pom.xml</code></p>
+        <h2>Project Object Model</h2>
+        <p>El POM describe el proyecto. Tiene cuatro zonas, y conviene leerlas como respuestas a cuatro preguntas distintas:</p>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>Zona</th><th>Responde</th><th>En DataForge</th></tr></thead>
+            <tbody>
+              <tr><td><code>groupId</code> · <code>artifactId</code> · <code>version</code> · <code>packaging</code></td><td>¿Qué <strong>es</strong> este proyecto?</td><td><code>com.olc1:dataforge:1.0.0</code>, empaquetado como <code>jar</code></td></tr>
+              <tr><td><code>&lt;properties&gt;</code></td><td>¿Bajo qué <strong>parámetros</strong> se construye?</td><td>Java 17 y codificación UTF-8 — clave para que las tildes de los mensajes no se rompan</td></tr>
+              <tr><td><code>&lt;dependencies&gt;</code></td><td>¿De qué <strong>depende</strong>?</td><td>El runtime de CUP y JavaFX</td></tr>
+              <tr><td><code>&lt;build&gt;&lt;plugins&gt;</code></td><td>¿Qué <strong>pasos extra</strong> hay que dar?</td><td>Generar el lexer y el parser, correr la GUI, correr por consola</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="callout"><p><strong>Es declarativo, no imperativo:</strong> en ningún lado dice «primero corré JFlex, después compilá». Dice «este plugin participa del build» y Maven deduce cuándo, a partir de la fase a la que el plugin se engancha. Eso es lo que veremos en la diapositiva del ciclo de vida.</p></div>
+      </div>
+    </section>
+
+    <!-- 5 · Convención sobre configuración -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">La decisión de diseño que ahorra más trabajo</p>
+        <h2>Convención sobre configuración</h2>
+        <p>Maven no pregunta dónde están tus fuentes: <strong>asume</strong> una estructura estándar. Si la respetás, no configurás nada.</p>
+        <pre class="code">DataForge/
+├── pom.xml                     <span class="tk-sym">← la descripción del proyecto</span>
+├── src/
+│   ├── main/
+│   │   ├── java/               <span class="tk-sym">← código fuente (se compila)</span>
+│   │   ├── resources/          <span class="tk-sym">← recursos (se copian al JAR)</span>
+│   │   ├── jflex/              <span class="tk-sym">← convención del jflex-maven-plugin</span>
+│   │   └── cup/                <span class="tk-sym">← convención del cup-maven-plugin</span>
+│   └── test/
+│       └── java/               <span class="tk-sym">← pruebas (se compilan y corren aparte)</span>
+└── target/                     <span class="tk-sym">← TODO lo generado. Desechable.</span>
+    ├── generated-sources/      <span class="tk-sym">← Lexer.java, Parser.java, sym.java</span>
+    └── classes/                <span class="tk-sym">← los .class</span></pre>
+        <div class="callout warn"><p><strong>La regla de oro de <code class="inline">target/</code>:</strong> todo lo que hay ahí es <em>derivado</em> y se puede borrar sin perder nada — por eso no se versiona. Si alguna vez editás un archivo dentro de <code class="inline">target/generated-sources/</code>, tu cambio desaparece en el siguiente <code class="inline">mvn compile</code>. Las fuentes de verdad son el <code class="inline">.flex</code> y el <code class="inline">.cup</code>.</p></div>
+      </div>
+    </section>
+
+    <!-- 6 · El ciclo de vida -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">El concepto que más se malentiende</p>
+        <h2>El ciclo de vida es una secuencia de fases</h2>
+        <p>Maven define tres ciclos de vida independientes: <strong>default</strong> (construir), <strong>clean</strong> (borrar lo generado) y <strong>site</strong> (documentación). El importante es <em>default</em>, una lista ordenada de fases:</p>
+        <div class="fases">
+          <span class="fase">validate</span><span class="sep">→</span>
+          <span class="fase clave">generate-sources</span><span class="sep">→</span>
+          <span class="fase">process-sources</span><span class="sep">→</span>
+          <span class="fase destino">compile</span><span class="sep">→</span>
+          <span class="fase">test-compile</span><span class="sep">→</span>
+          <span class="fase">test</span><span class="sep">→</span>
+          <span class="fase">package</span><span class="sep">→</span>
+          <span class="fase">verify</span><span class="sep">→</span>
+          <span class="fase">install</span><span class="sep">→</span>
+          <span class="fase">deploy</span>
+        </div>
+        <p class="nota-fase">(La lista completa tiene más fases intermedias; estas son las que se usan a diario.)</p>
+        <div class="callout"><p><strong>La regla que lo explica todo:</strong> pedir una fase ejecuta <em>esa fase y todas las anteriores</em>. Por eso <code class="inline">mvn compile</code> no solo compila: antes pasa por <code class="inline">generate-sources</code>, y ahí es donde corren JFlex y CUP. Y por eso <code class="inline">mvn package</code> compila y prueba antes de armar el JAR.</p></div>
+        <p><code class="inline">clean</code> es de otro ciclo, y por eso se escribe junto: <code class="inline">mvn clean compile</code> significa «corré el ciclo clean, después el default hasta compile».</p>
+      </div>
+    </section>
+
+    <!-- 7 · Fase vs plugin vs goal -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">Tres palabras que se confunden</p>
+        <h2>Fase, plugin y <em>goal</em></h2>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>Concepto</th><th>Qué es</th><th>Ejemplo</th></tr></thead>
+            <tbody>
+              <tr><td><strong>Fase</strong></td><td>Un <em>momento</em> del build. Por sí sola no hace nada: es una etiqueta en la línea de tiempo.</td><td><code>generate-sources</code></td></tr>
+              <tr><td><strong>Plugin</strong></td><td>Un artefacto que aporta capacidades. Se identifica con coordenadas, como cualquier dependencia.</td><td><code>de.jflex:jflex-maven-plugin:1.9.1</code></td></tr>
+              <tr><td><strong>Goal</strong></td><td>Una <em>acción</em> concreta que ofrece un plugin. Es lo que realmente se ejecuta.</td><td><code>jflex:generate</code></td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p>El build ocurre cuando un <strong>goal se engancha a una fase</strong>. Eso es exactamente lo que declara este bloque del POM de DataForge:</p>
+        <pre class="code">&lt;plugin&gt;
+    &lt;groupId&gt;de.jflex&lt;/groupId&gt;
+    &lt;artifactId&gt;jflex-maven-plugin&lt;/artifactId&gt;
+    &lt;version&gt;1.9.1&lt;/version&gt;
+    &lt;executions&gt;
+        &lt;execution&gt;
+            &lt;goals&gt;<span class="tk-res">&lt;goal&gt;generate&lt;/goal&gt;</span>&lt;/goals&gt;
+        &lt;/execution&gt;
+    &lt;/executions&gt;
+&lt;/plugin&gt;</pre>
+        <div class="callout"><p>No dice a qué fase engancharse. No hace falta: <strong>cada goal declara su fase por defecto</strong>, y la de <code class="inline">jflex:generate</code> es <code class="inline">generate-sources</code>. Por eso «solo funciona». Si hiciera falta cambiarla, se agrega <code class="inline">&lt;phase&gt;</code> dentro del <code class="inline">&lt;execution&gt;</code>.</p></div>
+      </div>
+    </section>
+
+    <!-- 8 · El caso del curso -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">Por qué esto importa en OLC1</p>
+        <h2>El build de un compilador es el caso difícil</h2>
+        <p>Un proyecto Java normal no genera código: compila lo que el programador escribió. Los nuestros <strong>fabrican dos clases antes de compilar</strong>, y si el orden falla, nada funciona.</p>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>Fase</th><th>Qué pasa</th><th>Resultado</th></tr></thead>
+            <tbody>
+              <tr><td><code>generate-sources</code></td><td><code>cup:generate</code> lee <code>src/main/cup/parser.cup</code></td><td><code>Parser.java</code> y <code>sym.java</code></td></tr>
+              <tr><td><code>generate-sources</code></td><td><code>jflex:generate</code> lee <code>src/main/jflex/Lexer.flex</code></td><td><code>Lexer.java</code></td></tr>
+              <tr><td><code>compile</code></td><td>El compilador de Java toma <strong>tu código + lo generado</strong></td><td>Los <code>.class</code> en <code>target/classes</code></td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="callout warn"><p><strong>El error clásico y su diagnóstico:</strong> «no encuentra la clase <code class="inline">Parser</code>» casi nunca es un problema de import. Significa que <code class="inline">generate-sources</code> no produjo nada — normalmente porque el <code class="inline">.cup</code> tiene un error de sintaxis, o porque el archivo no está en la carpeta que el plugin espera. La pista está más arriba en la salida de Maven, no en la línea del import.</p></div>
+        <p class="muted">Los tres proyectos Java del curso comparten este esquema; el <code class="inline">pom.xml</code> de DataForge es la referencia que funciona.</p>
+      </div>
+    </section>
+
+    <!-- 9 · Dependencias y scopes -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">Dependencias</p>
+        <h2>Transitividad y <em>scope</em></h2>
+        <p>Maven resuelve las dependencias <strong>en cadena</strong>: si pedís A y A necesita B, B llega solo. Lo que hay que decidir es <em>hasta dónde</em> alcanza cada dependencia, y eso lo dice el <code class="inline">&lt;scope&gt;</code>:</p>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>Scope</th><th>Disponible en</th><th>¿Va en el paquete?</th><th>Caso típico</th></tr></thead>
+            <tbody>
+              <tr><td><code>compile</code> <span class="muted">(por defecto)</span></td><td>Todo</td><td>Sí</td><td>El runtime de CUP: se usa al compilar y al ejecutar</td></tr>
+              <tr><td><code>provided</code></td><td>Compilar y probar</td><td>No</td><td>Algo que el entorno ya aporta (un servidor de aplicaciones)</td></tr>
+              <tr><td><code>runtime</code></td><td>Ejecutar y probar</td><td>Sí</td><td>Un driver JDBC: no se programa contra él, pero hace falta al correr</td></tr>
+              <tr><td><code>test</code></td><td>Solo pruebas</td><td>No</td><td>JUnit</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="callout"><p>Cuando dos caminos traen versiones distintas de la misma librería, Maven aplica <strong>«el más cercano gana»</strong>: la declaración a menor profundidad en el árbol de dependencias. Si eso no alcanza, se fija la versión a mano con <code class="inline">&lt;dependencyManagement&gt;</code> — que es justamente lo que hace el POM que genera el arquetipo <code class="inline">quickstart</code> con el BOM de JUnit, como veremos en la parte 2.</p></div>
+      </div>
+    </section>
+
+    <!-- 10 · Repositorios -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">De dónde salen los <code class="inline">.jar</code></p>
+        <h2>Tres repositorios, en este orden</h2>
+        <div class="cards three">
+          <div class="card"><div class="step">1</div><h3>Local</h3><p><code class="inline">~/.m2/repository</code>. La caché de tu máquina. Maven mira acá primero, y si está, no toca la red.</p></div>
+          <div class="card"><div class="step">2</div><h3>Central</h3><p>El repositorio público de Maven. Es de donde bajó, en este mismo curso, el <code class="inline">cup-maven-plugin</code> y todo lo demás.</p></div>
+          <div class="card"><div class="step">3</div><h3>Remotos propios</h3><p>Los que declare el POM o el <code class="inline">settings.xml</code>: el repositorio interno de una empresa, por ejemplo.</p></div>
+        </div>
+        <p>Eso explica dos comportamientos que suelen desconcertar:</p>
+        <ul>
+          <li>La <strong>primera</strong> compilación de un proyecto tarda muchísimo y las siguientes son rápidas: la primera llenó la caché local.</li>
+          <li><code class="inline">mvn install</code> no «instala el programa» en ningún lado: <strong>copia tu artefacto al repositorio local</strong> para que otros proyectos <em>de tu misma máquina</em> puedan declararlo como dependencia. Publicar de verdad es <code class="inline">deploy</code>.</li>
+        </ul>
+        <div class="callout"><p>Ese detalle es la clave de la parte 2: un arquetipo se usa desde el repositorio local, así que el paso previo a estrenar el tuyo siempre es <code class="inline">mvn install</code>.</p></div>
+      </div>
+    </section>
+
+    <!-- 11 · Los comandos del curso -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">La chuleta</p>
+        <h2>Los comandos que se usan de verdad</h2>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>Comando</th><th>Qué hace</th><th>Cuándo</th></tr></thead>
+            <tbody>
+              <tr><td><code>mvn compile</code></td><td>Regenera lexer y parser, y compila</td><td>Después de tocar el <code>.flex</code> o el <code>.cup</code></td></tr>
+              <tr><td><code>mvn clean compile</code></td><td>Lo mismo, borrando <code>target/</code> antes</td><td>Cuando algo «no toma» el cambio y sospechás de un residuo</td></tr>
+              <tr><td><code>mvn package</code></td><td>Compila, prueba y arma el JAR</td><td>Para entregar (ConjAnalyzer se califica sobre el JAR)</td></tr>
+              <tr><td><code>mvn javafx:run</code></td><td>Levanta la GUI</td><td>Correr la aplicación</td></tr>
+              <tr><td><code>mvn exec:java</code></td><td>Corre una clase con <code>main</code></td><td>Probar el intérprete por consola</td></tr>
+              <tr><td><code>mvn install</code></td><td>Copia el artefacto al repositorio local</td><td>Publicar un arquetipo propio (parte 2)</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="callout"><p><strong>Un matiz que vale para la defensa:</strong> <code class="inline">javafx:run</code> y <code class="inline">exec:java</code> no son fases, son <em>goals</em> invocados directamente con la sintaxis <code class="inline">prefijo:goal</code>. Por eso no arrastran las fases anteriores — y por eso a veces hay que escribir <code class="inline">mvn compile exec:java</code>: para asegurarse de que hay <code class="inline">.class</code> frescos que ejecutar.</p></div>
+      </div>
+    </section>
+
+    <!-- 12 · Quiz -->
+    <section class="slide">
+      <div class="inner">
+        <p class="eyebrow">Chequeo rápido</p>
+        <h2>¿Quedó claro? Probate</h2>
+        <div class="quiz">
+          <div class="q">
+            <p class="question">1 · Corrés <code class="inline">mvn package</code>. ¿Se ejecuta JFlex?</p>
+            <button type="button" onclick="this.parentElement.classList.add('revealed')">Revelar respuesta</button>
+            <div class="answer"><p><strong>Sí.</strong> Pedir una fase ejecuta esa y todas las anteriores. <code class="inline">package</code> viene después de <code class="inline">generate-sources</code>, así que JFlex y CUP corren, después compila, después prueba, y recién ahí arma el JAR.</p></div>
+          </div>
+          <div class="q">
+            <p class="question">2 · ¿Por qué <code class="inline">target/</code> no se versiona, si contiene <code class="inline">Parser.java</code>, que es código fuente Java?</p>
+            <button type="button" onclick="this.parentElement.classList.add('revealed')">Revelar respuesta</button>
+            <div class="answer"><p>Porque es código <strong>derivado</strong>: sale de <code class="inline">parser.cup</code> en cada build. Versionarlo crearía dos verdades que pueden discrepar, y la única real es el <code class="inline">.cup</code>. La prueba: si clonás el repo sin <code class="inline">target/</code> y corrés <code class="inline">mvn compile</code>, reaparece idéntico.</p></div>
+          </div>
+          <div class="q">
+            <p class="question">3 · Tu compañero agrega una dependencia al POM y a vos te falla la compilación diciendo que no encuentra la clase. Tenés internet. ¿Qué pasó?</p>
+            <button type="button" onclick="this.parentElement.classList.add('revealed')">Revelar respuesta</button>
+            <div class="answer"><p>Lo más probable es que hayas <strong>actualizado el código pero no recargado el POM</strong>: el IDE mantiene su propio modelo del proyecto. En IntelliJ es <em>Reload All Maven Projects</em>. Desde terminal no pasa, porque Maven lee el POM en cada corrida. El segundo sospechoso es un <code class="inline">scope</code> equivocado — por ejemplo <code class="inline">test</code> en algo que se usa en <code class="inline">src/main</code>.</p></div>
+          </div>
+          <div class="q">
+            <p class="question">4 · ¿Qué diferencia hay entre <code class="inline">mvn compile</code> y <code class="inline">mvn compiler:compile</code>?</p>
+            <button type="button" onclick="this.parentElement.classList.add('revealed')">Revelar respuesta</button>
+            <div class="answer"><p>El primero corre la <strong>fase</strong> <code class="inline">compile</code>, o sea todo el ciclo default hasta ahí — incluida la generación de código. El segundo invoca un <strong>goal</strong> suelto del <code class="inline">maven-compiler-plugin</code>, sin fases previas: intentaría compilar sin que existan <code class="inline">Lexer.java</code> ni <code class="inline">Parser.java</code>, y fallaría.</p></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 13 · Cierre -->
+    <section class="slide">
+      <div class="inner titleslide">
+        <p class="eyebrow">Resumen en una pantalla</p>
+        <h1>Declarás <em>qué</em>, Maven deduce <em>cuándo</em></h1>
+        <p class="lead">Coordenadas GAV para nombrar todo · el POM para describir el proyecto · una estructura de carpetas que evita configurar · un ciclo de vida de fases donde pedir una corre todas las anteriores · plugins cuyos goals se enganchan a esas fases. Con eso, generar un lexer antes de compilar deja de ser un ritual y pasa a ser una línea de XML.</p>
+        <p class="kicker"><a class="btn primary" href="arquetipos.html">Seguir con los arquetipos →</a>&nbsp;&nbsp;<a class="btn" href="index.html">⌂ Volver al índice</a></p>
+      </div>
+    </section>
+
+  </div>
+
+  <div class="navbar">
+    <button id="prev" type="button">← Anterior</button>
+    <button id="next" type="button">Siguiente →</button>
+    <span class="hint">también se pueden usar las flechas del teclado</span>
+  </div>
+</div>
+
+<script src="assets/deck.js"></script>
+</body>
+</html>
